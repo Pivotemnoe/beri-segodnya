@@ -1,0 +1,18 @@
+import { createBookingAtomic } from "../repositories/databaseRepository.mjs";
+import { generateCode } from "../utils/id.mjs";
+import { cleanString, validatePhone } from "../utils/validation.mjs";
+
+export function createBooking(input) {
+  const offerId = cleanString(input.offerId, 120, true, "Предложение");
+  const customerName = cleanString(input.customerName, 80, true, "Имя");
+  const customerPhone = validatePhone(input.customerPhone);
+  const { booking, offer } = createBookingAtomic(offerId, customerName, customerPhone, generateCode());
+  return {
+    bookingId: booking.id,
+    code: booking.code,
+    offerId: booking.offer_id,
+    partnerId: booking.partner_id,
+    pickupWindow: offer.pickup_window,
+    message: "Покажите код в заведении и оплатите заказ на кассе."
+  };
+}

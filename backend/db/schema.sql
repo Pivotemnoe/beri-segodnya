@@ -1,0 +1,3 @@
+-- Future SQLite schema placeholder.
+-- Current MVP uses server-side JSON storage in data/db.json because npm dependencies are unavailable in this environment.
+-- Keep this file as the migration target when replacing JSON storage with SQLite/PostgreSQL.

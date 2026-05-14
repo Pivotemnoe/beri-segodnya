@@ -1,0 +1,25 @@
+{
+  "name": "beri-segodnya",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node server.mjs",
+    "dev:beri": "node server.mjs",
+    "start": "node server.mjs",
+    "build": "node --check server.mjs",
+    "lint": "node --check server.mjs",
+    "typecheck": "node --check server.mjs",
+    "check:server": "node --check server.mjs",
+    "db:migrate": "node backend/db/migrate.mjs",
+    "db:seed": "node backend/db/seed.mjs",
+    "db:reset": "node backend/db/reset.mjs",
+    "test:api": "node scripts/test-api.mjs",
+    "test:smoke": "node scripts/smoke-test.mjs",
+    "backup:data": "node scripts/backup-data.mjs",
+    "backup:prune": "node scripts/prune-backups.mjs",
+    "restore:data": "node scripts/restore-data.mjs",
+    "dev:next": "next dev -p 3010"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
