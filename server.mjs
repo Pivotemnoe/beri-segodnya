@@ -532,7 +532,8 @@ function partnersPage() {
       <p>Помогаем кафе, пекарням, буфетам и кулинариям продавать ограниченные предложения на сегодня. Клиенты бронируют по коду, оплачивают на месте, а вы получаете дополнительную выручку без лишних затрат.</p>
       <div class="actions">
         <a class="button button-primary" href="#partner-application">Оставить заявку</a>
-        <a class="button button-outline" href="/how-it-works">Как это работает</a>
+        <a class="button button-outline" href="/partner/login">Войти в кабинет</a>
+        <a class="text-link" href="/how-it-works">Как это работает</a>
       </div>
     </div>
     ${partnerDashboardCard()}
@@ -916,14 +917,23 @@ function hiddenPage(title, text) {
 function adminPage() {
   return `<section class="section app-panel" data-admin-app>
     ${sectionTitle("Админка", "Панель администратора", "Данные хранятся на сервере. MVP-хранилище: server-side JSON. Для продакшена рекомендуется SQLite/PostgreSQL.")}
-    <div class="auth-box" data-admin-login>
-      <h3>Вход администратора</h3>
-      <form class="smart-form auth-form" data-admin-login-form>
-        <label>Логин<input name="login" required maxlength="80" autocomplete="username" /></label>
-        <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" /></label>
-        <p class="form-error" hidden></p>
-        <button class="button button-primary" type="submit">Войти</button>
-      </form>
+    <div class="access-layout" data-admin-login>
+      <div class="access-intro">
+        <p class="kicker">Закрытый раздел</p>
+        <h3>Управление сервисом</h3>
+        <p>Партнёры, предложения, брони и обращения собраны в одной рабочей панели.</p>
+        <ul class="access-points"><li>Данные всех партнёров</li><li>Контроль кодов и остатков</li><li>Заявки и обращения</li></ul>
+      </div>
+      <div class="auth-box">
+        <h3>Вход администратора</h3>
+        <p>Используйте персональный логин администратора.</p>
+        <form class="smart-form auth-form" data-admin-login-form>
+          <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
+          <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
+          <p class="form-error" hidden></p>
+          <button class="button button-primary" type="submit">Войти в панель</button>
+        </form>
+      </div>
     </div>
     <div data-admin-dashboard hidden>
       <div class="admin-actions"><button class="button button-outline" data-admin-refresh>Обновить</button><button class="button button-outline" data-admin-logout>Выйти</button></div>
@@ -955,12 +965,24 @@ function adminPage() {
 function partnerLoginPage() {
   return `<section class="section app-panel" data-partner-login-app>
     ${sectionTitle("Кабинет партнёра", "Вход партнёра", "Введите логин и пароль пользователя партнёра. Данные кабинета синхронизируются с сервером.")}
-    <form class="smart-form auth-form" data-partner-login-form>
-      <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
-      <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
-      <p class="form-error" hidden></p>
-      <button class="button button-primary" type="submit">Войти</button>
-    </form>
+    <div class="access-layout">
+      <div class="access-intro">
+        <p class="kicker">Для магазина</p>
+        <h3>Предложение за несколько минут</h3>
+        <p>Сфотографируйте сегодняшнюю партию, укажите цену и количество, затем опубликуйте её для покупателей.</p>
+        <ul class="access-points"><li>Фото текущей партии</li><li>Предложения и остатки</li><li>Коды для выдачи</li></ul>
+      </div>
+      <div class="auth-box">
+        <h3>Войти в кабинет</h3>
+        <p>Доступ выдаёт администратор сервиса.</p>
+        <form class="smart-form auth-form" data-partner-login-form>
+          <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
+          <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
+          <p class="form-error" hidden></p>
+          <button class="button button-primary" type="submit">Войти в кабинет</button>
+        </form>
+      </div>
+    </div>
   </section>`;
 }
 
@@ -1110,12 +1132,12 @@ function renderPage(pathname) {
       <meta name="robots" content="noindex,nofollow" />
       <title>${pathname.startsWith("/booking/") ? "Моя бронь" : (titles[pathname] || "Бери сегодня")} · Бери сегодня</title>
       <meta name="description" content="Выгодные наборы еды из заведений Армавира на сегодня. Бронь по коду, самовывоз и оплата при получении." />
-      <meta name="theme-color" content="#17372d" />
+      <meta name="theme-color" content="#073b4c" />
       <link rel="stylesheet" href="/styles.css" />
       <script>window.DEFAULT_OFFERS=${json(pageOffers)};</script>
       <script>window.PUBLIC_CONFIG=${json({ demoMode: config.demoMode, appName: config.appName, appCity: config.appCity })};</script>
     </head>
-    <body>
+    <body class="${pathname === "/" ? "page-home" : "page-inner"}${isAppPage ? " page-app" : ""}">
       ${header(pathname)}
       <main>${renderBody(pathname)}</main>
       ${footer()}
@@ -3713,6 +3735,189 @@ body { background: var(--color-bg); }
   .offer-wizard-footer > div { display: grid; grid-template-columns: auto 1fr; }
   .offer-wizard-footer .button { width: auto; }
   .offer-wizard-footer [data-wizard-publish] { grid-column: 1 / -1; }
+}
+
+/* Shared visual system for secondary pages and protected workspaces. */
+.page-inner {
+  color: #15211d;
+  background: #f4f6f2;
+}
+.page-inner main { min-height: 62vh; }
+.page-inner .hero,
+.page-inner .section,
+.page-inner .bottom-cta {
+  width: min(100% - 64px, 1240px);
+}
+.page-inner .split-hero {
+  width: 100%;
+  min-height: 470px;
+  margin: 0;
+  padding: 56px max(32px, calc((100vw - 1240px) / 2));
+  border-bottom: 1px solid #d8e2df;
+  background: #eaf1ef;
+}
+.page-inner .hero-copy h1,
+.page-inner .section-title h2,
+.page-inner .partner-dashboard h2,
+.page-inner .panel-card h2,
+.page-inner .accent-card h2,
+.page-inner .city-card h3 {
+  color: #062f3d;
+}
+.page-inner .hero-copy h1 { max-width: 680px; font-size: 60px; }
+.page-inner .hero-copy p { color: #49636d; }
+.page-inner .section { margin-bottom: 48px; }
+.page-inner .section:first-of-type:not(.split-hero):not(.app-panel) { margin-top: 42px; }
+.page-inner .section-title { margin-bottom: 22px; }
+.page-inner .section-title h2 { font-size: 36px; }
+.page-inner .section-title p { color: #60757b; }
+.page-inner .kicker { color: #0b646a; }
+.page-inner .button-primary {
+  border-color: #ef4d2d;
+  background: #ef4d2d;
+  color: white;
+  box-shadow: 0 9px 20px rgba(239, 77, 45, .16);
+}
+.page-inner .button-primary:hover { background: #d94326; }
+.page-inner .button-outline { border-color: #9eb2b5; background: white; color: #073b4c; }
+.page-inner .text-link { color: #0b646a; }
+.page-inner .step-card,
+.page-inner .info-card,
+.page-inner .panel-card,
+.page-inner .accent-card,
+.page-inner .contact-card,
+.page-inner .partner-dashboard,
+.page-inner .compact-section,
+.page-inner .form-section,
+.page-inner .legal-block,
+.page-inner .faq-item,
+.page-inner .booking-preview,
+.page-inner .code-card,
+.page-inner .auth-box {
+  border-color: #d8e2df;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+.page-inner .step-card,
+.page-inner .info-card,
+.page-inner .panel-card { border-top: 3px solid #0b646a; }
+.page-inner .line-icon { border-radius: 8px; color: #0b646a; }
+.page-inner .step-number { background: #f4ce67; color: #173136; }
+.page-inner .check-list li::before { color: #0b646a; }
+.page-inner .featured-photo,
+.page-inner .offer-image,
+.page-inner .large-photo,
+.page-inner .strip-photo,
+.page-inner .cta-photo,
+.page-inner .dash-photo,
+.page-inner .contact-photo,
+.page-inner .code-photo { border-radius: 8px; background: #e6eeeb; }
+.page-inner .booking-preview { padding: 16px; }
+.page-inner .code-card { background: #f5f8f7; }
+.page-inner .code-card strong { color: #d5471f; }
+.page-inner .float-badge { border-radius: 8px; }
+.page-inner .accent-card { background: #edf4f1; }
+.page-inner .calendar-mark { border-color: #0b646a; border-radius: 8px; color: #0b646a; }
+.page-inner .form-section { padding: 30px; background: #fff; }
+.page-inner input:focus,
+.page-inner select:focus,
+.page-inner textarea:focus { border-color: #0b646a; box-shadow: 0 0 0 3px rgba(11, 100, 106, .13); }
+.page-inner .consent a { color: #0b646a; }
+.page-inner .city-card { border-color: #cbdcd6; border-radius: 8px; background: #e3efeb; }
+.page-inner .city-lines,
+.page-inner .shop-line { display: none; }
+.page-inner .faq-item b { color: #0b646a; }
+.page-inner .faq-item[open] b { background: #0b646a; color: #fff; }
+.page-inner .bottom-cta {
+  min-height: 170px;
+  grid-template-columns: 230px minmax(0, 1fr) 220px;
+  border: 0;
+  border-radius: 8px;
+  background: #073b4c;
+  color: white;
+}
+.page-inner .bottom-cta h2 { color: white; }
+.page-inner .bottom-cta p { color: #c4d7dc; }
+.page-inner .bottom-cta .button-outline { border-color: white; background: white; color: #073b4c; }
+.page-inner .legal-page { margin-top: 44px; }
+.page-inner .legal-page > .section-title {
+  padding: 0 0 24px;
+  border-bottom: 1px solid #cfdcda;
+}
+.page-inner .legal-doc { gap: 14px; }
+.page-inner .legal-block { border-top: 0; border-left: 4px solid #0b646a; }
+.page-app .app-panel {
+  width: min(100% - 64px, 1240px);
+  margin: 42px auto 80px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.page-app .app-panel > .section-title,
+.page-app .partner-dashboard-heading {
+  margin: 0 0 24px;
+  padding: 28px 30px;
+  border-radius: 8px;
+  background: #073b4c;
+  color: white;
+}
+.page-app .app-panel > .section-title h2,
+.page-app .partner-dashboard-heading h2 { color: white; }
+.page-app .app-panel > .section-title .kicker,
+.page-app .partner-dashboard-heading .kicker { color: #f4ce67; }
+.page-app .app-panel > .section-title p,
+.page-app .partner-dashboard-heading p { color: #c4d7dc; }
+.page-app .partner-dashboard-heading .section-title { margin: 0; }
+.page-app .partner-dashboard-heading .button-outline { border-color: white; background: white; color: #073b4c; }
+.access-layout {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(380px, 1.1fr);
+  overflow: hidden;
+  border: 1px solid #d4e0dd;
+  border-radius: 8px;
+  background: white;
+}
+.access-intro { padding: 38px; background: #e3efeb; }
+.access-intro h3 { margin: 10px 0 12px; color: #062f3d; font-size: 30px; line-height: 1.1; }
+.access-intro > p:not(.kicker) { max-width: 520px; color: #49636d; line-height: 1.55; }
+.access-points { margin: 24px 0 0; padding: 0; display: grid; gap: 12px; list-style: none; }
+.access-points li { position: relative; padding-left: 24px; color: #173a45; font-weight: 800; }
+.access-points li::before { content: "✓"; position: absolute; left: 0; color: #0b646a; }
+.access-layout .auth-box { max-width: none; padding: 38px; border: 0; border-radius: 0; }
+.access-layout .auth-box h3 { margin: 0; color: #062f3d; font-size: 26px; }
+.access-layout .auth-box > p { margin: 8px 0 24px; color: #687d84; }
+.access-layout .auth-box .button { width: 100%; }
+.page-app .tab-nav a.active { border-color: #073b4c; background: #073b4c; }
+.page-app .stats-row small { color: #0b646a; }
+.page-app .data-table button { color: #0b646a; }
+
+@media (max-width: 1024px) {
+  .page-inner .hero,
+  .page-inner .section,
+  .page-inner .bottom-cta,
+  .page-app .app-panel { width: min(100% - 36px, 1240px); }
+  .page-inner .split-hero { width: 100%; padding-inline: 28px; }
+  .page-inner .bottom-cta { grid-template-columns: 1fr; }
+  .page-inner .bottom-cta .cta-photo { display: none; }
+}
+
+@media (max-width: 640px) {
+  .page-inner .hero,
+  .page-inner .section,
+  .page-inner .bottom-cta,
+  .page-app .app-panel { width: min(100% - 28px, 1240px); }
+  .page-inner .split-hero { width: 100%; padding: 38px 14px 32px; }
+  .page-inner .hero-copy h1 { font-size: 40px; }
+  .page-inner .section-title h2 { font-size: 30px; }
+  .page-inner .form-section { padding: 18px; }
+  .page-inner .bottom-cta { padding: 22px; }
+  .page-app .app-panel > .section-title,
+  .page-app .partner-dashboard-heading { padding: 22px 18px; }
+  .access-layout { grid-template-columns: 1fr; }
+  .access-intro,
+  .access-layout .auth-box { padding: 24px 18px; }
+  .access-intro h3 { font-size: 25px; }
 }
 `;
 

@@ -1,8 +1,11 @@
-# Design QA: approved marketplace and offer drawer
+# Design QA: approved marketplace and shared product system
 
 - Source visual truth: `/Users/konstantin/.codex/generated_images/019e1cc3-ac31-7600-a1aa-099052f281af/exec-179300b1-1b9c-40a1-95b4-439d6eb1fcc1.png`
 - Implementation screenshot: `/tmp/beri-final-desktop.png`
 - Combined comparison: `/tmp/beri-design-comparison.png`
+- Secondary page screenshot: `/tmp/beri-inner-design-desktop.png`
+- Admin login screenshot: `/tmp/beri-admin-login-desktop.png`
+- Partner login mobile screenshot: `/tmp/beri-partner-login-mobile.png`
 - Route and state: public marketplace, first current offer drawer open
 - Viewport: 1487 x 1058 CSS px, desktop, browser density 1
 - Source pixels: 1487 x 1058
@@ -12,6 +15,8 @@
 ## Full-view comparison evidence
 
 The combined comparison shows the same primary composition: dark teal utility header, current-day heading and date, horizontal fresh-photo rail, compact offer list, and a fixed right-side detail drawer. The implementation intentionally keeps existing product navigation and uses the project's current test content, while preserving the approved layout and interaction hierarchy.
+
+Secondary public pages and protected workspaces now use the same product system instead of the earlier beige and terracotta styling: deep teal navigation and headings, neutral white and mist-green surfaces, warm yellow informational accents, and orange reserved for primary commands. Admin and partner access screens use one responsive split layout with role-specific copy.
 
 ## Focused region comparison evidence
 
@@ -45,6 +50,7 @@ The right drawer and mobile publishing wizard were checked separately because th
 - See the published offer on the public marketplace.
 - Create booking code `BS-3915`, decrement stock, see it in the partner cabinet and mark it issued.
 - Browser console was checked; the discovered asynchronous upload error was fixed before final verification.
+- Secondary-page desktop and partner-login mobile layouts were rechecked after the shared style pass; no horizontal overlap or browser console errors were found.
 
 ## Follow-up polish
 
