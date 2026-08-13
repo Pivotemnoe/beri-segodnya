@@ -345,6 +345,9 @@ async function runScenario(port) {
   const persisted = JSON.parse(fs.readFileSync(dbFile, "utf8"));
   assert(persisted.sessions.length >= 2, "Server sessions were not persisted");
   assert(persisted.sessions.every((session) => session.id_hash && !session.id), "Raw session token was persisted");
+  if (process.platform !== "win32") {
+    assert((fs.statSync(dbFile).mode & 0o777) === 0o600, "Database file permissions must remain 0600");
+  }
 
   const disabledPartner = await request(port, "/api/admin/partners/partner-1", {
     auth: "adminBasic",
