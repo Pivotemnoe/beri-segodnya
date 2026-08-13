@@ -16,8 +16,8 @@
 - [ ] Test/default passwords replaced.
 - [ ] `SESSION_SECRET` generated.
 - [ ] `SITE_ACCESS_ENABLED=true`.
-- [ ] `ADMIN_ACCESS_ENABLED=true`.
-- [ ] `PARTNER_ACCESS_ENABLED=true`.
+- [ ] `ADMIN_ACCESS_ENABLED=false` for the normal one-login admin flow.
+- [ ] `PARTNER_ACCESS_ENABLED=false` for the normal one-login partner flow.
 - [ ] `data/db.json` created.
 - [ ] Seed executed for closed demo data.
 - [ ] `data/db.json` not in Git.
@@ -28,8 +28,8 @@
 - [ ] Domain points to VPS.
 - [ ] HTTPS works.
 - [ ] `X-Robots-Tag: noindex, nofollow` present.
-- [ ] `/admin` closed by Admin Basic Auth and app login.
-- [ ] `/partner/*` closed by Partner Basic Auth and partner login.
+- [ ] `/admin` data closed by the admin app session and role check.
+- [ ] `/partner/*` data closed by the partner app session, role and `partner_id` scope.
 
 ## After Staging
 
@@ -52,7 +52,7 @@
 
 ## Do Not Do on Staging
 
-- [ ] Do not remove Basic Auth.
+- [ ] Do not remove the public preview Basic Auth.
 - [ ] Do not remove `noindex`.
 - [ ] Do not use real partner data unless approved.
 - [ ] Do not configure online payment.

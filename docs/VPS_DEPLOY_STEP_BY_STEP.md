@@ -1,6 +1,6 @@
 # VPS Deploy Step by Step
 
-This is a practical staging deploy guide for `beri-segodnya`. It does not open public production. Keep Basic Auth enabled, keep `noindex`, and do not use real partner data until legal and operational checks are complete.
+This is a practical staging deploy guide for `beri-segodnya`. It does not open public production. Keep the public preview Basic Auth enabled, keep `noindex`, and do not use real partner data until legal and operational checks are complete.
 
 Recommended staging stack:
 
@@ -171,11 +171,11 @@ SITE_ACCESS_ENABLED=true
 SITE_ACCESS_USER=replace
 SITE_ACCESS_PASSWORD_SHA256=replace
 
-ADMIN_ACCESS_ENABLED=true
+ADMIN_ACCESS_ENABLED=false
 ADMIN_ACCESS_USER=replace
 ADMIN_ACCESS_PASSWORD_SHA256=replace
 
-PARTNER_ACCESS_ENABLED=true
+PARTNER_ACCESS_ENABLED=false
 PARTNER_ACCESS_USER=replace
 PARTNER_ACCESS_PASSWORD_SHA256=replace
 
@@ -508,8 +508,7 @@ Checklist:
 ## 21. Admin Check
 
 1. Open `https://example.ru/admin`.
-2. Pass Admin Basic Auth.
-3. Login with admin app login.
+2. Login with admin app login.
 4. Check tabs:
    - overview;
    - partners;
@@ -523,8 +522,7 @@ Checklist:
 ## 22. Partner Check
 
 1. Open `https://example.ru/partner/login`.
-2. Pass Partner Basic Auth.
-3. Login as a seed/test partner user.
+2. Login as a seed/test partner user.
 4. Open `https://example.ru/partner/dashboard?tab=bookings`.
 5. Confirm the partner sees only its own offers and bookings.
 

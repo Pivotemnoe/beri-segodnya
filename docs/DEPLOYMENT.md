@@ -43,7 +43,7 @@ systemd can also run `node server.mjs` from the project directory with env loade
 Proxy:
 
 - Nginx or Caddy proxies the domain to `http://127.0.0.1:3010`.
-- Keep `/admin` and `/partner/*` behind their Basic Auth gates.
+- Keep `/admin` and `/partner/*` behind their app login, HttpOnly session and role checks. Keep the public preview behind Basic Auth while staging is closed.
 
 HTTPS:
 

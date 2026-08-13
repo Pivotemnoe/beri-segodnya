@@ -30,13 +30,14 @@ JSON request bodies are limited to 32 KiB, except the authenticated partner phot
 
 ## Admin
 
-Requires Admin Basic Auth and admin app session unless endpoint is login.
+Requires an admin app session unless the endpoint is login. Optional admin Basic Auth is disabled by default.
 
 - `POST /api/admin/auth/login`
 - `GET /api/admin/auth/me`
 - `POST /api/admin/auth/logout`
 - `GET /api/admin/dashboard`
 - `GET/POST/PATCH/DELETE /api/admin/partners`
+- `POST /api/admin/partners/onboard` (partner + first address + owner account)
 - `GET/POST/PATCH/DELETE /api/admin/partners/:partnerId/addresses`
 - `GET/POST/PATCH/DELETE /api/admin/partners/:partnerId/users`
 - `GET/POST/PATCH/DELETE /api/admin/offers`
@@ -51,7 +52,7 @@ Requires Admin Basic Auth and admin app session unless endpoint is login.
 
 ## Partner
 
-Requires Partner Basic Auth and partner session unless endpoint is login.
+Requires a partner app session unless the endpoint is login. Optional partner Basic Auth is disabled by default.
 
 - `POST /api/partner/auth/login`
 - `GET /api/partner/auth/me`

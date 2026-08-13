@@ -4,8 +4,8 @@
 - [x] Public API works.
 - [x] Admin API works.
 - [x] Partner API works.
-- [x] Admin panel opens after Admin Basic Auth and app login.
-- [x] Partner cabinet opens after Partner Basic Auth and partner login.
+- [x] Admin panel opens after one admin app login.
+- [x] Partner cabinet opens after one partner app login.
 - [x] Test admin access is documented.
 - [x] Test partner access is documented.
 - [x] Admin can see partner applications.

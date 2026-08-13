@@ -9,7 +9,7 @@
 - Admin panel: `/admin`.
 - Partner dashboard: `/partner/login`, `/partner/dashboard`.
 - Storage: server-side JSON in `data/db.json` and partner media in `data/uploads/`.
-- Auth: Basic Auth preview gate plus HttpOnly `bs_session` cookie for admin/partner API.
+- Auth: optional Basic Auth for the public preview plus one app login per role and an HttpOnly `bs_session` cookie for admin/partner API.
 
 ## Main files
 
@@ -30,6 +30,7 @@ Public pages are rendered by `server.mjs` from the backend repository/storage la
 - Partner application form calls `POST /api/public/partner-applications`.
 - Contact form calls `POST /api/public/contact-requests`.
 - Admin and partner dashboards read/write through role-protected APIs.
+- Admin onboarding creates a partner, its first address and owner account atomically. Partner APIs are always scoped by the `partner_id` stored in the session.
 - The quick partner flow compresses one to three photos in the browser, strips metadata through canvas re-encoding, uploads them to a partner-scoped server folder, and creates the offer through the existing repository/service/API layers.
 - Reusable offer templates are server entities. The browser may keep only an unfinished wizard draft as a UI convenience; the published offer, quantity, status and media paths remain server-side truth.
 

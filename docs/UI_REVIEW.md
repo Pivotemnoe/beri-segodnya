@@ -41,12 +41,7 @@ If public preview Basic Auth is enabled:
 
 Admin:
 
-- Admin Basic Auth: `admin` / `admin-preview`
-- Admin app login: `admin` / `admin-app-preview`
-
-Partner area:
-
-- Partner Basic Auth: `partner` / `partner-preview`
+- Admin login: `admin` / `admin-preview`
 
 Seed partner users:
 
@@ -56,13 +51,7 @@ Seed partner users:
 
 Real `.env.local` values are not committed and must not be published. If local access differs, check `.env.local` on the machine running the server.
 
-For local UI review, the server can be started so the real login pages open without the browser Basic Auth prompt:
-
-```bash
-SITE_ACCESS_ENABLED=false ADMIN_ACCESS_ENABLED=false PARTNER_ACCESS_ENABLED=false node server.mjs
-```
-
-In that mode `/admin` still requires the admin app login, and `/partner/login` still requires a partner user login. On staging/production, set `ADMIN_ACCESS_ENABLED=true` and `PARTNER_ACCESS_ENABLED=true` if the extra Basic Auth layer is needed.
+`/admin` and `/partner/login` open their own single login forms. Optional role-specific Basic Auth is disabled by default.
 
 ## Demo Data
 
@@ -82,8 +71,7 @@ The local seed includes a test partner:
 ## Admin Review
 
 1. Open http://localhost:3010/admin.
-2. Pass Admin Basic Auth if `ADMIN_ACCESS_ENABLED=true`.
-3. Login with admin app credentials.
+2. Login with admin credentials.
 4. Check these tabs:
    - Overview
    - Partners
@@ -93,7 +81,7 @@ The local seed includes a test partner:
    - Contact requests
    - Settings
 5. In Partners, verify partner list, addresses, and partner users.
-6. Create a test partner, then add a test address and partner user.
+6. Create a test partner, first address and owner account with the single onboarding form.
 7. In Offers, create an active test offer and verify that it appears on the homepage.
 8. In Bookings, verify booking codes and update a booking status.
 9. In Partner applications, verify applications from `/partners` and create a partner from an application.
@@ -102,8 +90,7 @@ The local seed includes a test partner:
 ## Partner Review
 
 1. Open http://localhost:3010/partner/login.
-2. Pass Partner Basic Auth if `PARTNER_ACCESS_ENABLED=true`.
-3. Login as `partner1` / `partner1-preview`.
+2. Login as `partner1` / `partner1-preview`.
 4. Check these tabs:
    - Overview
    - Addresses

@@ -18,11 +18,11 @@ SITE_ACCESS_ENABLED=true
 SITE_ACCESS_USER=replace
 SITE_ACCESS_PASSWORD_SHA256=replace
 
-ADMIN_ACCESS_ENABLED=true
+ADMIN_ACCESS_ENABLED=false
 ADMIN_ACCESS_USER=replace
 ADMIN_ACCESS_PASSWORD_SHA256=replace
 
-PARTNER_ACCESS_ENABLED=true
+PARTNER_ACCESS_ENABLED=false
 PARTNER_ACCESS_USER=replace
 PARTNER_ACCESS_PASSWORD_SHA256=replace
 
@@ -57,7 +57,7 @@ Store the result in:
 - `ADMIN_ACCESS_PASSWORD_SHA256`
 - `PARTNER_ACCESS_PASSWORD_SHA256`
 
-`ADMIN_ACCESS_ENABLED=false` and `PARTNER_ACCESS_ENABLED=false` can be used only for local UI review when the admin and partner pages must open directly. Production and staging should keep both enabled unless another upstream access layer is configured.
+`ADMIN_ACCESS_ENABLED=false` and `PARTNER_ACCESS_ENABLED=false` are the normal settings: each role uses one app login and a role-protected HttpOnly session. These Basic Auth gates remain optional for an exceptional extra staging layer.
 
 ## Generate SESSION_SECRET
 
@@ -93,12 +93,8 @@ Smoke tests need plain test passwords only in local/staging env, not production 
 ```text
 TEST_SITE_ACCESS_USER=demo
 TEST_SITE_ACCESS_PASSWORD=demo-preview
-TEST_ADMIN_ACCESS_USER=admin
-TEST_ADMIN_ACCESS_PASSWORD=admin-preview
 TEST_ADMIN_APP_LOGIN=admin
-TEST_ADMIN_APP_PASSWORD=admin-app-preview
-TEST_PARTNER_ACCESS_USER=partner
-TEST_PARTNER_ACCESS_PASSWORD=partner-preview
+TEST_ADMIN_APP_PASSWORD=admin-preview
 TEST_PARTNER_LOGIN=partner1
 TEST_PARTNER_PASSWORD=partner1-preview
 ```

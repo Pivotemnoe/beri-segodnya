@@ -14,9 +14,7 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "beri-smoke-"));
 const dbFile = path.join(tempDir, "db.json");
 const uploadDir = path.join(tempDir, "uploads");
 const credentials = {
-  preview: { user: "smoke-site", password: "smoke-site-password" },
-  adminBasic: { user: "smoke-admin", password: "smoke-admin-password" },
-  partnerBasic: { user: "smoke-partner", password: "smoke-partner-password" }
+  preview: { user: "smoke-site", password: "smoke-site-password" }
 };
 const adminApp = { login: "smoke-admin-app", password: "smoke-admin-app-password" };
 const adminHash = createPasswordHash(adminApp.password);
@@ -87,6 +85,12 @@ async function waitForServer(port, child, logs) {
 
 async function runScenario(port) {
   const suffix = Date.now().toString(36);
+  const publicGate = await request(port, "/", { auth: null });
+  assert(publicGate.status === 401, "Public preview must remain behind Basic Auth");
+  const adminPage = await request(port, "/admin", { auth: null });
+  assert(adminPage.status === 200, "Admin login page must open without a second Basic Auth prompt");
+  const partnerLoginPage = await request(port, "/partner/login", { auth: null });
+  assert(partnerLoginPage.status === 200, "Partner login page must open without a second Basic Auth prompt");
   const anonymousAdminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic" });
   assert(anonymousAdminMe.status === 200 && anonymousAdminMe.json.data.authenticated === false, "Anonymous admin session probe failed");
   const anonymousPartnerMe = await request(port, "/api/partner/auth/me", { auth: "partnerBasic" });
@@ -103,6 +107,28 @@ async function runScenario(port) {
   const adminCookie = cookieFrom(adminLogin);
   const adminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic", cookie: adminCookie });
   assert(adminMe.status === 200 && adminMe.json.data.authenticated === true, "Admin session probe failed");
+
+  const onboarded = await request(port, "/api/admin/partners/onboard", {
+    auth: "adminBasic",
+    cookie: adminCookie,
+    method: "POST",
+    body: {
+      partnerName: `Тестовое подключение ${suffix}`,
+      partnerType: "culinary",
+      contactName: "Тестовый владелец",
+      phone: "+7 900 000-00-00",
+      email: "owner@example.test",
+      addressTitle: "Основная точка",
+      city: "Армавир",
+      address: "Армавир, тестовый адрес",
+      userName: "Тестовый владелец",
+      login: `onboard-${suffix}`,
+      password: "onboard-preview"
+    }
+  });
+  assert(onboarded.status === 201 && onboarded.json.ok, "Atomic partner onboarding failed");
+  assert(onboarded.json.data.partner.id && onboarded.json.data.address.partner_id === onboarded.json.data.partner.id, "Onboarding address is not linked to partner");
+  assert(onboarded.json.data.user.partner_id === onboarded.json.data.partner.id && !onboarded.json.data.user.password_hash, "Onboarding user is unsafe or not linked");
 
   const createdPartner = await request(port, "/api/admin/partners", {
     auth: "adminBasic",
@@ -190,6 +216,10 @@ async function runScenario(port) {
   const partnerCookie = cookieFrom(partnerLogin);
   const partnerMe = await request(port, "/api/partner/auth/me", { auth: "partnerBasic", cookie: partnerCookie });
   assert(partnerMe.status === 200 && partnerMe.json.data.authenticated === true, "Partner session probe failed");
+  const partnerIntoAdmin = await request(port, "/api/admin/dashboard", { auth: null, cookie: partnerCookie });
+  assert(partnerIntoAdmin.status === 403, "Partner session gained access to admin API");
+  const adminIntoPartner = await request(port, "/api/partner/profile", { auth: null, cookie: adminCookie });
+  assert(adminIntoPartner.status === 403, "Admin session was accepted as a partner session");
 
   for (const route of ["/api/partner/auth/me", "/api/partner/dashboard", "/api/partner/profile", "/api/partner/addresses", "/api/partner/offers", "/api/partner/bookings"]) {
     const response = await request(port, route, { auth: "partnerBasic", cookie: partnerCookie });
@@ -221,8 +251,14 @@ async function runScenario(port) {
   assert(fs.existsSync(uploadedPath), "Uploaded photo was not persisted on server disk");
   const protectedAsset = await request(port, uploadedUrl, { auth: null });
   assert(protectedAsset.status === 401, "Uploaded photo bypassed preview access gate");
-  const partnerAsset = await request(port, uploadedUrl, { auth: "partnerBasic" });
+  const partnerAsset = await request(port, uploadedUrl, { auth: null, cookie: partnerCookie });
   assert(partnerAsset.status === 200, "Partner could not read uploaded photo");
+  const foreignFolder = path.join(uploadDir, "partner-2");
+  fs.mkdirSync(foreignFolder, { recursive: true });
+  const foreignAssetPath = path.join(foreignFolder, path.basename(uploadedUrl));
+  fs.copyFileSync(uploadedPath, foreignAssetPath);
+  const foreignAsset = await request(port, `/uploads/partner-2/${path.basename(uploadedUrl)}`, { auth: null, cookie: partnerCookie });
+  assert(foreignAsset.status === 401, "Partner session could read another partner's uploaded photo");
 
   const photoOffer = await request(port, "/api/partner/offers", {
     auth: "partnerBasic",
@@ -380,12 +416,8 @@ const child = spawn(process.execPath, ["server.mjs"], {
     SITE_ACCESS_ENABLED: "true",
     SITE_ACCESS_USER: credentials.preview.user,
     SITE_ACCESS_PASSWORD_SHA256: sha256(credentials.preview.password),
-    ADMIN_ACCESS_ENABLED: "true",
-    ADMIN_ACCESS_USER: credentials.adminBasic.user,
-    ADMIN_ACCESS_PASSWORD_SHA256: sha256(credentials.adminBasic.password),
-    PARTNER_ACCESS_ENABLED: "true",
-    PARTNER_ACCESS_USER: credentials.partnerBasic.user,
-    PARTNER_ACCESS_PASSWORD_SHA256: sha256(credentials.partnerBasic.password),
+    ADMIN_ACCESS_ENABLED: "false",
+    PARTNER_ACCESS_ENABLED: "false",
     ADMIN_APP_LOGIN: adminApp.login,
     ADMIN_APP_PASSWORD_HASH: adminHash.hash,
     ADMIN_APP_PASSWORD_SALT: adminHash.salt,

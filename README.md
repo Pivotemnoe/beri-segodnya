@@ -55,6 +55,7 @@ http://localhost:3010
 - `docs/PILOT_READINESS.md`
 - `docs/PRODUCT_STRATEGY_ARMAVIR.md`
 - `docs/PARTNER_QUICK_PUBLISH.md`
+- `docs/OWNER_GUIDE.md`
 - `AGENTS.md`
 
 ## Данные
@@ -79,25 +80,19 @@ Preview Basic Auth:
 
 - `demo` / `demo-preview`
 
-Admin Basic Auth:
+Admin login (one form at `/admin`):
 
 - `admin` / `admin-preview`
 
-Admin app login:
-
-- `admin` / `admin-app-preview`
-
-Partner Basic Auth:
-
-- `partner` / `partner-preview`
-
-Seed partner users:
+Partner login (one form at `/partner/login`), seed users:
 
 - `partner1` / `partner1-preview`
 - `partner2` / `partner2-preview`
 - `bakery1` / `bakery1-preview`
 
 Боевые значения задаются только через `.env.local` или переменные окружения хостинга.
+
+`ADMIN_ACCESS_ENABLED` и `PARTNER_ACCESS_ENABLED` по умолчанию выключены: роли защищены внутренними HttpOnly-сессиями. Их Basic Auth можно включить только как дополнительный аварийный слой закрытого стенда.
 
 ## Команды
 
@@ -118,7 +113,6 @@ npm run restore:data -- backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```bash
 node backend/db/migrate.mjs
 node backend/db/seed.mjs
-node scripts/smoke-test.mjs
 node scripts/smoke-test.mjs
 node scripts/backup-data.mjs
 node scripts/prune-backups.mjs

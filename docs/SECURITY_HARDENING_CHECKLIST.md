@@ -27,7 +27,7 @@ Use this checklist before staging and production launch.
 - Generate a unique `SESSION_SECRET`.
 - Set `APP_ENV=production`.
 - Keep `SITE_ACCESS_ENABLED=true` on staging.
-- Keep `ADMIN_ACCESS_ENABLED=true` and `PARTNER_ACCESS_ENABLED=true` unless protected by another upstream layer.
+- Keep `ADMIN_ACCESS_ENABLED=false` and `PARTNER_ACCESS_ENABLED=false` for the normal one-login role flow. Enable either only as a documented emergency staging layer.
 
 ## App
 

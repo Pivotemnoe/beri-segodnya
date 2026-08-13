@@ -202,6 +202,7 @@ async function handleAdmin(request, response, url) {
 
 async function handleAdminPartners(request, response, parts) {
   const partnerId = parts[1];
+  if (request.method === "POST" && partnerId === "onboard" && !parts[2]) return ok(response, admin.onboardPartnerInput(await readBody(request)), 201);
   if (request.method === "GET" && !partnerId) return ok(response, listAdminData("partners"));
   if (request.method === "POST" && !partnerId) return ok(response, admin.createPartnerInput(await readBody(request)), 201);
   if (request.method === "PATCH" && partnerId && !parts[2]) return ok(response, admin.patchPartnerInput(partnerId, await readBody(request)));

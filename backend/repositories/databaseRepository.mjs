@@ -314,6 +314,73 @@ export function createPartner(data) {
   });
 }
 
+export function onboardPartner({ partner: partnerData, address: addressData, user: userData, applicationId = null }) {
+  return updateDb((db) => {
+    if (db.partnerUsers.some((user) => user.login.toLowerCase() === userData.login.toLowerCase())) {
+      const error = new Error("Пользователь с таким логином уже существует");
+      error.status = 409;
+      error.code = "LOGIN_ALREADY_EXISTS";
+      throw error;
+    }
+
+    const application = applicationId
+      ? db.partnerApplications.find((item) => item.id === applicationId)
+      : null;
+    if (applicationId && !application) {
+      const error = new Error("Заявка партнёра не найдена");
+      error.status = 404;
+      error.code = "APPLICATION_NOT_FOUND";
+      throw error;
+    }
+    if (application?.created_partner_id) {
+      const error = new Error("По этой заявке партнёр уже создан");
+      error.status = 409;
+      error.code = "APPLICATION_ALREADY_CONVERTED";
+      throw error;
+    }
+
+    const time = nowIso();
+    const partner = {
+      id: generateId("partner"),
+      slug: partnerData.slug || generateId("partner-slug"),
+      status: "active",
+      ...partnerData,
+      created_at: time,
+      updated_at: time
+    };
+    const address = {
+      id: generateId("address"),
+      partner_id: partner.id,
+      is_active: true,
+      ...addressData,
+      created_at: time,
+      updated_at: time
+    };
+    const user = {
+      id: generateId("partner-user"),
+      partner_id: partner.id,
+      role: "owner",
+      status: "active",
+      ...userData,
+      created_at: time,
+      updated_at: time
+    };
+
+    db.partners.push(partner);
+    db.partnerAddresses.push(address);
+    db.partnerUsers.push(user);
+    if (application) {
+      application.status = "approved";
+      application.created_partner_id = partner.id;
+      application.updated_at = time;
+    }
+    addAudit(db, "admin", null, "onboard_partner", "partner", partner.id, { applicationId });
+
+    const { password_hash, password_salt, ...safeUser } = user;
+    return { partner, address, user: safeUser };
+  });
+}
+
 export function patchCollectionItem(collection, id, patch, actorRole = "admin") {
   return updateDb((db) => {
     const item = db[collection].find((entry) => entry.id === id);

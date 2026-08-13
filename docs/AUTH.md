@@ -10,10 +10,7 @@ The whole MVP can be closed with Basic Auth:
 
 ## Admin
 
-Admin has two layers:
-
-1. Admin Basic Auth for `/admin` and `/api/admin/*`.
-2. App login through `POST /api/admin/auth/login`.
+Admin uses one app login through `POST /api/admin/auth/login`. A successful login creates an HttpOnly `bs_session` with role `admin`; every protected admin endpoint checks that role.
 
 Admin app password is PBKDF2:
 
@@ -23,10 +20,9 @@ Admin app password is PBKDF2:
 
 ## Partner
 
-Partner has two layers:
+Partner uses one login from `partnerUsers`. A successful login creates an HttpOnly `bs_session` with role `partner` and `partner_id`; every partner endpoint uses that `partner_id` to scope data.
 
-1. Partner Basic Auth for `/partner/*` and `/api/partner/*`.
-2. Partner user login from `partnerUsers`.
+`ADMIN_ACCESS_ENABLED` and `PARTNER_ACCESS_ENABLED` default to `false`. Their Basic Auth gates remain optional for an exceptional closed environment, but are not part of the normal login flow.
 
 Seed users:
 

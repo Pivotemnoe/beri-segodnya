@@ -24,7 +24,7 @@ Local URL:
 http://localhost:3010
 ```
 
-For local UI review without external Basic Auth prompts:
+For local public review without the preview Basic Auth prompt:
 
 ```bash
 SITE_ACCESS_ENABLED=false ADMIN_ACCESS_ENABLED=false PARTNER_ACCESS_ENABLED=false node server.mjs

@@ -3,11 +3,10 @@
 ## Create partner
 
 1. Open `/admin`.
-2. Pass Admin Basic Auth.
-3. Login with admin app credentials.
-4. Use the partner form.
-5. Add address through API or admin UI.
-6. Create partner user through API.
+2. Login with admin credentials.
+3. Open `Партнёры`.
+4. Fill the organization, first address and owner login in the onboarding form.
+5. Click `Создать партнёра и кабинет`.
 
 ## Create offer
 
@@ -71,21 +70,17 @@ The restore script creates backups of the current `data/db.json` and `data/uploa
 ### Admin
 
 1. Open `http://localhost:3010/admin`.
-2. Pass Admin Basic Auth.
-3. Login with admin app credentials.
+2. Login with admin credentials.
 4. Check overview stats.
 5. Check partners list.
-6. Create a test partner.
-7. Add partner address.
-8. Create partner user.
+6. Create a test partner, first address and owner account in one operation.
 9. Create offer for that partner/address.
 10. Open `/` and check that the offer appears.
 
 ### Partner
 
 1. Open `http://localhost:3010/partner/login`.
-2. Pass Partner Basic Auth.
-3. Login as seed partner user.
+2. Login as seed partner user.
 4. Open dashboard.
 5. Add address.
 6. Add offer.

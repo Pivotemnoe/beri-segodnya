@@ -6,6 +6,7 @@ import {
   adminDashboard,
   createAddress,
   createOffer,
+  onboardPartner,
   createPartner,
   createPartnerFromApplication,
   createPartnerUser,
@@ -119,6 +120,35 @@ export function createPartnerInput(input) {
     phone: input.phone ? validatePhone(input.phone) : "",
     email: validateEmail(input.email),
     status: enumValue(input.status || "active", allowed.partnerStatuses, "Статус")
+  });
+}
+
+export function onboardPartnerInput(input) {
+  const { hash, salt } = createPasswordHash(passwordValue(input.password));
+  return onboardPartner({
+    partner: {
+      name: cleanString(input.partnerName || input.name, 120, true, "Название партнёра"),
+      type: enumValue(input.partnerType || input.type || "other", allowed.partnerTypes, "Тип партнёра"),
+      contact_name: cleanString(input.contactName || input.contact_name, 80),
+      phone: input.phone ? validatePhone(input.phone) : "",
+      email: validateEmail(input.email),
+      status: "active"
+    },
+    address: {
+      title: cleanString(input.addressTitle || input.title || "Основная точка", 120, true, "Название точки"),
+      city: cleanString(input.city || "Армавир", 80, true, "Город"),
+      address: cleanString(input.address, 160, true, "Адрес"),
+      is_active: true
+    },
+    user: {
+      name: cleanString(input.userName || input.contactName, 120, true, "Имя пользователя"),
+      login: cleanString(input.login, 80, true, "Логин"),
+      password_hash: hash,
+      password_salt: salt,
+      role: "owner",
+      status: "active"
+    },
+    applicationId: cleanString(input.applicationId, 120) || null
   });
 }
 
