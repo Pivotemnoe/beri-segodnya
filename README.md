@@ -8,11 +8,12 @@ MVP локального сервиса ограниченных предлож�
 
 - Node.js HTTP server: `server.mjs`
 - Server-side JSON storage: `data/db.json`
+- Partner photo storage: `data/uploads/`
 - HTML/CSS/JS без frontend-сборки
 - Basic Auth preview gate
 - HttpOnly cookie sessions для admin/partner API
 
-SQLite не подключён, потому что в текущей среде недоступны `npm`/native-зависимости. Архитектура разделена на storage/repositories/services, чтобы позже заменить JSON storage на SQLite или PostgreSQL.
+JSON выбран как dependency-free storage закрытого однопроцессного MVP. Архитектура разделена на storage/repositories/services, чтобы заменить его на PostgreSQL до роста нагрузки или запуска нескольких процессов.
 
 ## Запуск
 
@@ -51,6 +52,9 @@ http://localhost:3010
 - `docs/HANDOVER.md`
 - `docs/GO_LIVE_CHECKLIST.md`
 - `docs/RUNBOOK.md`
+- `docs/PILOT_READINESS.md`
+- `docs/PRODUCT_STRATEGY_ARMAVIR.md`
+- `docs/PARTNER_QUICK_PUBLISH.md`
 - `AGENTS.md`
 
 ## Данные
@@ -99,6 +103,7 @@ Seed partner users:
 
 ```bash
 npm run check:server
+npm run build
 npm run db:migrate
 npm run db:seed
 npm run db:reset
@@ -113,7 +118,7 @@ npm run restore:data -- backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```bash
 node backend/db/migrate.mjs
 node backend/db/seed.mjs
-node scripts/test-api.mjs
+node scripts/smoke-test.mjs
 node scripts/smoke-test.mjs
 node scripts/backup-data.mjs
 node scripts/prune-backups.mjs
@@ -137,6 +142,7 @@ npm run restore:data -- backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```
 
 Restore перед заменой `data/db.json` создаёт backup текущего файла.
+Backup/restore также сохраняет соответствующий снимок `data/uploads/`, где лежат фотографии предложений.
 
 ## Env
 
@@ -160,8 +166,10 @@ Restore перед заменой `data/db.json` создаёт backup теку�
 - `APP_BASE_URL`
 - `APP_DOMAIN`
 - `PORT`
+- `HOST` (для VPS за Caddy рекомендуется `127.0.0.1`)
 - `DB_DRIVER`
 - `DB_FILE`
+- `UPLOAD_DIR`
 
 Access instructions are in `docs/ACCESS.md`. Deployment guidance is in `docs/DEPLOYMENT.md`; the current architecture is best deployed to a VPS with a persistent disk.
 
@@ -183,12 +191,14 @@ Serverless/Vercel не использовать как основной вари
 
 ## Ограничения MVP
 
-- JSON storage временный, для пилота лучше перейти на SQLite/PostgreSQL.
+- JSON storage допустим только для закрытого однопроцессного пилота; перед ростом нужен PostgreSQL.
 - Нет email/SMS-уведомлений.
 - Нет онлайн-оплаты.
 - Нет доставки.
 - Нет интеграции с кассами.
 - Нет реальных партнёров и реальных адресов.
+
+Изолированный `npm run test:smoke` сам запускает сервер на свободном loopback-порту и использует временную БД. Команда не изменяет `data/db.json`.
 
 ## Перед публичным запуском
 

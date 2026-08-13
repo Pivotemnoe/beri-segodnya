@@ -38,6 +38,7 @@ SITE_ACCESS_ENABLED=false ADMIN_ACCESS_ENABLED=false PARTNER_ACCESS_ENABLED=fals
 - `backend/storage/jsonStore.mjs` - server-side JSON storage layer.
 - `backend/services/` - auth and business logic.
 - `data/db.json` - local MVP data storage, not committed.
+- `data/uploads/` - partner photos, not committed and included in backup/restore.
 - `scripts/smoke-test.mjs` - API smoke test.
 - `scripts/backup-data.mjs` - data backup.
 - `scripts/restore-data.mjs` - data restore.
@@ -182,7 +183,7 @@ Restore:
 npm run restore:data -- backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```
 
-Restore creates a current backup before replacing `data/db.json`.
+Backup creates a timestamped JSON file and a matching `uploads-*` directory. Restore backs up the current JSON and photos before replacing them; keep each database backup together with its matching photo directory.
 
 ## Do Not
 

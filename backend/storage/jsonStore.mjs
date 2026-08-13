@@ -9,6 +9,7 @@ const collections = [
   "partnerUsers",
   "partnerAddresses",
   "offers",
+  "offerTemplates",
   "bookings",
   "partnerApplications",
   "contactRequests",
@@ -27,9 +28,14 @@ export function ensureDb() {
 export function readDb() {
   ensureDb();
   const data = JSON.parse(fs.readFileSync(dbPath(), "utf8"));
+  let changed = false;
   for (const name of collections) {
-    if (!Array.isArray(data[name])) data[name] = [];
+    if (!Array.isArray(data[name])) {
+      data[name] = [];
+      changed = true;
+    }
   }
+  if (changed) writeDb(data);
   return data;
 }
 

@@ -9,6 +9,8 @@ APP_ENV=production
 APP_BASE_URL=https://example.ru
 APP_DOMAIN=example.ru
 PORT=3010
+HOST=127.0.0.1
+TRUST_PROXY=true
 
 SESSION_SECRET=replace_with_random_long_secret
 
@@ -78,6 +80,8 @@ Put `hash` into `ADMIN_APP_PASSWORD_HASH` and `salt` into `ADMIN_APP_PASSWORD_SA
 ## Server Setup
 
 - Put env values in a protected `.env.local` or process manager env.
+- Keep `HOST=127.0.0.1` when Node is reachable only through Caddy/Nginx.
+- Set `TRUST_PROXY=true` only when the app is behind that trusted reverse proxy; direct local runs should use `false`.
 - Restrict file permissions.
 - Never print secrets in logs.
 - Never commit `.env.local`.

@@ -2,15 +2,31 @@ import { ok, fail } from "../utils/responses.mjs";
 import { allowed, cleanString, enumValue, validateEmail, validatePhone } from "../utils/validation.mjs";
 import { generateId } from "../utils/id.mjs";
 import { nowIso } from "../utils/dates.mjs";
-import { listPublicOffers, getPublicOffer, createPartnerApplication, createContactRequest, listAdminData } from "../repositories/databaseRepository.mjs";
+import { cancelPublicBooking, createContactRequest, createPartnerApplication, getPublicBooking, getPublicOffer, listAdminData, listPublicOffers } from "../repositories/databaseRepository.mjs";
 import { createBooking } from "../services/bookingService.mjs";
 import { adminLogin, cookieForSession, expiredSessionCookie, logout, partnerLogin, rateLimit, requireRole, sessionFromRequest } from "../services/authService.mjs";
 import * as admin from "../services/adminService.mjs";
 import * as partner from "../services/partnerService.mjs";
+import { savePartnerImages } from "../storage/imageStore.mjs";
 
-async function readBody(request) {
+async function readBody(request, maxBytes = 32 * 1024) {
   const chunks = [];
-  for await (const chunk of request) chunks.push(chunk);
+  let size = 0;
+  let tooLarge = false;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > maxBytes) {
+      tooLarge = true;
+      continue;
+    }
+    chunks.push(chunk);
+  }
+  if (tooLarge) {
+    const error = new Error("Тело запроса слишком большое");
+    error.status = 413;
+    error.code = "BODY_TOO_LARGE";
+    throw error;
+  }
   if (!chunks.length) return {};
   const text = Buffer.concat(chunks).toString("utf8");
   if (!text) return {};
@@ -25,11 +41,27 @@ async function readBody(request) {
 }
 
 function ip(request) {
-  return request.headers["x-forwarded-for"]?.split(",")[0]?.trim() || request.socket.remoteAddress || "unknown";
+  const trustProxy = process.env.TRUST_PROXY === "true";
+  return (trustProxy ? request.headers["x-forwarded-for"]?.split(",")[0]?.trim() : null) || request.socket.remoteAddress || "unknown";
 }
 
 function secureCookie() {
-  return process.env.APP_ENV === "production";
+  return process.env.APP_ENV === "production" || String(process.env.APP_BASE_URL || "").startsWith("https://");
+}
+
+function validateOrigin(request) {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method || "GET")) return;
+  const origin = request.headers.origin;
+  if (!origin) return;
+  const configured = process.env.APP_BASE_URL ? new URL(process.env.APP_BASE_URL).origin : null;
+  const forwardedProto = request.headers["x-forwarded-proto"] || "http";
+  const requestOrigin = request.headers.host ? `${forwardedProto}://${request.headers.host}` : null;
+  if (origin !== configured && origin !== requestOrigin) {
+    const error = new Error("Источник запроса не разрешён");
+    error.status = 403;
+    error.code = "ORIGIN_NOT_ALLOWED";
+    throw error;
+  }
 }
 
 function requireAdmin(request) {
@@ -50,9 +82,10 @@ function routeParts(pathname, prefix) {
 
 export async function handleApiRequest(request, response, url) {
   try {
-    if (url.pathname.startsWith("/api/public/")) return handlePublic(request, response, url);
-    if (url.pathname.startsWith("/api/admin/")) return handleAdmin(request, response, url);
-    if (url.pathname.startsWith("/api/partner/")) return handlePartner(request, response, url);
+    validateOrigin(request);
+    if (url.pathname.startsWith("/api/public/")) return await handlePublic(request, response, url);
+    if (url.pathname.startsWith("/api/admin/")) return await handleAdmin(request, response, url);
+    if (url.pathname.startsWith("/api/partner/")) return await handlePartner(request, response, url);
     return fail(response, 404, "NOT_FOUND", "API endpoint не найден");
   } catch (error) {
     return fail(response, error.status || 500, error.code || "INTERNAL_ERROR", error.message || "Ошибка сервера");
@@ -72,10 +105,23 @@ async function handlePublic(request, response, url) {
   }
 
   if (request.method === "POST" && parts[0] === "bookings") {
+    if (parts[1] && parts[2] === "cancel") {
+      if (!rateLimit(`${ip(request)}:booking-cancel`, 20, 10 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Слишком много запросов");
+      const booking = cancelPublicBooking(parts[1]);
+      return booking ? ok(response, { cancelled: true }) : fail(response, 404, "BOOKING_NOT_FOUND", "Бронь не найдена");
+    }
+    if (parts[1]) return fail(response, 404, "NOT_FOUND", "Booking endpoint не найден");
+    if (!rateLimit(`${ip(request)}:booking-create`, 12, 10 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Слишком много бронирований. Попробуйте позже");
     return ok(response, createBooking(await readBody(request)), 201);
   }
 
+  if (request.method === "GET" && parts[0] === "bookings" && parts[1]) {
+    const booking = getPublicBooking(parts[1]);
+    return booking ? ok(response, booking) : fail(response, 404, "BOOKING_NOT_FOUND", "Бронь не найдена");
+  }
+
   if (request.method === "POST" && parts[0] === "partner-applications") {
+    if (!rateLimit(`${ip(request)}:partner-application`, 5, 60 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Слишком много заявок. Попробуйте позже");
     const input = await readBody(request);
     const application = {
       id: generateId("application"),
@@ -97,6 +143,7 @@ async function handlePublic(request, response, url) {
   }
 
   if (request.method === "POST" && parts[0] === "contact-requests") {
+    if (!rateLimit(`${ip(request)}:contact-request`, 8, 60 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Слишком много обращений. Попробуйте позже");
     const input = await readBody(request);
     const contact = {
       id: generateId("contact"),
@@ -128,8 +175,9 @@ async function handleAdmin(request, response, url) {
 
   if (request.method === "GET" && parts.join("/") === "auth/me") {
     const auth = requireAdmin(request);
-    if (!auth.ok) return sendAuthFailure(response, auth);
-    return ok(response, { role: "admin" });
+    return ok(response, auth.ok
+      ? { authenticated: true, role: "admin" }
+      : { authenticated: false });
   }
 
   if (request.method === "POST" && parts.join("/") === "auth/logout") {
@@ -156,11 +204,11 @@ async function handleAdminPartners(request, response, parts) {
   const partnerId = parts[1];
   if (request.method === "GET" && !partnerId) return ok(response, listAdminData("partners"));
   if (request.method === "POST" && !partnerId) return ok(response, admin.createPartnerInput(await readBody(request)), 201);
-  if (request.method === "PATCH" && partnerId && !parts[2]) return ok(response, admin.patchItem("partners", partnerId, await readBody(request)));
+  if (request.method === "PATCH" && partnerId && !parts[2]) return ok(response, admin.patchPartnerInput(partnerId, await readBody(request)));
   if (request.method === "DELETE" && partnerId && !parts[2]) return ok(response, { deleted: admin.deleteItem("partners", partnerId) });
   if (request.method === "GET" && partnerId && parts[2] === "addresses") return ok(response, listAdminData("partnerAddresses").filter((item) => item.partner_id === partnerId));
   if (request.method === "POST" && partnerId && parts[2] === "addresses") return ok(response, admin.createAddressInput(partnerId, await readBody(request)), 201);
-  if (request.method === "PATCH" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, admin.patchItem("partnerAddresses", parts[3], await readBody(request)));
+  if (request.method === "PATCH" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, admin.patchAddressInput(partnerId, parts[3], await readBody(request)));
   if (request.method === "DELETE" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, { deleted: admin.deleteItem("partnerAddresses", parts[3]) });
   if (request.method === "GET" && partnerId && parts[2] === "users") return ok(response, listAdminData("partnerUsers").filter((item) => item.partner_id === partnerId).map(({ password_hash, password_salt, ...safe }) => safe));
   if (request.method === "POST" && partnerId && parts[2] === "users") return ok(response, admin.createPartnerUserInput(partnerId, await readBody(request)), 201);
@@ -173,7 +221,7 @@ async function handleAdminOffers(request, response, parts) {
   const id = parts[1];
   if (request.method === "GET" && !id) return ok(response, listAdminData("offers"));
   if (request.method === "POST" && !id) return ok(response, admin.createOfferInput(await readBody(request)), 201);
-  if (request.method === "PATCH" && id) return ok(response, admin.patchItem("offers", id, await readBody(request)));
+  if (request.method === "PATCH" && id) return ok(response, admin.patchOfferInput(id, await readBody(request)));
   if (request.method === "DELETE" && id) return ok(response, { deleted: admin.deleteItem("offers", id) });
   return fail(response, 404, "NOT_FOUND", "Offer endpoint не найден");
 }
@@ -183,7 +231,7 @@ async function handleAdminBookings(request, response, parts) {
   if (request.method === "GET" && !id) return ok(response, listAdminData("bookings"));
   if (request.method === "PATCH" && id && parts[2] === "status") {
     const input = await readBody(request);
-    return ok(response, admin.setStatus("bookings", id, input.status, allowed.bookingStatuses));
+    return ok(response, admin.setBookingStatusInput(id, input.status));
   }
   return fail(response, 404, "NOT_FOUND", "Booking endpoint не найден");
 }
@@ -225,18 +273,39 @@ async function handlePartner(request, response, url) {
     return ok(response, { loggedOut: true }, 200, { "Set-Cookie": expiredSessionCookie() });
   }
 
+  if (request.method === "GET" && parts.join("/") === "auth/me") {
+    const auth = requirePartner(request);
+    return ok(response, auth.ok
+      ? { authenticated: true, role: "partner", partnerId: auth.session.partner_id }
+      : { authenticated: false });
+  }
+
   const auth = requirePartner(request);
   if (!auth.ok) return sendAuthFailure(response, auth);
   const partnerId = auth.session.partner_id;
 
-  if (request.method === "GET" && parts.join("/") === "auth/me") return ok(response, { role: "partner", partnerId });
   if (request.method === "GET" && parts[0] === "dashboard") return ok(response, partner.dashboard(partnerId));
   if (request.method === "GET" && parts[0] === "profile") return ok(response, partner.profile(partnerId));
   if (request.method === "PATCH" && parts[0] === "profile") return ok(response, partner.patchProfile(partnerId, await readBody(request)));
+  if (request.method === "POST" && parts[0] === "uploads") {
+    if (!rateLimit(`${ip(request)}:${partnerId}:photo-upload`, 30, 60 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Слишком много загрузок. Попробуйте позже");
+    const input = await readBody(request, 16 * 1024 * 1024);
+    return ok(response, { images: savePartnerImages(partnerId, input.images) }, 201);
+  }
+  if (parts[0] === "offer-templates") return handlePartnerTemplates(request, response, parts, partnerId);
   if (parts[0] === "addresses") return handlePartnerAddresses(request, response, parts, partnerId);
   if (parts[0] === "offers") return handlePartnerOffers(request, response, parts, partnerId);
   if (parts[0] === "bookings") return handlePartnerBookings(request, response, parts, partnerId);
   return fail(response, 404, "NOT_FOUND", "Partner API endpoint не найден");
+}
+
+async function handlePartnerTemplates(request, response, parts, partnerId) {
+  const id = parts[1];
+  if (request.method === "GET" && !id) return ok(response, partner.scoped(partnerId, "templates"));
+  if (request.method === "POST" && !id) return ok(response, partner.createOwnTemplate(partnerId, await readBody(request)), 201);
+  if (request.method === "PATCH" && id) return ok(response, partner.patchOwnTemplate(partnerId, id, await readBody(request)));
+  if (request.method === "DELETE" && id) return ok(response, { deleted: partner.deleteOwnTemplate(partnerId, id) });
+  return fail(response, 404, "NOT_FOUND", "Template endpoint не найден");
 }
 
 async function handlePartnerAddresses(request, response, parts, partnerId) {

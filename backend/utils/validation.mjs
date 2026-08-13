@@ -50,6 +50,7 @@ export const allowed = {
   partnerStatuses: ["active", "paused", "disabled"],
   categories: ["bakery", "lunch", "evening"],
   offerStatuses: ["active", "paused", "sold_out", "expired"],
+  offerSourceTypes: ["manual", "quick_photo", "template"],
   bookingStatuses: ["created", "issued", "no_show", "cancelled"],
   applicationStatuses: ["new", "contacted", "approved", "rejected"],
   contactStatuses: ["new", "in_progress", "closed"],

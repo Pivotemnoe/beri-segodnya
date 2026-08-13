@@ -31,7 +31,7 @@ Recommended:
 - Ubuntu 24.04 LTS;
 - provider snapshot/backup.
 
-The MVP does not process media uploads, online payments, delivery, or high-load background jobs. A small VPS is enough for closed staging. 2 GB RAM is better for stability during package updates, PM2, and HTTPS proxy work.
+The MVP accepts up to three partner photos per offer and stores them on the VPS. It does not process online payments, delivery, or high-load background jobs. A small VPS is enough for closed staging, but 2 GB RAM is better for image processing in the browser, package updates, PM2, and HTTPS proxy work.
 
 ## 2. Prepare Server
 
@@ -185,6 +185,9 @@ ADMIN_APP_PASSWORD_SALT=replace
 
 DB_DRIVER=json
 DB_FILE=data/db.json
+
+HOST=127.0.0.1
+TRUST_PROXY=true
 
 NEXT_PUBLIC_APP_NAME=Бери сегодня
 NEXT_PUBLIC_APP_CITY=Армавир
@@ -392,6 +395,8 @@ Manual backup:
 ```bash
 npm run backup:data
 ```
+
+The command creates both `backups/db-<timestamp>.json` and `backups/uploads-<timestamp>/`. Copy both to a separate protected storage location; a backup on the same VPS is not sufficient by itself.
 
 Restore:
 

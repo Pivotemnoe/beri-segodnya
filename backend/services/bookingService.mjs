@@ -13,6 +13,9 @@ export function createBooking(input) {
     offerId: booking.offer_id,
     partnerId: booking.partner_id,
     pickupWindow: offer.pickup_window,
+    publicToken: booking.public_token,
+    bookingUrl: `/booking/${booking.public_token}`,
+    expiresAt: booking.expires_at,
     message: "Покажите код в заведении и оплатите заказ на кассе."
   };
 }

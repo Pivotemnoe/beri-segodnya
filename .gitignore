@@ -8,6 +8,7 @@ out
 .env.production.local
 .env.test.local
 .DS_Store
+.playwright-cli/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -19,6 +20,8 @@ data/*.db-journal
 data/*.sqlite-journal
 data/db.json
 data/db.tmp.json
+data/uploads/*
+!data/uploads/.gitkeep
 backups/*
 !backups/.gitkeep
 logs/*

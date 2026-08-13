@@ -1,4 +1,4 @@
-import { createSession, deleteSession, findPartnerUser, getSession } from "../repositories/databaseRepository.mjs";
+import { createSession, deleteSession, findPartnerUser, getSession, isPartnerActive } from "../repositories/databaseRepository.mjs";
 import { verifyPassword } from "../utils/password.mjs";
 
 const loginAttempts = new Map();
@@ -52,13 +52,16 @@ export function partnerLogin(login, password) {
 }
 
 export function logout(request) {
-  const session = sessionFromRequest(request);
-  if (session) deleteSession(session.id);
+  const token = parseCookies(request.headers.cookie || "").bs_session;
+  if (token) deleteSession(token);
 }
 
 export function requireRole(request, role) {
   const session = sessionFromRequest(request);
   if (!session) return { ok: false, status: 401, code: "UNAUTHORIZED", message: "Требуется вход" };
   if (session.role !== role) return { ok: false, status: 403, code: "FORBIDDEN", message: "Недостаточно прав" };
+  if (role === "partner" && !isPartnerActive(session.partner_id)) {
+    return { ok: false, status: 403, code: "PARTNER_DISABLED", message: "Доступ партнёра отключён" };
+  }
   return { ok: true, session };
 }

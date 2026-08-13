@@ -43,7 +43,10 @@ The backup is written to:
 
 ```text
 backups/db-YYYY-MM-DD-HH-mm-ss.json
+backups/uploads-YYYY-MM-DD-HH-mm-ss/
 ```
+
+The matching uploads directory contains partner photos from `data/uploads/`. Keep the JSON file and its uploads directory together.
 
 Do not commit backups with real data.
 
@@ -61,7 +64,7 @@ Direct Node:
 node scripts/restore-data.mjs backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```
 
-The restore script creates a backup of the current `data/db.json` before replacing it.
+The restore script creates backups of the current `data/db.json` and `data/uploads/` before replacing them. If a matching uploads backup is absent, the current photo directory is preserved.
 
 ## Manual pre-deploy scenarios
 
