@@ -3922,7 +3922,17 @@ body { background: var(--color-bg); }
 `;
 
 const server = http.createServer(async (request, response) => {
-  const url = new URL(request.url ?? "/", `http://localhost:${PORT}`);
+  let url;
+  try {
+    url = new URL(request.url ?? "/", `http://localhost:${PORT}`);
+  } catch {
+    sendText(response, 400, "Некорректный запрос", {
+      ...securityHeaders,
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    return;
+  }
 
   if (url.pathname === "/styles.css") {
     sendText(response, 200, STYLES, { ...securityHeaders, "Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-store" });
