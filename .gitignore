@@ -26,3 +26,16 @@ backups/*
 !backups/.gitkeep
 logs/*
 !logs/.gitkeep
+
+# Android pilot wrapper: keep generated build output and local signing material out of Git.
+android-twa/.gradle/
+android-twa/.idea/
+android-twa/build/
+android-twa/app/build/
+android-twa/local.properties
+android-twa/*.apk
+android-twa/*.aab
+android-twa/*.sha256
+android-twa/*.jks
+android-twa/*.keystore
+android-twa/.secrets/

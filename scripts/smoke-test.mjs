@@ -40,6 +40,12 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function assertFormsUsePost(markup, pageName) {
+  const forms = markup.match(/<form\b[^>]*>/g) || [];
+  assert(forms.length > 0, `${pageName} has no testable forms`);
+  assert(forms.every((form) => /\smethod="post"/i.test(form)), `${pageName} contains a form that can expose submitted data in the URL`);
+}
+
 function cookieFrom(response) {
   return (response.headers["set-cookie"] || [""])[0];
 }
@@ -91,18 +97,64 @@ async function waitForServer(port, child, logs) {
 
 async function runScenario(port) {
   const suffix = Date.now().toString(36);
+  const manifest = await request(port, "/manifest.webmanifest", { auth: null });
+  assert(manifest.status === 200 && manifest.json.display === "standalone" && manifest.json.scope === "/", "PWA manifest is unavailable or incomplete");
+  assert(manifest.headers["content-type"]?.includes("application/manifest+json"), "PWA manifest has the wrong content type");
+  const serviceWorker = await request(port, "/sw.js", { auth: null });
+  assert(serviceWorker.status === 200 && serviceWorker.headers["service-worker-allowed"] === "/", "Service worker is unavailable at the application scope");
+  assert(serviceWorker.text.includes("PRIVATE_PATH.test(url.pathname)") && serviceWorker.text.includes('request.method !== "GET"'), "Service worker private-data bypass is missing");
+  const offlinePage = await request(port, "/offline.html", { auth: null });
+  assert(offlinePage.status === 200 && offlinePage.text.includes("Сейчас нет соединения"), "Offline page is unavailable");
+  assert(!/<style\b|\son[a-z]+\s*=/i.test(offlinePage.text), "Offline page contains inline code blocked by the Content Security Policy");
+  const offlineCss = await request(port, "/offline.css", { auth: null });
+  assert(offlineCss.status === 200 && offlineCss.headers["content-type"]?.includes("text/css"), "Offline stylesheet is unavailable");
+  const offlineScript = await request(port, "/offline.js", { auth: null });
+  assert(offlineScript.status === 200 && offlineScript.headers["content-type"]?.includes("text/javascript"), "Offline script is unavailable");
+  const publicScript = await request(port, "/public.js", { auth: null });
+  assert(publicScript.status === 200 && publicScript.headers["content-type"]?.includes("text/javascript"), "Public browser script is unavailable");
+  const pwaIcon = await request(port, "/icons/icon-192.png", { auth: null });
+  assert(pwaIcon.status === 200 && pwaIcon.headers["content-type"] === "image/png", "PWA icon is unavailable");
+  const assetLinks = await request(port, "/.well-known/assetlinks.json", { auth: null });
+  assert(assetLinks.status === 200 && assetLinks.json[0]?.target?.package_name === "ru.berisegodnya.app", "Android Digital Asset Links are unavailable");
   const publicGate = await request(port, "/", { auth: null });
   assert(publicGate.status === 401, "Public preview must remain behind Basic Auth");
+  const privatePageConfig = await request(port, "/page-config.js", { auth: null });
+  assert(privatePageConfig.status === 401, "Page data configuration bypassed preview access control");
+  const pageConfig = await request(port, "/page-config.js");
+  assert(pageConfig.status === 200 && pageConfig.text.includes("window.PUBLIC_CONFIG="), "Page data configuration is unavailable");
   const publicHome = await request(port, "/");
   assert(publicHome.status === 200, "Public home did not render");
+  const contentSecurityPolicy = publicHome.headers["content-security-policy"] || "";
+  assert(contentSecurityPolicy.includes("form-action 'self'") && !contentSecurityPolicy.includes("unsafe-inline"), "HTML Content Security Policy permits unsafe inline code or unrestricted forms");
+  for (const header of ["cross-origin-embedder-policy", "cross-origin-opener-policy", "cross-origin-resource-policy", "origin-agent-cluster"]) {
+    assert(publicHome.headers[header], `HTML security header is missing: ${header}`);
+  }
+  assertFormsUsePost(publicHome.text, "Public home");
   assert(publicHome.text.includes('role="dialog" aria-modal="true" aria-label="Карточка предложения"'), "Offer dialog semantics are missing");
   assert(publicHome.text.includes('aria-label="Закрыть форму бронирования"'), "Booking dialog close button has no accessible label");
+  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes('data-pwa-install'), "PWA install affordance is missing from the page");
   assert(publicHome.text.includes('class="offer-row-mobile-pickup"'), "Mobile pickup window is missing from offer rows");
   assert(!publicHome.text.includes("Фото сделано сегодня") && !publicHome.text.includes("Фото сегодня"), "Public home claims that a photo was made today without evidence");
+  const injectionMarker = `<img src=x onerror=alert-${suffix}>`;
+  const reflectedQuery = await request(port, `/contacts?type=${encodeURIComponent(injectionMarker)}`);
+  assert(reflectedQuery.status === 200 && !reflectedQuery.text.includes(injectionMarker), "Query input was reflected into public HTML");
+  const reflectedBody = await request(port, "/contacts", {
+    method: "POST",
+    body: { type: injectionMarker, name: injectionMarker }
+  });
+  assert(reflectedBody.status === 200 && !reflectedBody.text.includes(injectionMarker), "Form body input was reflected into public HTML");
+  const unknownPublicAction = await request(port, "/api/public/not-a-real-action");
+  assert(
+    unknownPublicAction.status === 404
+      && !/(?:API|endpoint|JSON|undefined|null)/i.test(unknownPublicAction.json.error.message),
+    "Unknown actions expose technical text"
+  );
   const adminPage = await request(port, "/admin", { auth: null });
   assert(adminPage.status === 200, "Admin login page must open without a second Basic Auth prompt");
+  assertFormsUsePost(adminPage.text, "Admin page");
   const partnerLoginPage = await request(port, "/partner/login", { auth: null });
   assert(partnerLoginPage.status === 200, "Partner login page must open without a second Basic Auth prompt");
+  assertFormsUsePost(partnerLoginPage.text, "Partner page");
   const anonymousAdminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic" });
   assert(anonymousAdminMe.status === 200 && anonymousAdminMe.json.data.authenticated === false, "Anonymous admin session probe failed");
   const anonymousPartnerMe = await request(port, "/api/partner/auth/me", { auth: "partnerBasic" });
@@ -191,6 +243,8 @@ async function runScenario(port) {
 
   const publicOffers = await request(port, "/api/public/offers");
   assert(publicOffers.status === 200 && publicOffers.json.data.some((item) => item.id === offer.json.data.id), "Public offer missing");
+  assert(publicOffers.headers["content-security-policy"]?.includes("default-src 'none'"), "JSON responses have no restrictive Content Security Policy");
+  assert(publicOffers.headers["cross-origin-resource-policy"] === "same-origin", "JSON responses have no same-origin resource policy");
 
   const booking = await request(port, "/api/public/bookings", {
     method: "POST",
@@ -437,6 +491,7 @@ async function runScenario(port) {
 
   const malformed = await request(port, "/api/public/contact-requests", { method: "POST", body: "{" });
   assert(malformed.status === 400 && malformed.json.error.code === "BAD_JSON", "Malformed JSON handling failed");
+  assert(!/(?:JSON|parse|syntax|token|stack)/i.test(malformed.json.error.message), "Malformed request exposes technical text");
 
   const largeBody = await request(port, "/api/public/contact-requests", { method: "POST", body: JSON.stringify({ message: "x".repeat(40_000) }) });
   assert(largeBody.status === 413 && largeBody.json.error.code === "BODY_TOO_LARGE", "Request body limit is not enforced");
@@ -468,6 +523,16 @@ async function runScenario(port) {
   assert(adminLogout.status === 200, "Admin logout failed");
   const loggedOutAdmin = await request(port, "/api/admin/dashboard", { auth: "adminBasic", cookie: adminCookie });
   assert(loggedOutAdmin.status === 401, "Admin session survived logout");
+
+  let throttledLogin;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    throttledLogin = await request(port, "/api/admin/auth/login", {
+      auth: "adminBasic",
+      method: "POST",
+      body: { login: "not-the-admin", password: "not-the-password" }
+    });
+  }
+  assert(throttledLogin.status === 429 && throttledLogin.json.error.code === "RATE_LIMIT", "Admin login rate limit failed");
 }
 
 const port = await freePort();

@@ -35,7 +35,7 @@ async function readBody(request, maxBytes = 32 * 1024) {
   try {
     return JSON.parse(text);
   } catch {
-    const error = new Error("Некорректный JSON");
+    const error = new Error("Не удалось прочитать данные. Обновите страницу и повторите действие.");
     error.status = 400;
     error.code = "BAD_JSON";
     throw error;
@@ -110,7 +110,7 @@ export async function handleApiRequest(request, response, url) {
     if (url.pathname.startsWith("/api/public/")) return await handlePublic(request, response, url);
     if (url.pathname.startsWith("/api/admin/")) return await handleAdmin(request, response, url);
     if (url.pathname.startsWith("/api/partner/")) return await handlePartner(request, response, url);
-    return fail(response, 404, "NOT_FOUND", "API endpoint не найден");
+    return fail(response, 404, "NOT_FOUND", "Действие не найдено. Обновите страницу и попробуйте снова.");
   } catch (error) {
     const status = Number(error.status) || 500;
     const expose = status < 500 || error.expose === true;
@@ -152,7 +152,7 @@ async function handlePublic(request, response, url) {
       const booking = cancelPublicBooking(parts[1]);
       return booking ? ok(response, { cancelled: true }) : fail(response, 404, "BOOKING_NOT_FOUND", "Бронь не найдена");
     }
-    if (parts[1]) return fail(response, 404, "NOT_FOUND", "Booking endpoint не найден");
+    if (parts[1]) return fail(response, 404, "NOT_FOUND", "Действие с бронью не найдено. Обновите страницу.");
     if (!rateLimit(`${ip(request)}:booking-create`, 12, 10 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Слишком много бронирований. Попробуйте позже");
     return ok(response, createBooking(await readBody(request)), 201);
   }
@@ -203,7 +203,7 @@ async function handlePublic(request, response, url) {
     return ok(response, createContactRequest(contact), 201);
   }
 
-  return fail(response, 404, "NOT_FOUND", "Public API endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие не найдено. Обновите страницу и попробуйте снова.");
 }
 
 async function handleAdmin(request, response, url) {
@@ -241,7 +241,7 @@ async function handleAdmin(request, response, url) {
   if (parts[0] === "partner-applications") return handleAdminApplications(request, response, parts);
   if (parts[0] === "contact-requests") return handleAdminContacts(request, response, parts);
 
-  return fail(response, 404, "NOT_FOUND", "Admin API endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие не найдено. Обновите страницу и попробуйте снова.");
 }
 
 async function handleAdminPartners(request, response, parts) {
@@ -259,7 +259,7 @@ async function handleAdminPartners(request, response, parts) {
   if (request.method === "POST" && partnerId && parts[2] === "users") return ok(response, admin.createPartnerUserInput(partnerId, await readBody(request)), 201);
   if (request.method === "PATCH" && partnerId && parts[2] === "users" && parts[3]) return ok(response, admin.patchPartnerUserInput(partnerId, parts[3], await readBody(request)));
   if (request.method === "DELETE" && partnerId && parts[2] === "users" && parts[3]) return ok(response, { deleted: admin.deletePartnerUser(partnerId, parts[3]) });
-  return fail(response, 404, "NOT_FOUND", "Partner endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Раздел партнёра не найден. Обновите страницу.");
 }
 
 async function handleAdminOffers(request, response, parts) {
@@ -268,7 +268,7 @@ async function handleAdminOffers(request, response, parts) {
   if (request.method === "POST" && !id) return ok(response, admin.createOfferInput(await readBody(request)), 201);
   if (request.method === "PATCH" && id) return ok(response, admin.patchOfferInput(id, await readBody(request)));
   if (request.method === "DELETE" && id) return ok(response, { deleted: admin.deleteItem("offers", id) });
-  return fail(response, 404, "NOT_FOUND", "Offer endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие с предложением не найдено. Обновите страницу.");
 }
 
 async function handleAdminBookings(request, response, parts) {
@@ -278,7 +278,7 @@ async function handleAdminBookings(request, response, parts) {
     const input = await readBody(request);
     return ok(response, admin.setBookingStatusInput(id, input.status));
   }
-  return fail(response, 404, "NOT_FOUND", "Booking endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие с бронью не найдено. Обновите страницу.");
 }
 
 async function handleAdminApplications(request, response, parts) {
@@ -289,7 +289,7 @@ async function handleAdminApplications(request, response, parts) {
     return ok(response, admin.setStatus("partnerApplications", id, input.status, allowed.applicationStatuses));
   }
   if (request.method === "POST" && id && parts[2] === "create-partner") return ok(response, admin.approveApplication(id), 201);
-  return fail(response, 404, "NOT_FOUND", "Application endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие с заявкой не найдено. Обновите страницу.");
 }
 
 async function handleAdminContacts(request, response, parts) {
@@ -299,7 +299,7 @@ async function handleAdminContacts(request, response, parts) {
     const input = await readBody(request);
     return ok(response, admin.setStatus("contactRequests", id, input.status, allowed.contactStatuses));
   }
-  return fail(response, 404, "NOT_FOUND", "Contact endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие с обращением не найдено. Обновите страницу.");
 }
 
 async function handlePartner(request, response, url) {
@@ -351,7 +351,7 @@ async function handlePartner(request, response, url) {
   if (parts[0] === "addresses") return handlePartnerAddresses(request, response, parts, partnerId, auth.session);
   if (parts[0] === "offers") return handlePartnerOffers(request, response, parts, partnerId, auth.session);
   if (parts[0] === "bookings") return handlePartnerBookings(request, response, parts, partnerId, auth.session);
-  return fail(response, 404, "NOT_FOUND", "Partner API endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие не найдено. Обновите страницу и попробуйте снова.");
 }
 
 async function handlePartnerTemplates(request, response, parts, partnerId, session) {
@@ -361,7 +361,7 @@ async function handlePartnerTemplates(request, response, parts, partnerId, sessi
   if (request.method === "POST" && !id) return ok(response, partner.createOwnTemplate(partnerId, await readBody(request)), 201);
   if (request.method === "PATCH" && id) return ok(response, partner.patchOwnTemplate(partnerId, id, await readBody(request)));
   if (request.method === "DELETE" && id) return ok(response, { deleted: partner.deleteOwnTemplate(partnerId, id) });
-  return fail(response, 404, "NOT_FOUND", "Template endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие с шаблоном не найдено. Обновите страницу.");
 }
 
 async function handlePartnerAddresses(request, response, parts, partnerId, session) {
@@ -371,7 +371,7 @@ async function handlePartnerAddresses(request, response, parts, partnerId, sessi
   if (request.method === "POST" && !id) return ok(response, partner.createOwnAddress(partnerId, await readBody(request)), 201);
   if (request.method === "PATCH" && id) return ok(response, partner.patchOwn("partnerAddresses", partnerId, id, await readBody(request)));
   if (request.method === "DELETE" && id) return ok(response, { deleted: partner.deleteOwn("partnerAddresses", partnerId, id) });
-  return fail(response, 404, "NOT_FOUND", "Address endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие с точкой не найдено. Обновите страницу.");
 }
 
 async function handlePartnerOffers(request, response, parts, partnerId, session) {
@@ -383,7 +383,7 @@ async function handlePartnerOffers(request, response, parts, partnerId, session)
   if (request.method === "PATCH" && id && parts[2] === "status") return ok(response, partner.patchOwn("offers", partnerId, id, { status: enumValue((await readBody(request)).status, allowed.offerStatuses, "Статус") }));
   if (request.method === "PATCH" && id && !parts[2]) return ok(response, partner.patchOwn("offers", partnerId, id, await readBody(request)));
   if (request.method === "DELETE" && id) return ok(response, { deleted: partner.deleteOwn("offers", partnerId, id) });
-  return fail(response, 404, "NOT_FOUND", "Offer endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие с предложением не найдено. Обновите страницу.");
 }
 
 async function handlePartnerBookings(request, response, parts, partnerId, session) {
@@ -394,5 +394,5 @@ async function handlePartnerBookings(request, response, parts, partnerId, sessio
     const input = await readBody(request);
     return ok(response, partner.patchOwn("bookings", partnerId, id, { status: enumValue(input.status, allowed.bookingStatuses, "Статус") }));
   }
-  return fail(response, 404, "NOT_FOUND", "Booking endpoint не найден");
+  return fail(response, 404, "NOT_FOUND", "Действие с бронью не найдено. Обновите страницу.");
 }

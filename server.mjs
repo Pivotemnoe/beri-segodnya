@@ -41,7 +41,12 @@ const securityHeaders = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "X-DNS-Prefetch-Control": "off",
   "Permissions-Policy": "camera=(self), microphone=(), geolocation=()",
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; base-uri 'self'; frame-ancestors 'none'",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; media-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+  "Cross-Origin-Embedder-Policy": "require-corp",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "Origin-Agent-Cluster": "?1",
+  "Strict-Transport-Security": "max-age=31536000",
   "X-Robots-Tag": "noindex, nofollow",
   "Connection": "close"
 };
@@ -155,6 +160,18 @@ function sendText(response, status, body, headers = {}) {
   response.end(text);
 }
 
+function sendFile(response, filePath, contentType, cacheControl = "public, max-age=3600", extraHeaders = {}) {
+  const stat = fs.statSync(filePath);
+  response.writeHead(200, {
+    ...securityHeaders,
+    ...extraHeaders,
+    "Content-Type": contentType,
+    "Cache-Control": cacheControl,
+    "Content-Length": stat.size
+  });
+  fs.createReadStream(filePath).pipe(response);
+}
+
 const nav = [
   { href: "/#offers", path: "/", label: "Предложения сегодня" },
   { href: "/how-it-works", path: "/how-it-works", label: "Как это работает" },
@@ -233,6 +250,7 @@ function footer() {
     <div class="footer-contacts">
       <a href="mailto:${html(config.supportEmail)}">${html(config.supportEmail)}</a>
       <a href="/contacts">Написать команде</a>
+      <button class="footer-install" type="button" data-pwa-install hidden>Установить приложение</button>
     </div>
     <nav class="footer-legal" aria-label="Юридические документы">
       <a href="/personal-data-consent">Согласие на обработку ПДн</a>
@@ -240,6 +258,19 @@ function footer() {
       <a href="/partner-terms">Партнёрские условия</a>
     </nav>
   </footer>`;
+}
+
+function pwaInstallDialog() {
+  return `<div class="pwa-dialog" data-pwa-dialog hidden>
+    <div class="pwa-dialog-backdrop" data-pwa-dialog-close></div>
+    <section class="pwa-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="pwa-dialog-title">
+      <button class="pwa-dialog-close" type="button" data-pwa-dialog-close aria-label="Закрыть подсказку">×</button>
+      <img src="/icons/icon-192.png" alt="" width="80" height="80" />
+      <h2 id="pwa-dialog-title">Добавить «Бери сегодня» на экран</h2>
+      <p data-pwa-instructions>Откройте меню браузера и выберите установку приложения.</p>
+      <button class="button button-primary" type="button" data-pwa-dialog-close>Понятно</button>
+    </section>
+  </div>`;
 }
 
 function categoryImage(category = "lunch") {
@@ -626,7 +657,7 @@ function partnersPage() {
   <section class="section form-section" id="partner-application">
     ${sectionTitle("", "Оставить заявку на подключение", "Расскажите о заведении — мы свяжемся с вами и поможем запустить пилот.")}
       ${config.demoMode ? `<p class="demo-notice">Тестовый режим: не вводите реальные персональные данные.</p>` : ""}
-    ${config.legal.ready ? `<form class="smart-form" data-form="partner">
+    ${config.legal.ready ? `<form class="smart-form" method="post" data-form="partner">
       <label>Название заведения<input name="venueName" required maxlength="120" placeholder="Например: Заведение 1" /></label>
       <label>Тип заведения<select name="venueType" required><option value="">Выберите тип</option><option value="bakery">Пекарня</option><option value="coffee">Кофейня</option><option value="culinary">Кулинария</option><option value="buffet">Буфет</option><option value="ready_food_cafe">Кафе с готовой едой</option><option value="other">Другое</option></select></label>
       <label>Город<input name="city" required maxlength="80" value="Армавир" /></label>
@@ -697,7 +728,7 @@ function contactsPage() {
     <div>
       ${sectionTitle("", "Как с нами связаться")}
       ${config.demoMode ? `<p class="demo-notice">Тестовый режим: не вводите реальные персональные данные.</p>` : ""}
-      ${config.legal.ready ? `<form class="smart-form" data-form="contact">
+      ${config.legal.ready ? `<form class="smart-form" method="post" data-form="contact">
         <label>Имя<input name="name" required maxlength="80" placeholder="Ваше имя" /></label>
         <label>Телефон<input name="phone" required type="tel" inputmode="tel" minlength="7" maxlength="30" placeholder="+7 (___) ___-__-__" /></label>
         <label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.ru" /></label>
@@ -984,7 +1015,7 @@ function adminPage() {
       <div class="auth-box">
         <h3>Вход администратора</h3>
         <p>Используйте персональный логин администратора.</p>
-        <form class="smart-form auth-form" data-admin-login-form>
+        <form class="smart-form auth-form" method="post" data-admin-login-form>
           <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
           <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
           <p class="form-error" role="alert" aria-live="polite" hidden></p>
@@ -1010,7 +1041,7 @@ function adminPage() {
         <article class="panel-card tab-panel" data-tab-panel="overview"><h3>Рабочий порядок</h3><div class="admin-workflow"><button type="button" data-admin-go-tab="partner-applications"><b>1</b><span>Проверить заявки</span></button><button type="button" data-admin-go-tab="partners"><b>2</b><span>Подключить партнёра</span></button><button type="button" data-admin-go-tab="bookings"><b>3</b><span>Контролировать коды</span></button></div><div class="table-wrap" data-admin-service></div></article>
         <article class="panel-card tab-panel onboarding-panel" data-tab-panel="partners">
           <div class="panel-heading"><div><h3>Подключить нового партнёра</h3><p>Одна кнопка создаёт организацию, первую точку и вход владельца.</p></div></div>
-          <form class="onboarding-form" data-admin-onboard-partner>
+          <form class="onboarding-form" method="post" data-admin-onboard-partner>
             <input type="hidden" name="applicationId" />
             <div class="onboarding-source" data-admin-onboarding-source hidden><span>Поля заполнены из заявки партнёра</span><button type="button" data-clear-application>Очистить</button></div>
             <fieldset><legend><b>1</b> Организация</legend><div class="onboarding-fields"><label>Название<input name="partnerName" required maxlength="120" placeholder="Тестовая кулинария" /></label><label>Тип<select name="partnerType"><option value="culinary">Кулинария</option><option value="bakery">Пекарня</option><option value="coffee">Кофейня</option><option value="cafe">Кафе</option><option value="ready_food_cafe">Кафе с готовой едой</option><option value="buffet">Буфет</option><option value="other">Другое</option></select></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Имя представителя" /></label><label>Телефон<input name="phone" type="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="partner@example.test" /></label></div></fieldset>
@@ -1020,8 +1051,8 @@ function adminPage() {
           </form>
           <div class="panel-heading list-heading"><div><h3>Подключённые партнёры</h3><p>Отключение партнёра сразу закрывает его кабинет и скрывает активные предложения.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-partners]"><input type="search" placeholder="Найти партнёра" data-filter-query /><select data-filter-status aria-label="Статус партнёра"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Отключён">Отключённые</option></select></div></div><div class="table-wrap" data-admin-partners></div>
         </article>
-        <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form" data-admin-create-address><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="title" required placeholder="Название точки" /><input name="city" required value="Армавир" /><input name="address" required placeholder="Армавир, тестовый адрес" /><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form" data-admin-create-user><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="name" required placeholder="Имя сотрудника" /><input name="login" required placeholder="Логин" /><input name="password" required minlength="12" type="password" placeholder="Временный пароль от 12 символов" /><select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option></select><button class="button button-primary" type="submit">Добавить пользователя</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
-        <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Обычно предложение публикует партнёр из своего кабинета. Эта форма нужна для первого запуска или помощи партнёру.</p></div></div><form class="mini-form offer-editor" data-admin-create-offer><select name="partnerId" required data-admin-offer-partner><option value="">Выберите партнёра</option></select><select name="addressId" required data-admin-offer-address disabled><option value="">Сначала выберите партнёра</option></select><input name="title" required maxlength="120" placeholder="Название предложения" /><select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select><input name="description" maxlength="240" placeholder="Короткое описание" /><input name="contents" maxlength="500" placeholder="Что входит в набор" /><input name="weight" maxlength="80" placeholder="Вес или количество изделий" /><input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /><input name="price" required type="number" min="1" placeholder="Цена" /><input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /><input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /><input name="date" required type="date" data-today-date /><input name="totalQuantity" required type="number" min="1" placeholder="Количество" /><select name="status"><option value="active">Активно</option><option value="paused">Черновик</option></select><button class="button button-primary" type="submit">Опубликовать предложение</button></form><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-offers]"><input type="search" placeholder="Найти предложение или партнёра" data-filter-query /><select data-filter-status aria-label="Статус предложения"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Черновик">Черновики</option><option value="Распродано">Распроданные</option><option value="Истекло">Истёкшие</option></select></div><div class="table-wrap" data-admin-offers></div></article>
+        <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form" method="post" data-admin-create-address><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="title" required placeholder="Название точки" /><input name="city" required value="Армавир" /><input name="address" required placeholder="Армавир, тестовый адрес" /><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form" method="post" data-admin-create-user><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="name" required placeholder="Имя сотрудника" /><input name="login" required placeholder="Логин" /><input name="password" required minlength="12" type="password" placeholder="Временный пароль от 12 символов" /><select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option></select><button class="button button-primary" type="submit">Добавить пользователя</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
+        <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Обычно предложение публикует партнёр из своего кабинета. Эта форма нужна для первого запуска или помощи партнёру.</p></div></div><form class="mini-form offer-editor" method="post" data-admin-create-offer><select name="partnerId" required data-admin-offer-partner><option value="">Выберите партнёра</option></select><select name="addressId" required data-admin-offer-address disabled><option value="">Сначала выберите партнёра</option></select><input name="title" required maxlength="120" placeholder="Название предложения" /><select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select><input name="description" maxlength="240" placeholder="Короткое описание" /><input name="contents" maxlength="500" placeholder="Что входит в набор" /><input name="weight" maxlength="80" placeholder="Вес или количество изделий" /><input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /><input name="price" required type="number" min="1" placeholder="Цена" /><input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /><input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /><input name="date" required type="date" data-today-date /><input name="totalQuantity" required type="number" min="1" placeholder="Количество" /><select name="status"><option value="active">Активно</option><option value="paused">Черновик</option></select><button class="button button-primary" type="submit">Опубликовать предложение</button></form><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-offers]"><input type="search" placeholder="Найти предложение или партнёра" data-filter-query /><select data-filter-status aria-label="Статус предложения"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Черновик">Черновики</option><option value="Распродано">Распроданные</option><option value="Истекло">Истёкшие</option></select></div><div class="table-wrap" data-admin-offers></div></article>
         <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Брони и коды</h3><p>Найдите код, покупателя или заведение и подтвердите результат выдачи.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-bookings]"><input type="search" placeholder="Найти код или покупателя" data-filter-query /><select data-filter-status aria-label="Статус брони"><option value="">Все статусы</option><option value="Забронировано">Текущие</option><option value="Выдано">Выданные</option><option value="Не пришёл">Не полученные</option><option value="Отменено">Отменённые</option></select></div></div><div class="table-wrap" data-admin-bookings></div></article>
         <article class="panel-card tab-panel" data-tab-panel="partner-applications"><div class="panel-heading"><h3>Заявки партнёров</h3><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-applications]"><input type="search" placeholder="Найти заведение или контакт" data-filter-query /><select data-filter-status aria-label="Статус заявки"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="Связались">Связались</option><option value="Подключён">Подключённые</option><option value="Отклонено">Отклонённые</option></select></div></div><div class="table-wrap" data-admin-applications></div></article>
         <article class="panel-card tab-panel" data-tab-panel="contact-requests"><div class="panel-heading"><h3>Обращения</h3><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-contacts]"><input type="search" placeholder="Найти обращение" data-filter-query /><select data-filter-status aria-label="Статус обращения"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="В работе">В работе</option><option value="Закрыто">Закрытые</option></select></div></div><div class="table-wrap" data-admin-contacts></div></article>
@@ -1045,7 +1076,7 @@ function partnerLoginPage() {
       <div class="auth-box">
         <h3>Войти в кабинет</h3>
         <p>Доступ выдаёт администратор сервиса.</p>
-        <form class="smart-form auth-form" data-partner-login-form>
+        <form class="smart-form auth-form" method="post" data-partner-login-form>
           <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
           <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
           <p class="form-error" role="alert" aria-live="polite" hidden></p>
@@ -1074,10 +1105,10 @@ function partnerDashboardPage() {
     <div class="stats-row admin-stats" data-partner-stats></div>
     <div class="admin-grid">
       <article class="panel-card tab-panel" data-tab-panel="overview"><h3>Сегодня в точках</h3><div data-partner-overview></div></article>
-      <article class="panel-card tab-panel" data-tab-panel="addresses"><h3>Адреса</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать точки, а добавлять и изменять их может владелец.</p><form class="mini-form labelled-form" data-partner-create-address data-owner-only><label>Название точки<input name="title" required placeholder="Основная точка" /></label><label>Город<input name="city" required value="Армавир" /></label><label>Адрес<input name="address" required placeholder="Армавир, ул. Тестовая, 1" /></label><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-partner-addresses></div></article>
-      <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Для новой текущей партии используйте быстрый мастер. Расширенная форма ниже остаётся для ручной настройки.</p></div><button class="button button-primary" type="button" data-open-offer-wizard>Разместить сегодня</button></div><details class="advanced-offer-editor"><summary>Расширенная форма</summary><form class="mini-form offer-editor" data-partner-create-offer><select name="addressId" required data-partner-address-select><option value="">Выберите точку</option></select><input name="title" required maxlength="120" placeholder="Название предложения" /><select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select><input name="description" maxlength="240" placeholder="Короткое описание" /><input name="contents" maxlength="500" placeholder="Что входит в набор" /><input name="weight" maxlength="80" placeholder="Вес или количество изделий" /><input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /><input name="price" required type="number" min="1" placeholder="Цена" /><input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /><input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /><input name="date" required type="date" data-today-date /><input name="totalQuantity" required type="number" min="1" placeholder="Количество" /><select name="status"><option value="active">Опубликовать</option><option value="paused">Сохранить черновик</option></select><button class="button button-primary" type="submit">Сохранить предложение</button></form></details><div class="table-wrap" data-partner-offers></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="addresses"><h3>Адреса</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать точки, а добавлять и изменять их может владелец.</p><form class="mini-form labelled-form" method="post" data-partner-create-address data-owner-only><label>Название точки<input name="title" required placeholder="Основная точка" /></label><label>Город<input name="city" required value="Армавир" /></label><label>Адрес<input name="address" required placeholder="Армавир, ул. Тестовая, 1" /></label><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-partner-addresses></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Для новой текущей партии используйте быстрый мастер. Расширенная форма ниже остаётся для ручной настройки.</p></div><button class="button button-primary" type="button" data-open-offer-wizard>Разместить сегодня</button></div><details class="advanced-offer-editor"><summary>Расширенная форма</summary><form class="mini-form offer-editor" method="post" data-partner-create-offer><select name="addressId" required data-partner-address-select><option value="">Выберите точку</option></select><input name="title" required maxlength="120" placeholder="Название предложения" /><select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select><input name="description" maxlength="240" placeholder="Короткое описание" /><input name="contents" maxlength="500" placeholder="Что входит в набор" /><input name="weight" maxlength="80" placeholder="Вес или количество изделий" /><input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /><input name="price" required type="number" min="1" placeholder="Цена" /><input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /><input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /><input name="date" required type="date" data-today-date /><input name="totalQuantity" required type="number" min="1" placeholder="Количество" /><select name="status"><option value="active">Опубликовать</option><option value="paused">Сохранить черновик</option></select><button class="button button-primary" type="submit">Сохранить предложение</button></form></details><div class="table-wrap" data-partner-offers></div></article>
       <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Коды и брони</h3><p>Сначала найдите код, затем подтвердите результат выдачи.</p></div><div class="table-filters"><input type="search" placeholder="Найти код или предложение" data-partner-booking-search /><select data-partner-booking-status aria-label="Статус брони"><option value="">Все статусы</option><option value="created">Текущие</option><option value="issued">Выданные</option><option value="no_show">Не полученные</option><option value="cancelled">Отменённые</option></select></div></div><div class="table-wrap" data-partner-bookings></div></article>
-      <article class="panel-card tab-panel" data-tab-panel="profile"><h3>Профиль</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать профиль. Изменять реквизиты может владелец.</p><form class="mini-form labelled-form" data-partner-profile-form data-owner-only><label>Название заведения<input name="name" maxlength="120" placeholder="Название партнёра" /></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Контактное лицо" /></label><label>Телефон<input name="phone" type="tel" inputmode="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.test" /></label><button class="button button-primary" type="submit">Сохранить профиль</button></form><div class="table-wrap" data-partner-profile></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="profile"><h3>Профиль</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать профиль. Изменять реквизиты может владелец.</p><form class="mini-form labelled-form" method="post" data-partner-profile-form data-owner-only><label>Название заведения<input name="name" maxlength="120" placeholder="Название партнёра" /></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Контактное лицо" /></label><label>Телефон<input name="phone" type="tel" inputmode="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.test" /></label><button class="button button-primary" type="submit">Сохранить профиль</button></form><div class="table-wrap" data-partner-profile></div></article>
       <article class="panel-card tab-panel" data-tab-panel="help"><h3>Помощь</h3><p class="empty-state">Если код не находится, проверьте дату предложения и статус брони. Для входа используйте логин и пароль, которые выдал администратор сервиса.</p></article>
     </div>
   </section>
@@ -1094,7 +1125,7 @@ function partnerDashboardPage() {
         <li data-wizard-progress="3"><b>3</b><span>Условия</span></li>
         <li data-wizard-progress="4"><b>4</b><span>Проверка</span></li>
       </ol>
-      <form class="wizard-form" data-offer-wizard-form>
+      <form class="wizard-form" method="post" data-offer-wizard-form>
         <section class="wizard-step" data-wizard-step="1">
           <h3>Что выставляете сегодня?</h3>
           <p>Сделайте свежие фото текущей партии или выберите готовый шаблон.</p>
@@ -1193,27 +1224,34 @@ function renderPage(pathname) {
     "/partner/dashboard": "Панель партнёра"
   };
   const isAppPage = pathname === "/admin" || pathname.startsWith("/partner/");
-  const pageOffers = getPageOffers();
-
   return `<!doctype html>
   <html lang="ru">
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <meta name="robots" content="noindex,nofollow" />
-      <title>${pathname.startsWith("/booking/") ? "Моя бронь" : (titles[pathname] || "Бери сегодня")} · Бери сегодня</title>
+      <title>${pathname === "/" ? "Бери сегодня" : `${pathname.startsWith("/booking/") ? "Моя бронь" : (titles[pathname] || "Бери сегодня")} · Бери сегодня`}</title>
       <meta name="description" content="Выгодные наборы еды из заведений Армавира на сегодня. Бронь по коду, самовывоз и оплата при получении." />
-      <meta name="theme-color" content="#073b4c" />
+      <meta name="theme-color" content="#102F38" />
+      <meta name="application-name" content="Бери сегодня" />
+      <meta name="mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      <meta name="apple-mobile-web-app-title" content="Бери сегодня" />
+      <link rel="manifest" href="/manifest.webmanifest" />
+      <link rel="icon" type="image/png" sizes="64x64" href="/icons/favicon-64.png" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
       <link rel="stylesheet" href="/styles.css" />
-      <script>window.DEFAULT_OFFERS=${json(pageOffers)};</script>
-      <script>window.PUBLIC_CONFIG=${json({ demoMode: config.demoMode, appName: config.appName, appCity: config.appCity, legalReady: config.legal.ready })};</script>
+      <script src="/page-config.js"></script>
     </head>
     <body class="${pathname === "/" ? "page-home" : "page-inner"}${isAppPage ? " page-app" : ""}">
       ${header(pathname)}
       <main>${renderBody(pathname)}</main>
       ${footer()}
       ${bookingModal()}
-      ${isAppPage ? `<script src="/app.js"></script>` : `<script>${PUBLIC_JS}</script>`}
+      ${pwaInstallDialog()}
+      ${isAppPage ? `<script src="/app.js"></script>` : `<script src="/public.js"></script>`}
+      <script src="/pwa.js"></script>
     </body>
   </html>`;
 }
@@ -1226,7 +1264,7 @@ function bookingModal() {
       <div data-booking-step="form">
         <h2 id="booking-title">Получить код</h2>
         <div class="booking-summary" id="booking-summary"></div>
-        <form class="booking-form" id="booking-form">
+        <form class="booking-form" id="booking-form" method="post">
           <label>Имя<input name="customerName" required maxlength="80" placeholder="Ваше имя" /></label>
           <label>Телефон<input name="customerPhone" required type="tel" inputmode="tel" minlength="7" maxlength="30" placeholder="+7 (___) ___-__-__" /></label>
           <label class="consent"><input type="checkbox" name="personalDataConsent" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">Политику обработки персональных данных</a></span></label>
@@ -1291,6 +1329,8 @@ const PUBLIC_JS = `
       headers: headers,
       method: method,
       body: options.body ? JSON.stringify(options.body) : undefined
+    }).catch(function () {
+      throw new Error(navigator.onLine === false ? "Нет соединения с интернетом. Проверьте сеть и повторите действие." : "Сервис временно недоступен. Попробуйте ещё раз.");
     }).then(function (response) {
       return response.json().catch(function () {
         return { ok: false, error: { message: "Некорректный ответ сервера" } };
@@ -1705,13 +1745,18 @@ async function api(path, options = {}) {
   const method = options.method || "GET";
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) headers["X-BS-Request"] = "1";
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    ...options,
-    method,
-    headers,
-    body: options.body && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      credentials: "same-origin",
+      ...options,
+      method,
+      headers,
+      body: options.body && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body
+    });
+  } catch {
+    throw new Error(navigator.onLine === false ? "Нет соединения с интернетом. Проверьте сеть и повторите действие." : "Сервис временно недоступен. Попробуйте ещё раз.");
+  }
   const payload = await response.json().catch(() => ({ ok: false, error: { message: "Сервис временно недоступен" } }));
   if (!response.ok || !payload.ok) {
     const error = new Error(payload.error?.message || "Не удалось выполнить действие");
@@ -3643,7 +3688,22 @@ body { background: var(--color-bg); }
 .footer-logo { color: white; }
 .site-footer p, .site-footer a { color: #b8c8c2; }
 .site-footer a:hover { color: white; }
+.footer-install { padding: 0; border: 0; background: transparent; color: #f4ce67; font: inherit; font-weight: 850; text-align: left; cursor: pointer; }
+.footer-install:hover { color: white; }
+.footer-install[hidden] { display: none; }
 .footer-legal { grid-column: 1 / -1; padding-top: 20px; border-top: 1px solid #294038; }
+.pwa-dialog { position: fixed; z-index: 110; inset: 0; display: grid; place-items: center; padding: 18px; }
+.pwa-dialog[hidden] { display: none; }
+.pwa-dialog-backdrop { position: absolute; inset: 0; background: rgba(5, 30, 36, .68); backdrop-filter: blur(3px); }
+.pwa-dialog-panel { position: relative; width: min(100%, 440px); padding: 32px; border-radius: 12px; background: white; box-shadow: 0 28px 80px rgba(0, 0, 0, .28); text-align: center; }
+.pwa-dialog-panel img { width: 80px; height: 80px; border-radius: 18px; }
+.pwa-dialog-panel h2 { margin: 18px 0 10px; color: #102f38; font-size: 28px; line-height: 1.12; }
+.pwa-dialog-panel p { margin: 0 0 22px; color: var(--color-muted); line-height: 1.55; }
+.pwa-dialog-panel .button { width: 100%; }
+.pwa-dialog-close { position: absolute; top: 12px; right: 12px; width: 38px; height: 38px; border: 0; border-radius: 7px; background: #eef2f0; color: #173a45; font: inherit; font-size: 24px; cursor: pointer; }
+.pwa-dialog-open { overflow: hidden; }
+.pwa-status { position: fixed; z-index: 105; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); max-width: min(420px, calc(100vw - 36px)); padding: 13px 15px; display: flex; align-items: center; gap: 14px; border: 1px solid #c8d8d3; border-radius: 9px; background: #102f38; color: white; box-shadow: 0 16px 44px rgba(5, 30, 36, .25); font-size: 14px; font-weight: 750; }
+.pwa-status button { min-height: 36px; padding: 7px 11px; border: 0; border-radius: 6px; background: #f4ce67; color: #173136; font: inherit; font-weight: 900; cursor: pointer; }
 .modal-panel { max-width: 560px; border-radius: 8px; border: 0; box-shadow: 0 28px 80px rgba(0,0,0,.24); }
 .modal-close { border-radius: 6px; }
 .modal-open { overflow: hidden; }
@@ -3825,6 +3885,9 @@ body { background: var(--color-bg); }
   .partner-strip { width: min(100% - 28px, 1240px); grid-template-columns: 1fr; padding: 22px; }
   .partner-strip .strip-photo { display: none; }
   .site-footer { padding: 36px 18px; grid-template-columns: 1fr; gap: 24px; }
+  .pwa-dialog { padding: 0; align-items: end; }
+  .pwa-dialog-panel { width: 100%; padding: 30px 20px calc(24px + env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0; }
+  .pwa-status { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
   .footer-legal { grid-column: auto; display: grid; gap: 12px; }
   .booking-success-actions, .booking-page-shell, .booking-details { grid-template-columns: 1fr; }
   .booking-page { width: min(100% - 28px, 1180px); padding-top: 28px; }
@@ -4126,6 +4189,11 @@ body { background: var(--color-bg); }
   .marketplace-home { transition: none; }
 }
 
+@media (display-mode: standalone) {
+  .site-header { padding-top: env(safe-area-inset-top); }
+  .site-footer { padding-bottom: calc(36px + env(safe-area-inset-bottom)); }
+}
+
 @media (max-width: 1100px) {
   .offer-row { grid-template-columns: 120px minmax(200px, 1fr) 135px 95px 150px; }
   .offer-row > img { width: 120px; }
@@ -4410,9 +4478,43 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (url.pathname === "/public.js") {
+    sendText(response, 200, PUBLIC_JS, { ...securityHeaders, "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" });
+    return;
+  }
+
+  const pwaAsset = {
+    "/.well-known/assetlinks.json": [".well-known/assetlinks.json", "application/json; charset=utf-8", "public, max-age=300"],
+    "/manifest.webmanifest": ["manifest.webmanifest", "application/manifest+json; charset=utf-8", "no-cache"],
+    "/sw.js": ["sw.js", "text/javascript; charset=utf-8", "no-cache"],
+    "/pwa.js": ["pwa.js", "text/javascript; charset=utf-8", "no-cache"],
+    "/offline.html": ["offline.html", "text/html; charset=utf-8", "no-cache"],
+    "/offline.css": ["offline.css", "text/css; charset=utf-8", "public, max-age=86400"],
+    "/offline.js": ["offline.js", "text/javascript; charset=utf-8", "public, max-age=86400"]
+  }[url.pathname];
+  if (pwaAsset) {
+    const [fileName, contentType, cacheControl] = pwaAsset;
+    sendFile(
+      response,
+      path.join(ROOT, "public", fileName),
+      contentType,
+      cacheControl,
+      url.pathname === "/sw.js" ? { "Service-Worker-Allowed": "/" } : {}
+    );
+    return;
+  }
+
+  if (url.pathname.startsWith("/icons/")) {
+    const iconRoot = path.join(ROOT, "public", "icons");
+    const filePath = path.normalize(path.join(ROOT, "public", url.pathname));
+    if (filePath.startsWith(iconRoot + path.sep) && fs.existsSync(filePath) && path.extname(filePath).toLowerCase() === ".png") {
+      sendFile(response, filePath, "image/png", "public, max-age=31536000, immutable");
+      return;
+    }
+  }
+
   if (url.pathname === "/favicon.ico") {
-    response.writeHead(204, { ...securityHeaders, "Cache-Control": "no-store" });
-    response.end();
+    sendFile(response, path.join(ROOT, "public", "icons", "favicon-64.png"), "image/png", "public, max-age=31536000, immutable");
     return;
   }
 
@@ -4450,6 +4552,17 @@ const server = http.createServer(async (request, response) => {
   const requirement = authRequirement(url.pathname);
   if (requirement && !isAuthorized(request, requirement.user, requirement.hash)) {
     sendUnauthorized(response, requirement.realm);
+    return;
+  }
+
+  if (url.pathname === "/page-config.js") {
+    const pageConfig = `window.DEFAULT_OFFERS=${json(listPublicOffers())};window.PUBLIC_CONFIG=${json({
+      demoMode: config.demoMode,
+      appName: config.appName,
+      appCity: config.appCity,
+      legalReady: config.legal.ready
+    })};`;
+    sendText(response, 200, pageConfig, { ...securityHeaders, "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" });
     return;
   }
 
