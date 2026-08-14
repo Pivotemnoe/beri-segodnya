@@ -44,10 +44,13 @@
 - [x] Previously published credentials were rotated and old values return `401`.
 - [x] PWA manifest, service worker, icons and Digital Asset Links are live.
 - [x] App-specific Node `24.19.0`, PM2 interpreter, backup cron, rollback evidence and 36-check HTTPS role acceptance are verified.
+- [x] Android source commit `f2dd0e3` pins AGP `9.3.1`/Gradle `9.5.0`, 53 release dependencies and SHA-256 verification for 627 artifacts.
+- [x] Android release dependency OSV gate, offline Gradle configuration and real-key signing preflight passed.
 - [ ] Legal/operator configuration is complete and `LEGAL_OPERATOR_READY=true` is approved.
+- [ ] Android GitHub Actions gate has passed after push; current local `gh` credential is invalid.
 - [ ] Signed APK is built, verified and installed on an Android target.
 - [ ] Dedicated `deploy` SSH key and app-specific alert delivery are verified.
 
-Result: deployed and ready for an internal technical rehearsal without real personal data. A real-user pilot remains blocked by legal/operator configuration and device acceptance.
+Result: the deployed web/PWA is ready for an internal technical rehearsal without real personal data. Android source is hardened, but a real-user pilot remains blocked by legal/operator configuration, signed APK/device acceptance and the external operating gates.
 
 Public production remains blocked by the items in `docs/PILOT_READINESS.md`.

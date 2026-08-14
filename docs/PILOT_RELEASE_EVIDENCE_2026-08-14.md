@@ -7,12 +7,13 @@
 - Внутренняя техническая репетиция под новым Basic Auth и только с тестовыми данными — `GO`.
 - Закрытый пилот с реальными клиентами и персональными данными — `NO-GO`, пока оператор не заполнит юридические реквизиты и не завершит legal/RKN gate. До этого формы на сервере возвращают `503 LEGAL_NOT_READY` и ничего не сохраняют.
 - Публичный запуск — `NO-GO`: дополнительно нужны подтвержденное предложение партнеров, app-specific monitoring, retention/incident process и внешний security review.
-- Исходник Android/TWA готов, но подписанный APK и emulator/device smoke не подтверждены: установка Android SDK ожидает явного принятия лицензии Google.
+- Android/TWA source усилен локальным commit `f2dd0e3`: supply-chain, release dependency OSV и signing preflight подтверждены. Подписанный APK и emulator/device smoke не подтверждены: установка Android SDK ожидает явного принятия лицензии Google, а `adb` target отсутствует.
 
 ## Идентичность release
 
 - Ветка: `codex/pilot-hardening`.
 - Развернутый commit: `1aee6d2` (`chore(runtime): pin Node 24 LTS pilot gate`).
+- Последующий локальный Android source commit: `f2dd0e3` (`fix(android): harden pilot APK supply chain`); он не развертывался на VPS и не меняет web runtime.
 - SHA-256 release-архива: `adb4dc3b763fefe2481a1d21f1c803755268f9f16e6716393d042c962b8dbe02`.
 - Время переключения: `2026-08-14T18:25:43Z`.
 - Маркер на VPS: `/var/www/beri-segodnya/.release.json`, режим `0600`.
@@ -80,6 +81,20 @@ Release `1aee6d2` был распакован в отдельный катало
 изолированном child process; production clock не менялся. Повторный полный gate
 прошел локально и на VPS.
 
+## Android/TWA supply-chain и signing preflight
+
+- JDK `17.0.20+8`, Android Gradle Plugin `9.3.1`, официальный Gradle `9.5.0`, Android Browser Helper `2.7.3` и AndroidX Browser `1.10.0` закреплены явными версиями.
+- Официальный Gradle distribution SHA-256: `553c78f50dafcd54d65b9a444649057857469edf836431389695608536d6b746`; wrapper JAR SHA-256: `497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7`.
+- Wrapper launcher SHA-256: Unix `ab5c0cad16305af2e619c159c1f58dd68d07fab9c11e36701e109c0277407f7a`, Windows `5c0a21ecd6b3a6292e0746bff3b75fd2d8f47b9ff226ce53dc22b30184ef3bec`; `.gitattributes` фиксирует LF и binary mode.
+- Gradle lockfile закрепляет 53 уникальные зависимости `releaseRuntimeClasspath`; verification metadata содержит 360 компонентов, 627 артефактов и ровно 627 SHA-256. Trusted/ignored bypasses, SHA-1 и MD5 отсутствуют.
+- `npm run build`, `npm run test:security`, static Android config gate, `git diff --check`, shell syntax и offline `./gradlew --warning-mode fail --dependency-verification strict tasks` — PASS.
+- Fail-closed `npm run test:android-vulnerabilities` запросил только Maven coordinates/versions 53 release dependencies; OSV не нашёл известных уязвимостей. Исходный код, ключи, пароли и пользовательские данные в OSV не передаются.
+- Расширенный `audit:android-build-vulnerabilities` намеренно завершился non-zero: advisories найдены в upstream AGP/lint/device-test инструментах Netty `4.1.93/4.1.110`, Commons Lang `3.16.0`, HttpClient `4.5.6`, jose4j `0.9.5`, Bouncy Castle `1.79`, JDOM `2.0.6` и Kotlin Gradle plugin `2.2.10`. Они не входят в 53 release runtime dependencies и APK; allowlist не применён. Компенсации: latest stable AGP, checksum verification, immutable CI actions, `contents: read`, `persist-credentials: false`, отсутствие signing secrets в CI и отдельный видимый audit.
+- Release settings: `targetSdk=36`, `minSdk=21`, `debuggable=false`, `jniDebuggable=false`, `lintRelease`, R8 и resource shrinking. Signing script дополнительно проверяет alignment, signature/fingerprint, package/version/SDK/launcher и создаёт mode-`0600` APK/checksum outputs.
+- Signing preflight выполнен с реальным закрытым pilot key и password file: private modes, JDK 17, alias, certificate fingerprint, Digital Asset Links, wrapper и distribution checksums — PASS. Секреты не попали в Git, stdout или отчёт.
+- Полная APK-сборка не запускалась: Android SDK license не принималась, Platform 36/Build Tools `36.1.0` не устанавливались, подключённых устройств/эмуляторов `adb` нет.
+- Android GitHub Actions job и Dependabot source настроены локально. CI не считается подтверждённым до push и зелёного run; локальная `gh` авторизация недействительна.
+
 ## Целостность данных
 
 | Коллекция | До release | После release/rotation/acceptance | Комментарий |
@@ -121,6 +136,8 @@ Release `1aee6d2` был распакован в отдельный катало
 
 - юридические реквизиты оператора, решение по РКН/локализации и юридическая проверка документов;
 - подписанная APK-сборка, `apksigner` verification и установка на emulator/реальное Android-устройство;
+- зелёный GitHub Actions run нового Android gate после повторной авторизации и push;
+- upstream advisories build/lint/device-test toolchain: они не входят в APK, но требуют мониторинга обновлений AGP и сохранения изоляции CI;
 - реальный iPhone/Android standalone flow и камера на устройстве;
 - подтвержденные партнеры, права на контент и supply SLA;
 - app-specific alerts, retention/purge и внешний authenticated penetration test;

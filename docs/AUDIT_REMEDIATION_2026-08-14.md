@@ -24,7 +24,7 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 - SSH работает напрямую на `89.169.46.92:22`; туннель не используется.
 - На VPS пока разрешены root-вход и парольная SSH-аутентификация.
 - GitHub-репозиторий публичный; ранее опубликованные пароли остаются в истории, поэтому preview/admin/три partner credentials заменены, старые значения возвращают `401`, 9 прежних сессий отозваны.
-- PWA manifest, safe service worker, install UI, icons, Digital Asset Links и Android/TWA source развернуты.
+- PWA manifest, safe service worker, install UI, icons и Digital Asset Links развернуты на live; Android/TWA source усилен локально отдельным commit `f2dd0e3` и не требует web-деплоя.
 
 ## Пакет 1. P0: персональные данные и доступ
 
@@ -84,6 +84,12 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 
 - [x] TWA-проект с фиксированным application id `ru.berisegodnya.app`.
 - [x] `assetlinks.json` с fingerprint релизного ключа.
+- [x] JDK 17, Android Gradle Plugin `9.3.1` и официальный Gradle `9.5.0` закреплены проверенными версиями.
+- [x] Wrapper JAR, launcher scripts и distribution закреплены SHA-256; окончания строк wrapper-скриптов фиксированы через `.gitattributes`.
+- [x] 53 release runtime dependencies заблокированы lockfile; 627 загружаемых артефактов проверяются SHA-256 без allowlist и слабых хешей.
+- [x] Release OSV gate: известных уязвимостей в 53 зависимостях, попадающих в APK, не найдено.
+- [x] `lintRelease`, R8, resource shrinking, strict dependency verification и fail-on-warning включены в source/CI contract.
+- [x] Signing preflight на реальном закрытом ключе: режимы файлов, JDK, alias, fingerprint, Digital Asset Links и Gradle checksums — PASS; ключ и пароль в Git/лог не попадали.
 - [ ] Подписанный sideload APK и установка через `adb`.
 - [x] Релизный ключ вне Git; локальная signing-директория имеет private permissions.
 - [ ] Отдельный SSH-ключ для `deploy`, проверка sudo и нового входа.
@@ -99,7 +105,10 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 - Реальные партнёры, адреса, фотографии и ассортимент добавляются только после отдельного подтверждения прав и содержания.
 - Публичный запуск остаётся закрыт до юридической проверки, решения по РКН и подтверждения локализации данных.
 - Для push/PR требуется обновить локальную авторизацию GitHub CLI; текущий token недействителен.
-- Для signed APK/emulator smoke требуется явное принятие Android SDK license; лицензия автоматически не принималась.
+- Локальный Android CI workflow настроен, но не считается выполненным до push и зелёного GitHub Actions run.
+- Для signed APK/emulator smoke требуется явное решение пользователя: `Да, принимаю лицензию Android SDK`; лицензия автоматически не принималась, SDK packages не устанавливались.
+- Для device acceptance нужен доступный `adb` target: сейчас подключённых устройств и эмуляторов нет.
+- Расширенный OSV audit видит advisories в upstream AGP/lint/device-test инструментах (Netty, Commons Lang/HttpClient, jose4j, Bouncy Castle, JDOM и Kotlin Gradle plugin). Они отсутствуют в `releaseRuntimeClasspath` и APK, не скрыты allowlist и остаются отдельным trigger для обновления toolchain и изоляции CI.
 
 ## Фактический выпуск
 
@@ -110,4 +119,5 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 - Business counts сохранены: 7 партнеров, 6 пользователей, 6 адресов, 6 предложений, 3 брони, 3 заявки, 3 обращения, 3 шаблона.
 - Sessions: `9 → 0` после обязательного revoke; audit log: `42 → 56` из-за ожидаемых acceptance login events двух выпусков.
 - Live PWA/headers/role isolation/CSRF/legal gate, browser desktop/mobile и отдельные 36 HTTPS checks после Node 24 switch — PASS.
+- Android source hardening: локальный commit `f2dd0e3`; build/security/config/release-OSV/offline Gradle/signing preflight — PASS. Этот commit не развертывался на VPS, потому что не меняет web runtime.
 - Полный протокол: `docs/PILOT_RELEASE_EVIDENCE_2026-08-14.md`.
