@@ -42,6 +42,9 @@ LEGAL_OPERATOR_ADDRESS=
 LEGAL_PRIVACY_EMAIL=
 LEGAL_DOCUMENT_VERSION=
 
+PUBLIC_SUPPORT_EMAIL=hello@example.ru
+PUBLIC_SUPPORT_PHONE=
+
 NEXT_PUBLIC_APP_NAME=Бери сегодня
 NEXT_PUBLIC_APP_CITY=Армавир
 NEXT_PUBLIC_DEMO_MODE=false
@@ -91,6 +94,7 @@ Put `hash`, `salt` and `iterations` into the matching `ADMIN_APP_PASSWORD_*` var
 - Put env values in a protected `.env.local` or process manager env.
 - Keep `HOST=127.0.0.1` when Node is reachable only through Caddy/Nginx.
 - Set `TRUST_PROXY=true` only when the app is behind that trusted reverse proxy; direct local runs should use `false`.
+- Set `PUBLIC_SUPPORT_EMAIL` to a monitored mailbox. Set `PUBLIC_SUPPORT_PHONE` only when the published number is actually staffed; otherwise the interface hides the phone entry.
 - Restrict file permissions.
 - Never print secrets in logs.
 - Never commit `.env.local`.

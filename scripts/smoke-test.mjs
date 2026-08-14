@@ -68,7 +68,7 @@ function request(port, route, { method = "GET", body, auth = "preview", cookie, 
         } catch {
           json = { ok: false, error: { code: "NON_JSON_RESPONSE", message: text.slice(0, 160) } };
         }
-        resolve({ status: res.statusCode, json, headers: res.headers });
+        resolve({ status: res.statusCode, json, text, headers: res.headers });
       });
     });
     req.on("error", reject);
@@ -93,6 +93,12 @@ async function runScenario(port) {
   const suffix = Date.now().toString(36);
   const publicGate = await request(port, "/", { auth: null });
   assert(publicGate.status === 401, "Public preview must remain behind Basic Auth");
+  const publicHome = await request(port, "/");
+  assert(publicHome.status === 200, "Public home did not render");
+  assert(publicHome.text.includes('role="dialog" aria-modal="true" aria-label="Карточка предложения"'), "Offer dialog semantics are missing");
+  assert(publicHome.text.includes('aria-label="Закрыть форму бронирования"'), "Booking dialog close button has no accessible label");
+  assert(publicHome.text.includes('class="offer-row-mobile-pickup"'), "Mobile pickup window is missing from offer rows");
+  assert(!publicHome.text.includes("Фото сделано сегодня") && !publicHome.text.includes("Фото сегодня"), "Public home claims that a photo was made today without evidence");
   const adminPage = await request(port, "/admin", { auth: null });
   assert(adminPage.status === 200, "Admin login page must open without a second Basic Auth prompt");
   const partnerLoginPage = await request(port, "/partner/login", { auth: null });

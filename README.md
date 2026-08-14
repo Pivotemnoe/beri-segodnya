@@ -153,6 +153,7 @@ Backup/restore также сохраняет соответствующий сн
 - `DB_FILE`
 - `UPLOAD_DIR`
 - `LEGAL_OPERATOR_READY` и реквизиты `LEGAL_*`
+- `PUBLIC_SUPPORT_EMAIL` и необязательный `PUBLIC_SUPPORT_PHONE`
 
 Access instructions are in `docs/ACCESS.md`. Deployment guidance is in `docs/DEPLOYMENT.md`; the current architecture is best deployed to a VPS with a persistent disk.
 

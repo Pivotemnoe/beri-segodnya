@@ -8,6 +8,7 @@ import { handleApiRequest } from "./backend/routes/apiRouter.mjs";
 import { listPublicOffers } from "./backend/repositories/databaseRepository.mjs";
 import { sessionFromRequest } from "./backend/services/authService.mjs";
 import { partnerUploadFolder, resolveUploadedImage } from "./backend/storage/imageStore.mjs";
+import { legalConfig } from "./backend/utils/legal.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 loadEnvFile(".env.local");
@@ -28,7 +29,10 @@ const config = {
   partnerAccessPasswordHash: readEnv("PARTNER_ACCESS_PASSWORD_SHA256", ""),
   appName: readEnv("NEXT_PUBLIC_APP_NAME", "Бери сегодня"),
   appCity: readEnv("NEXT_PUBLIC_APP_CITY", "Армавир"),
-  demoMode: readEnv("NEXT_PUBLIC_DEMO_MODE", "true") === "true"
+  demoMode: readEnv("NEXT_PUBLIC_DEMO_MODE", "true") === "true",
+  supportEmail: readEnv("PUBLIC_SUPPORT_EMAIL", "hello@berisegodnya.ru"),
+  supportPhone: readEnv("PUBLIC_SUPPORT_PHONE", ""),
+  legal: legalConfig()
 };
 
 const securityHeaders = {
@@ -227,7 +231,7 @@ function footer() {
       <a href="/contacts">Контакты</a>
     </nav>
     <div class="footer-contacts">
-      <a href="mailto:hello@berisegodnya.ru">hello@berisegodnya.ru</a>
+      <a href="mailto:${html(config.supportEmail)}">${html(config.supportEmail)}</a>
       <a href="/contacts">Написать команде</a>
     </div>
     <nav class="footer-legal" aria-label="Юридические документы">
@@ -267,11 +271,22 @@ function sectionTitle(kicker, title, text = "") {
 }
 
 function legalIntro() {
-  return `<p class="demo-notice">Черновой шаблон для MVP. Перед публичным запуском документ должен быть проверен юристом и заполнен реквизитами оператора.</p>`;
+  return `<p class="demo-notice">Версия документа: ${html(config.legal.documentVersion)}. Перед публичным запуском документ подлежит окончательной юридической проверке.</p>`;
 }
 
 function legalBlock(title, items) {
-  return `<article class="panel-card legal-block"><h3>${title}</h3><ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul></article>`;
+  return `<article class="panel-card legal-block"><h3>${html(title)}</h3><ul>${items.map((item) => `<li>${html(item)}</li>`).join("")}</ul></article>`;
+}
+
+function legalUnavailableDocument(title) {
+  return `<section class="section legal-page">
+    ${sectionTitle("Юридические документы", title, "Документ ещё готовится к публикации.")}
+    <div class="empty-state legal-form-unavailable" role="status">
+      <h3>Документ пока не опубликован</h3>
+      <p>Реквизиты оператора ещё не заполнены. До завершения документа все формы, которые принимают персональные данные, закрыты.</p>
+      <p>Общие вопросы можно направить на <a href="mailto:${html(config.supportEmail)}">${html(config.supportEmail)}</a>.</p>
+    </div>
+  </section>`;
 }
 
 function miniIcon(name) {
@@ -374,28 +389,52 @@ function offerGridSection() {
       <button class="filter" data-filter="bakery">Выпечка</button>
       <button class="filter" data-filter="evening">На вечер</button>
     </div>
+    <p class="marketplace-status" id="marketplace-status" role="status" aria-live="polite" hidden></p>
     <div class="offer-list" id="offers-grid">${pageOffers.map(offerRowMarkup).join("")}</div>
-    <p class="empty-state" id="offers-empty" ${pageOffers.length ? "hidden" : ""}>Пока нет активных предложений</p>
+    <div class="empty-state marketplace-empty" id="offers-empty" ${pageOffers.length ? "hidden" : ""}>
+      <h3 id="offers-empty-title">Сегодня предложений пока нет</h3>
+      <p id="offers-empty-text">Заведения добавляют наборы в течение дня. Проверьте витрину немного позже.</p>
+      <div><button class="button button-primary" type="button" data-refresh-offers>Обновить предложения</button><a class="button button-outline" href="/how-it-works">Как это работает</a></div>
+    </div>
   </section>`;
 }
 
 function offerPhotoTime(offer) {
-  const value = offer.photoCapturedAt || offer.publishedAt || new Date().toISOString();
+  const value = offer.photoCapturedAt || offer.publishedAt;
+  if (!value) return "время не указано";
   try {
     return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }).format(new Date(value));
   } catch {
-    return "сегодня";
+    return "время не указано";
   }
+}
+
+function setNoun(count) {
+  const value = Math.abs(Number(count) || 0);
+  const mod10 = value % 10;
+  const mod100 = value % 100;
+  if (mod10 === 1 && mod100 !== 11) return "набор";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "набора";
+  return "наборов";
+}
+
+function remainingText(count) {
+  const value = Math.max(0, Number(count) || 0);
+  return `${value === 1 ? "Остался" : "Осталось"} ${value} ${setNoun(value)}`;
+}
+
+function photoSourceLabel(offer) {
+  return offer.sourceType === "quick_photo" ? "Фото от заведения" : "Обновлено";
 }
 
 function recentOfferMarkup(offer) {
   const imageUrl = offer.imageUrl || categoryImage(offer.category);
-  const label = offer.sourceType === "quick_photo" ? "Фото сегодня" : "Добавлено сегодня";
+  const label = photoSourceLabel(offer);
   return `<button class="recent-offer js-open-offer" type="button" data-offer-id="${html(offer.id)}" aria-label="Открыть ${html(offer.title)}">
     <img src="${html(imageUrl)}" alt="${html(offer.imageAlt || offer.title)}" loading="eager" />
     <span class="fresh-photo-label">${label} · ${html(offerPhotoTime(offer))}</span>
     <span class="recent-offer-copy"><strong>${html(offer.title)}</strong><small>${html(offer.partnerName)} · ${html(offer.address)}</small></span>
-    <span class="recent-stock">Осталось ${Number(offer.remaining || 0)}</span>
+    <span class="recent-stock">${html(remainingText(offer.remaining))}</span>
   </button>`;
 }
 
@@ -405,9 +444,9 @@ function offerRowMarkup(offer) {
   const discount = oldPrice > offer.price ? Math.round((1 - offer.price / oldPrice) * 100) : 0;
   return `<button class="offer-row js-open-offer" type="button" data-offer-card data-category="${html(offer.category)}" data-offer-id="${html(offer.id)}">
     <img src="${html(imageUrl)}" alt="${html(offer.imageAlt || offer.title)}" loading="lazy" />
-    <span class="offer-row-main"><strong>${html(offer.title)}</strong><small>${html(offer.partnerName)} · ${html(offer.address)}</small><em>${offer.sourceType === "quick_photo" ? "Фото сегодня" : "Добавлено сегодня"} · ${html(offerPhotoTime(offer))}</em></span>
+    <span class="offer-row-main"><strong>${html(offer.title)}</strong><small>${html(offer.partnerName)} · ${html(offer.address)}</small><em>${html(photoSourceLabel(offer))} · ${html(offerPhotoTime(offer))}</em><span class="offer-row-mobile-pickup">Выдача ${html(offer.pickupWindow)}</span></span>
     <span class="offer-row-pickup"><small>Забрать сегодня</small><b>${html(offer.pickupWindow)}</b></span>
-    <span class="offer-row-stock">Осталось ${Number(offer.remaining || 0)}</span>
+    <span class="offer-row-stock">${html(remainingText(offer.remaining))}</span>
     <span class="offer-row-price"><strong>${Number(offer.price)} ₽</strong>${oldPrice ? `<del>${Number(oldPrice)} ₽</del>` : ""}${discount ? `<em>−${discount}%</em>` : ""}</span>
     <span class="offer-row-more">Подробнее</span>
   </button>`;
@@ -421,13 +460,15 @@ function homePage() {
       <div><h1>Сегодня в Армавире</h1><p>Свежие предложения появляются в течение дня.</p></div>
       <div class="marketplace-date"><small>Сегодня</small><strong>${html(today)}</strong></div>
     </div>
-    <div class="recent-heading"><h2>Появилось недавно</h2><p>Фото сделано партнёром сегодня</p></div>
-    <div class="recent-rail" id="recent-offers">${pageOffers.slice(0, 6).map(recentOfferMarkup).join("")}</div>
+    <section class="recent-section" id="recent-section" ${pageOffers.length ? "" : "hidden"}>
+      <div class="recent-heading"><h2>Появилось недавно</h2><p>Новые предложения от заведений</p></div>
+      <div class="recent-rail" id="recent-offers">${pageOffers.slice(0, 6).map(recentOfferMarkup).join("")}</div>
+    </section>
     ${offerGridSection()}
     <p class="resource-note">Каждое предложение помогает сократить лишние списания продуктов и бережнее относиться к ресурсам.</p>
   </section>
   <div class="offer-drawer-backdrop" data-close-offer-drawer hidden></div>
-  <aside class="offer-drawer" id="offer-drawer" aria-label="Карточка предложения" aria-hidden="true" hidden>
+  <aside class="offer-drawer" id="offer-drawer" role="dialog" aria-modal="true" aria-label="Карточка предложения" aria-hidden="true" tabindex="-1" hidden>
     <button class="drawer-close" type="button" data-close-offer-drawer aria-label="Закрыть" title="Закрыть">×</button>
     <div data-offer-drawer-content></div>
   </aside>`;
@@ -525,13 +566,23 @@ function partnerDashboardCard() {
   </article>`;
 }
 
+function personalDataUnavailable(kind = "Форма") {
+  return `<div class="empty-state legal-form-unavailable" role="status">
+    <h3>${html(kind)} временно закрыта</h3>
+    <p>Документы сервиса ещё готовятся, поэтому сейчас мы не принимаем имена, телефоны и другие персональные данные через сайт.</p>
+    <p>Предложения можно просматривать без регистрации. Для общих вопросов используйте <a href="mailto:${html(config.supportEmail)}">${html(config.supportEmail)}</a>.</p>
+  </div>`;
+}
+
 function partnersPage() {
+  const applicationHref = config.legal.ready ? "#partner-application" : `mailto:${config.supportEmail}`;
+  const applicationLabel = config.legal.ready ? "Оставить заявку" : "Написать на email";
   return `<section class="hero split-hero">
     <div class="hero-copy">
       <h1>Партнёрам Бери сегодня</h1>
       <p>Помогаем кафе, пекарням, буфетам и кулинариям продавать ограниченные предложения на сегодня. Клиенты бронируют по коду, оплачивают на месте, а вы получаете дополнительную выручку без лишних затрат.</p>
       <div class="actions">
-        <a class="button button-primary" href="#partner-application">Оставить заявку</a>
+        <a class="button button-primary" href="${html(applicationHref)}">${html(applicationLabel)}</a>
         <a class="button button-outline" href="/partner/login">Войти в кабинет</a>
         <a class="text-link" href="/how-it-works">Как это работает</a>
       </div>
@@ -574,8 +625,8 @@ function partnersPage() {
   </section>
   <section class="section form-section" id="partner-application">
     ${sectionTitle("", "Оставить заявку на подключение", "Расскажите о заведении — мы свяжемся с вами и поможем запустить пилот.")}
-      ${config.demoMode ? `<p class="demo-notice">Демо-режим: заявка сохраняется в серверном MVP-хранилище. Не вводите реальные персональные данные.</p>` : ""}
-    <form class="smart-form" data-form="partner">
+      ${config.demoMode ? `<p class="demo-notice">Тестовый режим: не вводите реальные персональные данные.</p>` : ""}
+    ${config.legal.ready ? `<form class="smart-form" data-form="partner">
       <label>Название заведения<input name="venueName" required maxlength="120" placeholder="Например: Заведение 1" /></label>
       <label>Тип заведения<select name="venueType" required><option value="">Выберите тип</option><option value="bakery">Пекарня</option><option value="coffee">Кофейня</option><option value="culinary">Кулинария</option><option value="buffet">Буфет</option><option value="ready_food_cafe">Кафе с готовой едой</option><option value="other">Другое</option></select></label>
       <label>Город<input name="city" required maxlength="80" value="Армавир" /></label>
@@ -588,10 +639,10 @@ function partnersPage() {
       <label class="full">Комментарий<textarea name="comment" maxlength="1000" placeholder="Опишите формат предложений или вопросы по запуску"></textarea></label>
       <label class="consent full"><input type="checkbox" name="personalDataConsent" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">Политику обработки персональных данных</a></span></label>
       <label class="consent full"><input type="checkbox" name="partnerTermsConsent" required /><span>Я принимаю <a href="/partner-terms" target="_blank" rel="noopener">Условия подключения партнёров</a></span></label>
-      <p class="form-error" hidden></p>
+      <p class="form-error" role="alert" aria-live="polite" hidden></p>
       <button class="button button-primary" type="submit">Отправить заявку</button>
     </form>
-    <div class="success-box" data-success="partner" hidden><h3>Заявка сохранена</h3><p>${config.demoMode ? "Демо-заявка сохранена на сервере." : "Заявка отправлена. Мы свяжемся с вами в течение рабочего дня."}</p><button class="button button-outline" data-reset-form="partner">Отправить ещё одну заявку</button></div>
+    <div class="success-box" data-success="partner" hidden><h3>Заявка сохранена</h3><p>${config.demoMode ? "Тестовая заявка сохранена." : "Заявка отправлена. Мы свяжемся с вами в течение рабочего дня."}</p><button class="button button-outline" data-reset-form="partner">Отправить ещё одну заявку</button></div>` : personalDataUnavailable("Заявка на подключение")}
   </section>
   <section class="section">
     ${sectionTitle("", "Частые вопросы")}
@@ -604,14 +655,14 @@ function partnersPage() {
       { q: "Можно ли не размещать предложения каждый день?", a: "Да. Партнёр сам решает, в какие дни и какие предложения размещать." }
     ])}
   </section>
-  ${bottomCta("Готовы подключить заведение?", "Оставьте заявку — мы свяжемся с вами и поможем запустить пилот уже сегодня.", "Оставить заявку", "#partner-application", "Связаться с нами", "/contacts")}`;
+  ${bottomCta("Готовы подключить заведение?", config.legal.ready ? "Оставьте заявку — мы свяжемся с вами и поможем запустить пилот уже сегодня." : "Форма подключения откроется после публикации документов. Пока можно написать команде по email.", applicationLabel, applicationHref, "Связаться с нами", "/contacts")}`;
 }
 
 function contactCard() {
   return `<article class="contact-card">
     <div class="contact-list">
-      <p>${miniIcon("phone")}<span><b>Телефон</b>+7 (900) 000-00-00</span></p>
-      <p>${miniIcon("mail")}<span><b>Email</b>hello@berisegodnya.ru</span></p>
+      ${config.supportPhone ? `<p>${miniIcon("phone")}<span><b>Телефон</b>${html(config.supportPhone)}</span></p>` : ""}
+      <p>${miniIcon("mail")}<span><b>Email</b>${html(config.supportEmail)}</span></p>
       <p>${miniIcon("pin")}<span><b>Город</b>Армавир</span></p>
       <p>${miniIcon("clock")}<span><b>Время ответа</b>в течение рабочего дня</span></p>
       ${badge("На связи по запуску пилота", "success")}
@@ -621,13 +672,15 @@ function contactCard() {
 }
 
 function contactsPage() {
+  const contactHref = config.legal.ready ? "#contact-form" : `mailto:${config.supportEmail}`;
+  const contactLabel = config.legal.ready ? "Оставить заявку" : "Написать на email";
   return `<section class="hero split-hero">
     <div class="hero-copy">
       <h1>Контакты Бери сегодня</h1>
       <p>Свяжитесь с нами, чтобы подключить заведение, задать вопрос о сервисе или обсудить запуск пилота в Армавире.</p>
       <div class="actions">
-        <a class="button button-primary" href="#contact-form">Оставить заявку</a>
-        <a class="button button-outline" href="#contact-form">Написать нам</a>
+        <a class="button button-primary" href="${html(contactHref)}">${html(contactLabel)}</a>
+        <a class="button button-outline" href="mailto:${html(config.supportEmail)}">Написать нам</a>
       </div>
     </div>
     ${contactCard()}
@@ -643,18 +696,18 @@ function contactsPage() {
   <section class="section contact-form-layout" id="contact-form">
     <div>
       ${sectionTitle("", "Как с нами связаться")}
-      ${config.demoMode ? `<p class="demo-notice">Демо-режим: обращение сохраняется в серверном MVP-хранилище. Не вводите реальные персональные данные.</p>` : ""}
-      <form class="smart-form" data-form="contact">
+      ${config.demoMode ? `<p class="demo-notice">Тестовый режим: не вводите реальные персональные данные.</p>` : ""}
+      ${config.legal.ready ? `<form class="smart-form" data-form="contact">
         <label>Имя<input name="name" required maxlength="80" placeholder="Ваше имя" /></label>
         <label>Телефон<input name="phone" required type="tel" inputmode="tel" minlength="7" maxlength="30" placeholder="+7 (___) ___-__-__" /></label>
         <label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.ru" /></label>
         <label class="full">Тип обращения<select name="type" required><option value="venue_connection">Подключение заведения</option><option value="service_question">Вопрос по сервису</option><option value="partner_pilot">Партнёрский пилот</option><option value="order_question">Вопрос по заказу</option><option value="other">Другое</option></select></label>
         <label class="full">Сообщение<textarea name="message" required maxlength="1000" placeholder="Опишите ваш вопрос или оставьте комментарий"></textarea></label>
         <label class="consent full"><input type="checkbox" name="personalDataConsent" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">Политику обработки персональных данных</a></span></label>
-        <p class="form-error" hidden></p>
+        <p class="form-error" role="alert" aria-live="polite" hidden></p>
         <button class="button button-primary" type="submit">Отправить заявку</button>
       </form>
-      <div class="success-box" data-success="contact" hidden><h3>Обращение сохранено</h3><p>${config.demoMode ? "Демо-обращение сохранено на сервере." : "Мы получили ваше обращение и свяжемся с вами в течение рабочего дня."}</p><button class="button button-outline" data-reset-form="contact">Отправить ещё одно обращение</button></div>
+      <div class="success-box" data-success="contact" hidden><h3>Обращение сохранено</h3><p>${config.demoMode ? "Тестовое обращение сохранено." : "Мы получили ваше обращение и свяжемся с вами в течение рабочего дня."}</p><button class="button button-outline" data-reset-form="contact">Отправить ещё одно обращение</button></div>` : personalDataUnavailable("Форма обращения")}
     </div>
     <aside class="side-stack">
       <article class="panel-card">
@@ -678,7 +731,7 @@ function contactsPage() {
       { q: "В каких форматах можно работать?", a: "Можно размещать готовые обеды, выпечку, вечерние наборы и предложения после пика." }
     ])}
   </section>
-  ${bottomCta("Готовы обсудить запуск?", "Оставьте контакты — мы свяжемся с вами и поможем запустить пилот для вашего заведения.", "Оставить заявку", "#contact-form", "Позвонить нам", "tel:+79000000000")}`;
+  ${bottomCta("Готовы обсудить запуск?", config.legal.ready ? "Оставьте контакты — мы свяжемся с вами и поможем запустить пилот для вашего заведения." : "Форма обращения откроется после публикации документов. Пока можно написать команде по email.", contactLabel, contactHref, config.supportPhone ? "Позвонить нам" : "Написать нам", config.supportPhone ? `tel:${config.supportPhone.replace(/[^+\d]/g, "")}` : `mailto:${config.supportEmail}`)}`;
 }
 
 function bottomCta(title, text, primaryLabel, primaryHref, secondaryLabel, secondaryHref) {
@@ -694,15 +747,16 @@ function bottomCta(title, text, primaryLabel, primaryHref, secondaryLabel, secon
 }
 
 function privacyPage() {
+  if (!config.legal.ready) return legalUnavailableDocument("Политика обработки персональных данных");
   return `<section class="section legal-page">
-    ${sectionTitle("Юридические документы", "Политика обработки персональных данных", "Черновая политика для MVP сервиса «Бери сегодня».")}
+    ${sectionTitle("Юридические документы", "Политика обработки персональных данных", "Правила обработки и защиты данных в сервисе «Бери сегодня».")}
     ${legalIntro()}
     <div class="legal-doc">
       ${legalBlock("1. Оператор", [
-        "Оператор персональных данных: [Полное наименование оператора].",
-        "Реквизиты: [ИНН/ОГРН/ОГРНИП].",
-        "Адрес: [Адрес].",
-        "Email для обращений по персональным данным: privacy@berisegodnya.ru."
+        `Оператор персональных данных: ${config.legal.operatorName}.`,
+        `Реквизиты: ${config.legal.operatorId}.`,
+        `Адрес: ${config.legal.operatorAddress}.`,
+        `Email для обращений по персональным данным: ${config.legal.privacyEmail}.`
       ])}
       ${legalBlock("2. Какие данные обрабатываются", [
         "Для клиентов: имя, телефон, код бронирования, выбранное предложение, дата и время обращения, технические данные запроса.",
@@ -754,26 +808,27 @@ function privacyPage() {
         "Ограничение доступа к серверу."
       ])}
       ${legalBlock("10. Контакты", [
-        "Email для обращений по персональным данным: privacy@berisegodnya.ru.",
-        "Почтовый адрес оператора: [Адрес]."
+        `Email для обращений по персональным данным: ${config.legal.privacyEmail}.`,
+        `Почтовый адрес оператора: ${config.legal.operatorAddress}.`
       ])}
     </div>
   </section>`;
 }
 
 function personalDataConsentPage() {
+  if (!config.legal.ready) return legalUnavailableDocument("Согласие на обработку персональных данных");
   return `<section class="section legal-page">
-    ${sectionTitle("Юридические документы", "Согласие на обработку персональных данных", "Черновой шаблон согласия для форм сайта и партнёрского подключения.")}
+    ${sectionTitle("Юридические документы", "Согласие на обработку персональных данных", "Условия согласия для форм сайта и партнёрского подключения.")}
     ${legalIntro()}
     <div class="legal-doc">
       ${legalBlock("1. Кто даёт согласие", [
         "Пользователь сайта или представитель партнёра, заполняющий форму на сайте."
       ])}
       ${legalBlock("2. Кому даётся согласие", [
-        "Оператору персональных данных: [Полное наименование оператора].",
-        "Реквизиты оператора: [ИНН/ОГРН/ОГРНИП].",
-        "Адрес оператора: [Адрес].",
-        "Email для обращений: privacy@berisegodnya.ru."
+        `Оператору персональных данных: ${config.legal.operatorName}.`,
+        `Реквизиты оператора: ${config.legal.operatorId}.`,
+        `Адрес оператора: ${config.legal.operatorAddress}.`,
+        `Email для обращений: ${config.legal.privacyEmail}.`
       ])}
       ${legalBlock("3. Какие данные обрабатываются", [
         "Имя.",
@@ -799,7 +854,7 @@ function personalDataConsentPage() {
         "Согласие действует до достижения целей обработки или до отзыва согласия."
       ])}
       ${legalBlock("7. Как отозвать согласие", [
-        "Направить письмо на privacy@berisegodnya.ru с указанием данных, по которым нужно прекратить обработку."
+        `Направить письмо на ${config.legal.privacyEmail} с указанием данных, по которым нужно прекратить обработку.`
       ])}
       ${legalBlock("8. Чекбокс на формах", [
         "Отправка формы означает, что пользователь отметил чекбокс согласия и ознакомился с политикой обработки персональных данных."
@@ -809,15 +864,16 @@ function personalDataConsentPage() {
 }
 
 function termsPage() {
+  if (!config.legal.ready) return legalUnavailableDocument("Правила использования сервиса");
   return `<section class="section legal-page">
-    ${sectionTitle("Юридические документы", "Правила использования сервиса", "Черновые правила MVP сервиса «Бери сегодня».")}
+    ${sectionTitle("Юридические документы", "Правила использования сервиса", "Условия использования сервиса «Бери сегодня».")}
     ${legalIntro()}
     <div class="legal-doc">
       ${legalBlock("Оператор сервиса", [
-        "Оператор: [Полное наименование оператора].",
-        "Реквизиты: [ИНН/ОГРН/ОГРНИП].",
-        "Адрес: [Адрес].",
-        "Email для обращений: privacy@berisegodnya.ru."
+        `Оператор: ${config.legal.operatorName}.`,
+        `Реквизиты: ${config.legal.operatorId}.`,
+        `Адрес: ${config.legal.operatorAddress}.`,
+        `Email для обращений: ${config.legal.privacyEmail}.`
       ])}
       ${legalBlock("1. Что такое «Бери сегодня»", [
         "«Бери сегодня» — локальный сервис ограниченных предложений еды на сегодня."
@@ -858,15 +914,16 @@ function termsPage() {
 }
 
 function partnerTermsPage() {
+  if (!config.legal.ready) return legalUnavailableDocument("Условия подключения партнёров");
   return `<section class="section legal-page">
-    ${sectionTitle("Юридические документы", "Условия подключения партнёров", "Черновые условия для MVP-пилота с заведениями.")}
+    ${sectionTitle("Юридические документы", "Условия подключения партнёров", "Условия пилота для заведений-партнёров.")}
     ${legalIntro()}
     <div class="legal-doc">
       ${legalBlock("Оператор сервиса", [
-        "Оператор: [Полное наименование оператора].",
-        "Реквизиты: [ИНН/ОГРН/ОГРНИП].",
-        "Адрес: [Адрес].",
-        "Email для обращений: privacy@berisegodnya.ru."
+        `Оператор: ${config.legal.operatorName}.`,
+        `Реквизиты: ${config.legal.operatorId}.`,
+        `Адрес: ${config.legal.operatorAddress}.`,
+        `Email для обращений: ${config.legal.privacyEmail}.`
       ])}
       ${legalBlock("1. Кто может подключиться", [
         "Пекарни, кулинарии, кофейни, буфеты и кафе с готовой едой."
@@ -930,7 +987,7 @@ function adminPage() {
         <form class="smart-form auth-form" data-admin-login-form>
           <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
           <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
-          <p class="form-error" hidden></p>
+          <p class="form-error" role="alert" aria-live="polite" hidden></p>
           <button class="button button-primary" type="submit">Войти в панель</button>
         </form>
       </div>
@@ -988,7 +1045,7 @@ function partnerLoginPage() {
         <form class="smart-form auth-form" data-partner-login-form>
           <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
           <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
-          <p class="form-error" hidden></p>
+          <p class="form-error" role="alert" aria-live="polite" hidden></p>
           <button class="button button-primary" type="submit">Войти в кабинет</button>
         </form>
       </div>
@@ -1145,7 +1202,7 @@ function renderPage(pathname) {
       <meta name="theme-color" content="#073b4c" />
       <link rel="stylesheet" href="/styles.css" />
       <script>window.DEFAULT_OFFERS=${json(pageOffers)};</script>
-      <script>window.PUBLIC_CONFIG=${json({ demoMode: config.demoMode, appName: config.appName, appCity: config.appCity })};</script>
+      <script>window.PUBLIC_CONFIG=${json({ demoMode: config.demoMode, appName: config.appName, appCity: config.appCity, legalReady: config.legal.ready })};</script>
     </head>
     <body class="${pathname === "/" ? "page-home" : "page-inner"}${isAppPage ? " page-app" : ""}">
       ${header(pathname)}
@@ -1161,7 +1218,7 @@ function bookingModal() {
   return `<div class="modal" id="booking-modal" hidden>
     <div class="modal-backdrop" data-close-modal></div>
     <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="booking-title">
-      <button class="modal-close" type="button" data-close-modal>×</button>
+      <button class="modal-close" type="button" data-close-modal aria-label="Закрыть форму бронирования" title="Закрыть">×</button>
       <div data-booking-step="form">
         <h2 id="booking-title">Получить код</h2>
         <div class="booking-summary" id="booking-summary"></div>
@@ -1169,13 +1226,13 @@ function bookingModal() {
           <label>Имя<input name="customerName" required maxlength="80" placeholder="Ваше имя" /></label>
           <label>Телефон<input name="customerPhone" required type="tel" inputmode="tel" minlength="7" maxlength="30" placeholder="+7 (___) ___-__-__" /></label>
           <label class="consent"><input type="checkbox" name="personalDataConsent" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">Политику обработки персональных данных</a></span></label>
-          <p class="form-error" hidden></p>
+          <p class="form-error" role="alert" aria-live="polite" hidden></p>
           <button class="button button-primary" type="submit">Получить код</button>
         </form>
       </div>
       <div class="booking-success" data-booking-step="success" hidden>
         <p class="success-mark" aria-hidden="true">✓</p>
-        <h2>Набор забронирован</h2>
+        <h2 tabindex="-1" data-booking-success-title>Набор забронирован</h2>
         <p>Сохраните код и покажите его сотруднику в указанное время.</p>
         <strong id="booking-code">BS-1042</strong>
         <div class="booking-success-actions">
@@ -1191,6 +1248,9 @@ const PUBLIC_JS = `
 (function () {
   var offers = window.DEFAULT_OFFERS || [];
   var selectedOffer = null;
+  var publicConfig = window.PUBLIC_CONFIG || {};
+  var drawerReturnFocus = null;
+  var modalReturnFocus = null;
 
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
@@ -1206,10 +1266,16 @@ const PUBLIC_JS = `
     });
   }
 
-  try {
-    var latestBooking = localStorage.getItem("bs_latest_booking");
-    if (latestBooking && latestBooking.indexOf("/booking/") === 0) saveLatestBooking(latestBooking);
-  } catch {}
+  function clearLatestBooking(url) {
+    try {
+      var current = localStorage.getItem("bs_latest_booking");
+      if (!url || current === url) localStorage.removeItem("bs_latest_booking");
+    } catch {}
+    document.querySelectorAll("[data-last-booking]").forEach(function (link) {
+      link.hidden = true;
+      link.removeAttribute("href");
+    });
+  }
 
   function api(path, options) {
     options = options || {};
@@ -1228,6 +1294,7 @@ const PUBLIC_JS = `
         if (!response.ok || !payload.ok) {
           var error = new Error((payload.error && payload.error.message) || "Ошибка сервера");
           error.status = response.status;
+          error.code = payload.error && payload.error.code;
           throw error;
         }
         return payload.data;
@@ -1239,11 +1306,67 @@ const PUBLIC_JS = `
     return Object.fromEntries(new FormData(form).entries());
   }
 
+  function humanError(error, fallback) {
+    if (navigator.onLine === false) return "Нет соединения с интернетом. Проверьте сеть и повторите действие.";
+    if (error && error.code === "LEGAL_NOT_READY") return error.message;
+    if (error && error.status === 429) return "Слишком много попыток. Подождите несколько минут и повторите действие.";
+    if (error && error.status >= 500) return error.message || "Сервис временно недоступен. Попробуйте немного позже.";
+    return (error && error.message) || fallback || "Не удалось выполнить действие. Попробуйте ещё раз.";
+  }
+
+  function setNoun(count) {
+    var value = Math.abs(Number(count) || 0);
+    var mod10 = value % 10;
+    var mod100 = value % 100;
+    if (mod10 === 1 && mod100 !== 11) return "набор";
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "набора";
+    return "наборов";
+  }
+
+  function remainingText(count) {
+    var value = Math.max(0, Number(count) || 0);
+    return (value === 1 ? "Остался " : "Осталось ") + value + " " + setNoun(value);
+  }
+
+  function photoSourceLabel(offer) {
+    return offer.sourceType === "quick_photo" ? "Фото от заведения" : "Обновлено";
+  }
+
+  function focusableElements(container) {
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(function (item) {
+      return !item.hidden && item.getAttribute("aria-hidden") !== "true" && item.getClientRects().length > 0;
+    });
+  }
+
+  function trapFocus(event, container) {
+    if (event.key !== "Tab") return;
+    var focusable = focusableElements(container);
+    if (!focusable.length) { event.preventDefault(); container.focus(); return; }
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  function restoreLatestBooking() {
+    var latest = "";
+    try { latest = localStorage.getItem("bs_latest_booking") || ""; } catch {}
+    if (latest.indexOf("/booking/") !== 0) { clearLatestBooking(); return Promise.resolve(); }
+    var token = latest.slice("/booking/".length);
+    if (!token) { clearLatestBooking(latest); return Promise.resolve(); }
+    return api("/api/public/bookings/" + encodeURIComponent(token)).then(function (booking) {
+      var expires = new Date(booking.expiresAt || 0).getTime();
+      if (booking.status === "created" && expires > Date.now()) saveLatestBooking(latest);
+      else clearLatestBooking(latest);
+    }).catch(function () { clearLatestBooking(latest); });
+  }
+
   function photoTime(offer) {
     var value = offer.photoCapturedAt || offer.publishedAt;
-    if (!value) return "сегодня";
+    if (!value) return "время не указано";
     try { return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
-    catch { return "сегодня"; }
+    catch { return "время не указано"; }
   }
 
   function offerImages(offer) {
@@ -1253,9 +1376,9 @@ const PUBLIC_JS = `
   function recentMarkup(offer) {
     return '<button class="recent-offer js-open-offer" type="button" data-offer-id="' + escapeHtml(offer.id) + '">' +
       '<img src="' + escapeHtml(offerImages(offer)[0]) + '" alt="' + escapeHtml(offer.imageAlt || offer.title) + '" />' +
-      '<span class="fresh-photo-label">' + (offer.sourceType === "quick_photo" ? "Фото сегодня" : "Добавлено сегодня") + ' · ' + escapeHtml(photoTime(offer)) + '</span>' +
+      '<span class="fresh-photo-label">' + escapeHtml(photoSourceLabel(offer)) + ' · ' + escapeHtml(photoTime(offer)) + '</span>' +
       '<span class="recent-offer-copy"><strong>' + escapeHtml(offer.title) + '</strong><small>' + escapeHtml(offer.partnerName) + ' · ' + escapeHtml(offer.address) + '</small></span>' +
-      '<span class="recent-stock">Осталось ' + Number(offer.remaining || 0) + '</span></button>';
+      '<span class="recent-stock">' + escapeHtml(remainingText(offer.remaining)) + '</span></button>';
   }
 
   function rowMarkup(offer) {
@@ -1263,17 +1386,19 @@ const PUBLIC_JS = `
     var discount = oldPrice > Number(offer.price) ? Math.round((1 - Number(offer.price) / oldPrice) * 100) : 0;
     return '<button class="offer-row js-open-offer" type="button" data-offer-card data-category="' + escapeHtml(offer.category) + '" data-offer-id="' + escapeHtml(offer.id) + '">' +
       '<img src="' + escapeHtml(offerImages(offer)[0]) + '" alt="' + escapeHtml(offer.imageAlt || offer.title) + '" />' +
-      '<span class="offer-row-main"><strong>' + escapeHtml(offer.title) + '</strong><small>' + escapeHtml(offer.partnerName) + ' · ' + escapeHtml(offer.address) + '</small><em>' + (offer.sourceType === "quick_photo" ? "Фото сегодня" : "Добавлено сегодня") + ' · ' + escapeHtml(photoTime(offer)) + '</em></span>' +
+      '<span class="offer-row-main"><strong>' + escapeHtml(offer.title) + '</strong><small>' + escapeHtml(offer.partnerName) + ' · ' + escapeHtml(offer.address) + '</small><em>' + escapeHtml(photoSourceLabel(offer)) + ' · ' + escapeHtml(photoTime(offer)) + '</em><span class="offer-row-mobile-pickup">Выдача ' + escapeHtml(offer.pickupWindow) + '</span></span>' +
       '<span class="offer-row-pickup"><small>Забрать сегодня</small><b>' + escapeHtml(offer.pickupWindow) + '</b></span>' +
-      '<span class="offer-row-stock">Осталось ' + Number(offer.remaining || 0) + '</span>' +
+      '<span class="offer-row-stock">' + escapeHtml(remainingText(offer.remaining)) + '</span>' +
       '<span class="offer-row-price"><strong>' + Number(offer.price) + ' ₽</strong>' + (oldPrice ? '<del>' + oldPrice + ' ₽</del>' : '') + (discount ? '<em>−' + discount + '%</em>' : '') + '</span>' +
       '<span class="offer-row-more">Подробнее</span></button>';
   }
 
   function renderMarketplace() {
     var recent = document.getElementById("recent-offers");
+    var recentSection = document.getElementById("recent-section");
     var list = document.getElementById("offers-grid");
     if (recent) recent.innerHTML = offers.slice(0, 6).map(recentMarkup).join("");
+    if (recentSection) recentSection.hidden = offers.length === 0;
     if (list) list.innerHTML = offers.map(rowMarkup).join("");
     var active = document.querySelector(".filter.active");
     setFilter(active ? active.dataset.filter : "all");
@@ -1281,42 +1406,64 @@ const PUBLIC_JS = `
 
   function refreshOffers() {
     if (!document.getElementById("offers-grid")) return Promise.resolve();
-    return api("/api/public/offers").then(function (data) { offers = data; renderMarketplace(); });
+    return api("/api/public/offers").then(function (data) {
+      offers = data;
+      renderMarketplace();
+      var status = document.getElementById("marketplace-status");
+      if (status) status.hidden = true;
+    });
+  }
+
+  function showMarketplaceError(error) {
+    var status = document.getElementById("marketplace-status");
+    if (!status) return;
+    status.textContent = humanError(error, "Не удалось обновить предложения. Уже загруженные карточки остаются доступны.");
+    status.hidden = false;
   }
 
   function renderOfferDrawer(offer, activeImage) {
     var drawer = document.getElementById("offer-drawer");
     var content = drawer && drawer.querySelector("[data-offer-drawer-content]");
     if (!drawer || !content) return;
+    var wasHidden = drawer.hidden;
     var images = offerImages(offer);
     var current = Math.max(0, Math.min(Number(activeImage || 0), images.length - 1));
     var oldPrice = Number(offer.oldPrice || 0);
     var discount = oldPrice > Number(offer.price) ? Math.round((1 - Number(offer.price) / oldPrice) * 100) : 0;
     var soldOut = Number(offer.remaining) <= 0 || offer.status === "sold_out";
     content.innerHTML = '<div class="drawer-heading"><div><h2>' + escapeHtml(offer.title) + '</h2><p>' + escapeHtml(offer.partnerName) + ' · ' + escapeHtml(offer.address) + '</p></div></div>' +
-      '<span class="drawer-fresh">' + (offer.sourceType === "quick_photo" ? "Фото сделано сегодня" : "Добавлено сегодня") + ' · ' + escapeHtml(photoTime(offer)) + '</span>' +
+      '<span class="drawer-fresh">' + escapeHtml(photoSourceLabel(offer)) + ' · ' + escapeHtml(photoTime(offer)) + '</span>' +
       '<div class="drawer-gallery"><img src="' + escapeHtml(images[current]) + '" alt="' + escapeHtml(offer.imageAlt || offer.title) + '" />' +
       (images.length > 1 ? '<div class="gallery-dots">' + images.map(function (_, index) { return '<button type="button" aria-label="Фото ' + (index + 1) + '" class="' + (index === current ? "active" : "") + '" data-drawer-image="' + index + '"></button>'; }).join("") + '</div>' : '') + '</div>' +
-      '<div class="drawer-pickup"><span><small>Забрать сегодня</small><strong>' + escapeHtml(offer.pickupWindow) + '</strong></span><b>' + (soldOut ? "Распродано" : "Осталось " + Number(offer.remaining) + (Number(offer.remaining) === 1 ? " набор" : " набора")) + '</b></div>' +
+      '<div class="drawer-pickup"><span><small>Забрать сегодня</small><strong>' + escapeHtml(offer.pickupWindow) + '</strong></span><b>' + (soldOut ? "Распродано" : escapeHtml(remainingText(offer.remaining))) + '</b></div>' +
       '<div class="drawer-description"><p>' + escapeHtml(offer.description || "Предложение приготовлено сегодня и доступно до указанного времени.") + '</p>' + (offer.contents ? '<p><strong>В наборе:</strong> ' + escapeHtml(offer.contents) + '</p>' : '') + '</div>' +
       '<div class="drawer-price"><strong>' + Number(offer.price) + ' ₽</strong>' + (oldPrice ? '<del>' + oldPrice + ' ₽</del>' : '') + (discount ? '<span>−' + discount + '%</span>' : '') + '</div>' +
-      '<button class="button button-primary js-open-booking" data-offer-id="' + escapeHtml(offer.id) + '"' + (soldOut ? ' disabled' : '') + '>' + (soldOut ? "Распродано" : "Получить код") + '</button>' +
-      '<small class="drawer-payment-note">Оплата при получении в заведении</small>' +
-      '<div class="drawer-trust"><span><b>Фото сегодня</b><small>Вы видите текущую партию</small></span><span><b>Без лишних списаний</b><small>Забираете сегодня</small></span></div>';
+      '<button class="button button-primary js-open-booking" data-offer-id="' + escapeHtml(offer.id) + '"' + (soldOut || !publicConfig.legalReady ? ' disabled' : '') + '>' + (soldOut ? "Распродано" : (publicConfig.legalReady ? "Получить код" : "Бронирование пока закрыто")) + '</button>' +
+      '<small class="drawer-payment-note">' + (publicConfig.legalReady ? "Оплата при получении в заведении" : "Документы сервиса готовятся. Просмотр предложений доступен без передачи персональных данных.") + '</small>' +
+      '<div class="drawer-trust"><span><b>Фото от заведения</b><small>Изображение добавил партнёр</small></span><span><b>Самовывоз сегодня</b><small>Время указано в карточке</small></span></div>';
     drawer.dataset.offerId = offer.id;
     drawer.hidden = false;
     drawer.setAttribute("aria-hidden", "false");
     var backdrop = document.querySelector("[data-close-offer-drawer].offer-drawer-backdrop");
     if (backdrop) backdrop.hidden = false;
     document.body.classList.add("drawer-open");
+    if (wasHidden) drawer.querySelector("[data-close-offer-drawer]")?.focus({ preventScroll: true });
   }
 
-  function closeOfferDrawer() {
+  function closeOfferDrawer(restoreFocus) {
     var drawer = document.getElementById("offer-drawer");
     if (drawer) { drawer.hidden = true; drawer.setAttribute("aria-hidden", "true"); }
     var backdrop = document.querySelector("[data-close-offer-drawer].offer-drawer-backdrop");
     if (backdrop) backdrop.hidden = true;
     document.body.classList.remove("drawer-open");
+    if (restoreFocus !== false && drawerReturnFocus && drawerReturnFocus.isConnected) drawerReturnFocus.focus({ preventScroll: true });
+  }
+
+  function closeBookingModal(restoreFocus) {
+    var modal = document.getElementById("booking-modal");
+    if (modal) modal.hidden = true;
+    document.body.classList.remove("modal-open");
+    if (restoreFocus !== false && modalReturnFocus && modalReturnFocus.isConnected) modalReturnFocus.focus({ preventScroll: true });
   }
 
   function setFilter(category) {
@@ -1327,7 +1474,13 @@ const PUBLIC_JS = `
       if (visible) visibleCount += 1;
     });
     var empty = document.getElementById("offers-empty");
-    if (empty) empty.hidden = visibleCount > 0;
+    if (empty) {
+      empty.hidden = visibleCount > 0;
+      var title = document.getElementById("offers-empty-title");
+      var text = document.getElementById("offers-empty-text");
+      if (title) title.textContent = offers.length ? "В этой категории пока ничего нет" : "Сегодня предложений пока нет";
+      if (text) text.textContent = offers.length ? "Выберите другую категорию или обновите витрину позже." : "Заведения добавляют наборы в течение дня. Проверьте витрину немного позже.";
+    }
   }
 
   document.addEventListener("click", function (event) {
@@ -1349,6 +1502,17 @@ const PUBLIC_JS = `
       return;
     }
 
+    var refreshButton = event.target.closest("[data-refresh-offers]");
+    if (refreshButton) {
+      refreshButton.disabled = true;
+      refreshButton.textContent = "Обновляем…";
+      refreshOffers().catch(showMarketplaceError).finally(function () {
+        refreshButton.disabled = false;
+        refreshButton.textContent = "Обновить предложения";
+      });
+      return;
+    }
+
     var imageDot = event.target.closest("[data-drawer-image]");
     if (imageDot) {
       var openDrawer = document.getElementById("offer-drawer");
@@ -1365,6 +1529,7 @@ const PUBLIC_JS = `
     var offerOpener = event.target.closest(".js-open-offer");
     if (offerOpener) {
       event.preventDefault();
+      drawerReturnFocus = offerOpener;
       var drawerOffer = offers.find(function (offer) { return offer.id === offerOpener.dataset.offerId; });
       if (drawerOffer) renderOfferDrawer(drawerOffer, 0);
       return;
@@ -1375,7 +1540,8 @@ const PUBLIC_JS = `
       event.preventDefault();
       selectedOffer = offers.find(function (offer) { return offer.id === opener.dataset.offerId; });
       if (!selectedOffer) return;
-      closeOfferDrawer();
+      modalReturnFocus = drawerReturnFocus && drawerReturnFocus.isConnected ? drawerReturnFocus : opener;
+      closeOfferDrawer(false);
       var modal = document.getElementById("booking-modal");
       var form = document.getElementById("booking-form");
       var summary = document.getElementById("booking-summary");
@@ -1387,13 +1553,26 @@ const PUBLIC_JS = `
       form.reset();
       modal.hidden = false;
       document.body.classList.add("modal-open");
+      form.querySelector('input[name="customerName"]')?.focus({ preventScroll: true });
       return;
     }
 
     if (event.target.closest("[data-close-modal]")) {
-      var modalClose = document.getElementById("booking-modal");
-      if (modalClose) modalClose.hidden = true;
-      document.body.classList.remove("modal-open");
+      closeBookingModal(true);
+    }
+  });
+
+  document.addEventListener("keydown", function (event) {
+    var modal = document.getElementById("booking-modal");
+    var drawer = document.getElementById("offer-drawer");
+    if (modal && !modal.hidden) {
+      if (event.key === "Escape") { event.preventDefault(); closeBookingModal(true); return; }
+      trapFocus(event, modal.querySelector('[role="dialog"]'));
+      return;
+    }
+    if (drawer && !drawer.hidden) {
+      if (event.key === "Escape") { event.preventDefault(); closeOfferDrawer(true); return; }
+      trapFocus(event, drawer);
     }
   });
 
@@ -1421,9 +1600,10 @@ const PUBLIC_JS = `
         refreshOffers().catch(function () {});
         document.querySelector('[data-booking-step="form"]').hidden = true;
         document.querySelector('[data-booking-step="success"]').hidden = false;
+        document.querySelector("[data-booking-success-title]")?.focus({ preventScroll: true });
       }).catch(function (err) {
         if (error) {
-          error.textContent = err.status === 409 ? "Предложение уже закончилось." : err.message;
+          error.textContent = err.status === 409 ? "Предложение уже закончилось. Выберите другой набор." : humanError(err, "Не удалось создать бронь.");
           error.hidden = false;
         }
       });
@@ -1450,7 +1630,7 @@ const PUBLIC_JS = `
         if (success) success.hidden = false;
       }).catch(function (err) {
         if (error) {
-          error.textContent = err.message || "Не удалось отправить данные. Попробуйте позже.";
+          error.textContent = humanError(err, "Не удалось отправить данные. Попробуйте позже.");
           error.hidden = false;
         }
       });
@@ -1461,9 +1641,19 @@ const PUBLIC_JS = `
   if (bookingPageRoot) {
     var publicToken = bookingPageRoot.dataset.publicBooking;
     var content = bookingPageRoot.querySelector("[data-booking-page-content]");
+    var bookingHelp = bookingPageRoot.querySelector(".booking-help");
     var statusLabels = { created: "Забронировано", issued: "Выдано", no_show: "Не получено", cancelled: "Отменено" };
     var renderBooking = function (booking) {
       var canCancel = booking.status === "created";
+      var bookingUrl = "/booking/" + publicToken;
+      if (!canCancel) clearLatestBooking(bookingUrl);
+      if (booking.status === "cancelled") {
+        content.innerHTML = '<div class="booking-status-row"><span class="booking-status status-cancelled">Отменено</span></div>' +
+          '<div class="booking-cancelled"><h2>Бронь отменена</h2><p>Код больше не действует, а набор снова доступен другим покупателям.</p><a class="button button-primary" href="/#offers">Выбрать другое предложение</a></div>';
+        if (bookingHelp) bookingHelp.innerHTML = '<h2>Что теперь</h2><p>Ничего оплачивать и показывать сотруднику не нужно.</p><p><a href="/#offers">Вернитесь к предложениям</a>, если хотите выбрать другой набор.</p>';
+        return;
+      }
+      if (bookingHelp) bookingHelp.innerHTML = '<h2>Что делать дальше</h2><ol><li>Приходите в указанное время.</li><li>Покажите код сотруднику.</li><li>Оплатите набор на кассе.</li></ol>' + (canCancel ? '<p>Не успеваете? Отмените бронь, чтобы набор снова стал доступен.</p>' : '');
       content.innerHTML = '<div class="booking-status-row"><span class="booking-status status-' + escapeHtml(booking.status) + '">' + escapeHtml(statusLabels[booking.status] || booking.status) + '</span><small>Оплата при получении</small></div>' +
         '<div class="public-code"><small>Код бронирования</small><strong>' + escapeHtml(booking.code) + '</strong></div>' +
         '<dl class="booking-details"><div><dt>Предложение</dt><dd>' + escapeHtml(booking.offerTitle) + '</dd></div><div><dt>Заведение</dt><dd>' + escapeHtml(booking.partnerName) + '</dd></div><div><dt>Адрес</dt><dd>' + escapeHtml(booking.address) + '</dd></div><div><dt>Забрать</dt><dd>Сегодня, ' + escapeHtml(booking.pickupWindow) + '</dd></div><div><dt>К оплате</dt><dd>' + Number(booking.price) + ' ₽ на кассе</dd></div></dl>' +
@@ -1476,6 +1666,9 @@ const PUBLIC_JS = `
         if (button.dataset.confirmed !== "true") {
           button.dataset.confirmed = "true";
           button.textContent = "Подтвердить отмену";
+          window.setTimeout(function () {
+            if (button.isConnected && !button.disabled) { delete button.dataset.confirmed; button.textContent = "Отменить бронь"; }
+          }, 6000);
           return;
         }
         button.disabled = true;
@@ -1487,10 +1680,13 @@ const PUBLIC_JS = `
       });
     };
     api("/api/public/bookings/" + encodeURIComponent(publicToken)).then(renderBooking).catch(function () {
+      clearLatestBooking("/booking/" + publicToken);
       content.innerHTML = '<div class="empty-state"><h2>Бронь не найдена</h2><p>Проверьте ссылку или выберите новое предложение.</p><a class="button button-primary" href="/#offers">Смотреть предложения</a></div>';
+      if (bookingHelp) bookingHelp.innerHTML = '<h2>Что можно сделать</h2><p>Вернитесь к предложениям и создайте новую бронь.</p>';
     });
   }
-  refreshOffers().catch(function () {});
+  restoreLatestBooking();
+  refreshOffers().catch(showMarketplaceError);
 })();
 `;
 
@@ -2927,8 +3123,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-primary); 
   position: absolute;
   top: 14px;
   right: 14px;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--color-border);
   border-radius: 50%;
   background: white;
@@ -3323,6 +3519,12 @@ body { background: var(--color-bg); }
 .booking-status { padding: 7px 10px; border-radius: 6px; background: var(--color-success-bg); color: var(--color-success-text); font-size: 13px; font-weight: 900; }
 .status-cancelled, .status-no_show { color: #7d3f34; background: #f7e4df; }
 .status-issued { color: #305e3f; background: #dcefe3; }
+.booking-cancelled { margin-top: 18px; padding: 24px; border: 1px solid #ead0ca; border-radius: 8px; background: #fff8f6; }
+.booking-cancelled h2 { margin: 0; color: #6f2e22; font-size: 28px; }
+.booking-cancelled p { margin: 10px 0 18px; color: #684a44; line-height: 1.5; }
+.legal-form-unavailable { max-width: 760px; }
+.legal-form-unavailable h3 { margin: 0; color: var(--color-text); }
+.legal-form-unavailable p { margin: 9px 0 0; line-height: 1.5; }
 .public-code { margin: 20px 0; padding: 24px; border-radius: 8px; background: #17372d; color: white; }
 .public-code small, .public-code strong { display: block; }
 .public-code strong { margin-top: 8px; font-size: 70px; letter-spacing: 0; }
@@ -3530,6 +3732,8 @@ body { background: var(--color-bg); }
 .marketplace-date small { color: #49636d; font-size: 13px; font-weight: 800; }
 .marketplace-date strong { margin-top: 4px; color: #062f3d; font-size: 16px; }
 .recent-heading { margin-bottom: 14px; }
+.recent-section[hidden] { display: none; }
+.recent-section[hidden] + .marketplace-catalog { padding-top: 0; }
 .recent-heading h2, .catalog-title-row h2 { margin: 0; color: #062f3d; font-size: 21px; }
 .recent-heading p { margin: 5px 0 0; color: #6e8188; font-size: 13px; }
 .recent-rail {
@@ -3580,10 +3784,10 @@ body { background: var(--color-bg); }
   font-size: 11px;
   font-weight: 800;
 }
-.recent-offer-copy { position: absolute; z-index: 2; left: 14px; right: 14px; bottom: 13px; display: grid; gap: 4px; padding-right: 82px; }
+.recent-offer-copy { position: absolute; z-index: 2; left: 14px; right: 14px; bottom: 13px; display: grid; gap: 4px; padding-right: 128px; }
 .recent-offer-copy strong { font-size: 17px; line-height: 1.2; }
 .recent-offer-copy small { overflow: hidden; color: #e5eef0; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.recent-stock { position: absolute; z-index: 2; right: 10px; bottom: 10px; min-height: 27px; padding: 5px 8px; border-radius: 5px; background: #f4ce67; color: #173136; font-size: 11px; font-weight: 850; }
+.recent-stock { position: absolute; z-index: 2; right: 10px; bottom: 10px; max-width: 120px; min-height: 27px; padding: 5px 8px; border-radius: 5px; background: #f4ce67; color: #173136; font-size: 10px; font-weight: 850; text-align: center; }
 .recent-offer:hover, .recent-offer:focus-visible { border-color: #0c6878; outline: 3px solid rgba(15, 105, 121, .18); outline-offset: 2px; }
 @keyframes offer-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .marketplace-catalog { padding-top: 26px; }
@@ -3592,6 +3796,13 @@ body { background: var(--color-bg); }
 .marketplace-catalog .filters { padding: 13px 0 11px; }
 .marketplace-catalog .filter { padding: 7px 13px; border-radius: 5px; color: #173a45; font-size: 12px; }
 .marketplace-catalog .filter.active { border-color: #073b4c; background: #073b4c; color: white; }
+.marketplace-status { margin: 0 0 10px; padding: 10px 12px; border-radius: 6px; background: #fff0dc; color: #744a14; font-size: 12px; }
+.marketplace-status[hidden] { display: none; }
+.marketplace-empty { margin-top: 14px; padding: 26px; text-align: center; }
+.marketplace-empty h3 { margin: 0; color: #123945; font-size: 20px; }
+.marketplace-empty p { max-width: 560px; margin: 8px auto 16px; line-height: 1.5; }
+.marketplace-empty > div { display: flex; justify-content: center; gap: 9px; flex-wrap: wrap; }
+.marketplace-empty .button { min-width: 190px; }
 .offer-list { border-top: 1px solid #dce4e5; }
 .offer-row {
   width: 100%;
@@ -3616,6 +3827,7 @@ body { background: var(--color-bg); }
 .offer-row-main strong { font-size: 15px; }
 .offer-row-main small { overflow: hidden; color: #3f5c66; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .offer-row-main em { color: #819196; font-size: 10px; font-style: normal; }
+.offer-row-mobile-pickup { display: none; color: #31515b; font-size: 11px; font-weight: 850; }
 .offer-row-pickup { display: grid; gap: 3px; }
 .offer-row-pickup small { color: #5b737b; font-size: 11px; }
 .offer-row-pickup b { font-size: 12px; line-height: 1.25; }
@@ -3647,7 +3859,7 @@ body { background: var(--color-bg); }
 .drawer-open .marketplace-home { width: auto; margin-left: max(32px, calc((100vw - 1360px) / 2)); margin-right: min(552px, 43vw); }
 .drawer-open .marketplace-heading h1 { font-size: 52px; }
 .drawer-open .recent-rail { grid-auto-columns: minmax(250px, 1fr); }
-.drawer-close { position: absolute; top: 13px; right: 24px; width: 38px; min-height: 38px; padding: 0; border: 0; background: transparent; color: #49636d; font: inherit; font-size: 30px; font-weight: 400; line-height: 1; cursor: pointer; }
+.drawer-close { position: absolute; top: 10px; right: 21px; width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: #49636d; font: inherit; font-size: 30px; font-weight: 400; line-height: 1; cursor: pointer; }
 .drawer-heading h2 { margin: 0; color: #062f3d; font-size: 38px; line-height: 1.05; }
 .drawer-heading p { margin: 8px 0 0; color: #49636d; font-size: 13px; }
 .drawer-fresh { margin: 13px 0 12px; min-height: 25px; padding: 4px 8px; display: inline-flex; align-items: center; border-radius: 5px; background: #0b646a; color: white; font-size: 11px; font-weight: 800; }
@@ -3782,6 +3994,7 @@ body { background: var(--color-bg); }
   .offer-row-main { align-self: end; }
   .offer-row-main small { max-width: 100%; }
   .offer-row-pickup { display: none; }
+  .offer-row-mobile-pickup { display: inline-flex; margin-top: 2px; }
   .offer-row-stock { grid-column: 2; align-self: start; justify-self: start; min-height: 24px; padding: 4px 6px; }
   .offer-row-price { grid-column: 3; grid-row: 1 / 3; align-self: center; display: grid; gap: 1px; text-align: right; }
   .offer-row-price strong { font-size: 18px; }
@@ -3793,7 +4006,7 @@ body { background: var(--color-bg); }
   .drawer-open .marketplace-home { width: 100%; margin: 0; }
   .drawer-open .marketplace-heading h1 { font-size: 39px; }
   .drawer-open .recent-rail { grid-auto-columns: minmax(270px, 82vw); }
-  .drawer-close { top: 13px; right: 16px; }
+  .drawer-close { top: 8px; right: 10px; }
   .drawer-heading h2 { font-size: 29px; }
   .drawer-gallery { aspect-ratio: 4 / 3; }
   .drawer-pickup { padding: 13px; }
