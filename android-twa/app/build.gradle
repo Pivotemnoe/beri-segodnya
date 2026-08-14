@@ -51,14 +51,17 @@ def twaManifest = [
 ]
 
 android {
-    compileSdkVersion 36
-    namespace "ru.berisegodnya.app"
+    compileSdk = 36
+    namespace = "ru.berisegodnya.app"
+    buildFeatures {
+        resValues = true
+    }
     defaultConfig {
-        applicationId "ru.berisegodnya.app"
-        minSdkVersion 21
-        targetSdkVersion 36
-        versionCode 1
-        versionName "0.1.0-pilot"
+        applicationId = "ru.berisegodnya.app"
+        minSdk = 21
+        targetSdk = 36
+        versionCode = 1
+        versionName = "0.1.0-pilot"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -152,15 +155,20 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled true
+            debuggable = false
+            jniDebuggable = false
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
-    lintOptions {
-        checkReleaseBuilds false
+    lint {
+        checkReleaseBuilds = true
+        abortOnError = true
     }
 }
 
@@ -208,6 +216,6 @@ repositories {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
 
-        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2'
+        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.3'
 
 }

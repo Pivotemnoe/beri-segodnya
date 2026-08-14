@@ -1,0 +1,3 @@
+android-twa/gradlew text eol=lf
+android-twa/gradlew.bat text eol=lf
+android-twa/gradle/wrapper/gradle-wrapper.jar binary

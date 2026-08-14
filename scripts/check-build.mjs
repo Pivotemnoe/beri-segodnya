@@ -82,7 +82,7 @@ if (
   || !androidManifest.includes('android:allowBackup="false"')
   || !androidManifest.includes('android:usesCleartextTraffic="false"')
   || androidManifest.includes("android.permission.POST_NOTIFICATIONS")
-  || !androidBuild.includes("versionName \"0.1.0-pilot\"")
+  || !androidBuild.includes('versionName = "0.1.0-pilot"')
 ) {
   console.error("Android pilot wrapper security contracts are incomplete");
   process.exit(1);
@@ -101,5 +101,7 @@ for (const asset of ["manifest.webmanifest", "sw.js", "pwa.js", "offline.html", 
     process.exit(1);
   }
 }
+
+await import("./android-config-check.mjs");
 
 console.log(`Build check passed: ${files.length} JavaScript modules and server contracts`);

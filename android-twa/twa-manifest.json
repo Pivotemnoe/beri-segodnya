@@ -48,7 +48,11 @@
   "fullScopeUrl": "https://berisegodnya.ru/",
   "minSdkVersion": 21,
   "orientation": "default",
-  "fingerprints": [],
+  "fingerprints": [
+    {
+      "value": "4D:9B:A6:7C:2C:99:F4:D8:94:D6:E3:CA:2B:D0:22:25:C7:6A:A5:19:E6:25:ED:5D:CD:DE:77:24:9F:2B:F1:05"
+    }
+  ],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "protocolHandlers": [],

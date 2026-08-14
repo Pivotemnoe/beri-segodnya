@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -90,7 +91,22 @@ if (source(".node-version").trim() !== pinnedNodeVersion || source(".nvmrc").tri
   fail("Local and CI Node.js version files do not match the audited runtime");
 }
 const workflow = source(".github/workflows/ci.yml");
-for (const fragment of ["node-version-file: .node-version", "npm run test:security", "npm run test:backup", "npm run test:api", "npm audit --omit=dev"]) {
+for (const fragment of [
+  "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+  "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+  "actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3",
+  "gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a",
+  "permissions:\n  contents: read",
+  "persist-credentials: false",
+  "node-version-file: .node-version",
+  "npm run test:security",
+  "npm run test:backup",
+  "npm run test:api",
+  "npm audit --omit=dev",
+  "npm run test:android-config",
+  "npm run test:android-vulnerabilities",
+  "./gradlew --no-daemon --warning-mode fail --dependency-verification strict lintRelease assembleRelease"
+]) {
   requireText(workflow, fragment, `CI pilot gate is missing: ${fragment}`);
 }
 const ecosystem = source("ecosystem.config.cjs");
@@ -134,6 +150,18 @@ if (/<style\b|\son[a-z]+\s*=/i.test(offlinePage)) fail("Offline page contains in
 
 const twaManifest = JSON.parse(source("android-twa/twa-manifest.json"));
 const androidManifest = source("android-twa/app/src/main/AndroidManifest.xml");
+const wrapperJarSha256 = createHash("sha256")
+  .update(fs.readFileSync(path.join(root, "android-twa", "gradle", "wrapper", "gradle-wrapper.jar")))
+  .digest("hex");
+if (wrapperJarSha256 !== "497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7") {
+  fail("Gradle wrapper JAR is not the audited official Gradle 9.5.0 binary");
+}
+requireText(source("android-twa/gradle/wrapper/gradle-wrapper.properties"), "distributionSha256Sum=553c78f50dafcd54d65b9a444649057857469edf836431389695608536d6b746", "Gradle distribution checksum is not pinned");
+const verificationMetadata = source("android-twa/gradle/verification-metadata.xml");
+requireText(verificationMetadata, "<verify-metadata>true</verify-metadata>", "Gradle dependency metadata verification is disabled");
+if (/<(?:trusted-artifacts|ignored-keys|trusted-keys)\b|<(?:sha1|md5)\b/.test(verificationMetadata)) {
+  fail("Gradle dependency verification contains a trust bypass or weak checksum");
+}
 if (twaManifest.signingKey?.path?.startsWith("/") || twaManifest.enableNotifications !== false) {
   fail("Android wrapper contains a local secret path or an unnecessary notification permission");
 }
