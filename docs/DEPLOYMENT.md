@@ -11,7 +11,7 @@ Current architecture uses `server.mjs` and server-side storage. Use a VPS or ser
 Required:
 
 - VPS or dedicated server
-- Node.js LTS
+- Node.js `24.19.0` for the application process
 - Git
 - PM2 or systemd
 - Nginx or Caddy
@@ -31,12 +31,17 @@ npm install
 node server.mjs
 ```
 
-PM2 example:
+PM2 example for the pinned app-specific runtime:
 
 ```bash
-pm2 start server.mjs --name beri-segodnya
+BERI_SEGODNYA_NODE=/opt/beri-segodnya/node-v24.19.0-linux-x64/bin/node \
+  pm2 startOrReload ecosystem.config.cjs --only beri-segodnya --update-env
 pm2 save
 ```
+
+Do not replace the global `/usr/bin/node` on a shared VPS. Follow
+`docs/NODE24_RUNTIME_MIGRATION.md` for checksum verification, staging, cron,
+acceptance, and rollback.
 
 systemd can also run `node server.mjs` from the project directory with env loaded from a protected file.
 

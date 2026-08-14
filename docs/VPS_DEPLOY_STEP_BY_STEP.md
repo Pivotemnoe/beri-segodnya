@@ -107,16 +107,12 @@ sudo ufw status
 
 Only ports `22`, `80`, and `443` should be open publicly. The Node app listens on local port `3010` behind Caddy.
 
-## 5. Install Node.js LTS
+## 5. Install the pinned application runtime
 
-Use NodeSource LTS repository:
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt install -y nodejs
-node -v
-npm -v
-```
+Use Node.js `24.19.0` from the official `nodejs.org` archive, verify its
+SHA-256, and install it below `/opt/beri-segodnya/`. Do not replace the system
+Node on a shared VPS. The exact artifact, checksum, staging gate, and rollback
+procedure are in `docs/NODE24_RUNTIME_MIGRATION.md`.
 
 ## 6. Install Git
 
@@ -270,7 +266,8 @@ chmod 600 data/db.json
 ## 12. Start with PM2
 
 ```bash
-pm2 start server.mjs --name beri-segodnya
+BERI_SEGODNYA_NODE=/opt/beri-segodnya/node-v24.19.0-linux-x64/bin/node \
+  pm2 startOrReload ecosystem.config.cjs --only beri-segodnya --update-env
 pm2 status
 pm2 logs beri-segodnya
 ```
@@ -425,17 +422,15 @@ crontab -e
 Add:
 
 ```text
-0 3 * * * cd /var/www/beri-segodnya && /usr/bin/node scripts/backup-data.mjs >> logs/backup.log 2>&1
-30 3 * * * cd /var/www/beri-segodnya && BACKUP_KEEP_DAYS=30 /usr/bin/node scripts/prune-backups.mjs >> logs/backup.log 2>&1
+0 3 * * * cd /var/www/beri-segodnya && /opt/beri-segodnya/node-v24.19.0-linux-x64/bin/node scripts/backup-data.mjs >> logs/backup.log 2>&1
+30 3 * * * cd /var/www/beri-segodnya && BACKUP_KEEP_DAYS=30 /opt/beri-segodnya/node-v24.19.0-linux-x64/bin/node scripts/prune-backups.mjs >> logs/backup.log 2>&1
 ```
 
-Confirm Node path:
+Confirm the application Node path:
 
 ```bash
-which node
+/opt/beri-segodnya/node-v24.19.0-linux-x64/bin/node --version
 ```
-
-If Node path is not `/usr/bin/node`, update cron.
 
 ## 19. Smoke Test on Server
 

@@ -161,13 +161,16 @@ Access instructions are in `docs/ACCESS.md`. Deployment guidance is in `docs/DEP
 
 Для текущей архитектуры рекомендуется VPS с постоянным диском:
 
-- Node.js LTS;
+- Node.js `24.19.0` LTS for CI and the application process;
 - PM2;
 - Caddy или Nginx;
 - HTTPS;
 - backup `data/db.json`.
 
 Пошаговая инструкция: `docs/VPS_DEPLOY_STEP_BY_STEP.md`.
+
+Безопасный переход существующего VPS на app-specific Node 24 без замены
+системного Node: `docs/NODE24_RUNTIME_MIGRATION.md`.
 
 Короткий staging-чеклист: `docs/STAGING_CHECKLIST.md`.
 

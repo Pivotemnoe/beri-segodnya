@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const pinnedNodeVersion = "24.19.0";
 
 function fail(message) {
   console.error(message);
@@ -82,6 +83,20 @@ for (const fragment of ['<script src="/page-config.js"></script>', '<script src=
 }
 requireText(server, 'readEnv("SITE_ACCESS_ENABLED", "false")', "Preview access must default to closed configuration");
 requireText(server, 'readEnv("NEXT_PUBLIC_DEMO_MODE", "true")', "Explicit demo-state handling is missing");
+
+const packageManifest = JSON.parse(source("package.json"));
+if (packageManifest.engines?.node !== `>=${pinnedNodeVersion} <25`) fail("The application Node.js runtime is not pinned to the audited 24.x release");
+if (source(".node-version").trim() !== pinnedNodeVersion || source(".nvmrc").trim() !== pinnedNodeVersion) {
+  fail("Local and CI Node.js version files do not match the audited runtime");
+}
+const workflow = source(".github/workflows/ci.yml");
+for (const fragment of ["node-version-file: .node-version", "npm run test:security", "npm run test:backup", "npm run test:api", "npm audit --omit=dev"]) {
+  requireText(workflow, fragment, `CI pilot gate is missing: ${fragment}`);
+}
+const ecosystem = source("ecosystem.config.cjs");
+for (const fragment of ["name: \"beri-segodnya\"", "const appCwd = process.env.BERI_SEGODNYA_CWD", "cwd: appCwd", "interpreter: nodeInterpreter", "exec_mode: \"fork\"", "instances: 1"]) {
+  requireText(ecosystem, fragment, `PM2 runtime isolation contract is missing: ${fragment}`);
+}
 
 const auth = source("backend/services/authService.mjs");
 for (const fragment of ["HttpOnly", "SameSite=Strict", "__Host-bs_session", "; Secure", "rateLimit("]) {

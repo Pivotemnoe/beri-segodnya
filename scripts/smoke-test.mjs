@@ -5,11 +5,12 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createPasswordHash } from "../backend/utils/password.mjs";
 import { todayDate } from "../backend/utils/dates.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "beri-smoke-"));
 const dbFile = path.join(tempDir, "db.json");
 const uploadDir = path.join(tempDir, "uploads");
@@ -537,11 +538,12 @@ async function runScenario(port) {
 
 const port = await freePort();
 const logs = [];
-const child = spawn(process.execPath, ["server.mjs"], {
+const child = spawn(process.execPath, ["--import", FREEZE_CLOCK_MODULE, "server.mjs"], {
   cwd: ROOT,
   env: {
     ...process.env,
     APP_ENV: "test",
+    APP_TEST_NOW_ISO: `${todayDate()}T12:00:00+03:00`,
     APP_BASE_URL: `http://127.0.0.1:${port}`,
     PORT: String(port),
     DB_DRIVER: "json",

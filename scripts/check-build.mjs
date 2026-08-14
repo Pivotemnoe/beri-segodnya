@@ -4,14 +4,14 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const roots = ["server.mjs", "backend", "scripts", "public"];
+const roots = ["server.mjs", "ecosystem.config.cjs", "backend", "scripts", "public"];
 const files = [];
 
 function collect(relativePath) {
   const absolutePath = path.join(root, relativePath);
   const stat = fs.statSync(absolutePath);
   if (stat.isFile()) {
-    if (absolutePath.endsWith(".mjs") || absolutePath.endsWith(".js")) files.push(absolutePath);
+    if (absolutePath.endsWith(".mjs") || absolutePath.endsWith(".cjs") || absolutePath.endsWith(".js")) files.push(absolutePath);
     return;
   }
   for (const entry of fs.readdirSync(absolutePath)) collect(path.join(relativePath, entry));
