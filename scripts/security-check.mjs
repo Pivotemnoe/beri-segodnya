@@ -18,16 +18,37 @@ function requireText(text, fragment, message) {
   if (!text.includes(fragment)) fail(message);
 }
 
-const listed = spawnSync("git", ["ls-files", "-co", "--exclude-standard", "-z"], {
-  cwd: root,
-  encoding: "utf8"
-});
-if (listed.status !== 0) fail("Unable to list repository files for the security check");
-const repositoryFiles = listed.stdout.split("\0").filter(Boolean);
+function listArtifactFiles(directory, prefix = "") {
+  const files = [];
+  const entries = fs.readdirSync(directory, { withFileTypes: true })
+    .sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      if (relativePath === ".git" || relativePath === "node_modules") continue;
+      files.push(...listArtifactFiles(path.join(directory, entry.name), relativePath));
+      continue;
+    }
+    if (entry.isFile() || entry.isSymbolicLink()) files.push(relativePath);
+  }
+  return files;
+}
 
-const forbiddenTrackedPath = /^(?:\.env(?:\.local)?|data\/db(?:\.tmp)?\.json|backups\/(?!\.gitkeep$)|logs\/(?!\.gitkeep$)|android-twa\/.*\.(?:jks|keystore|apk|aab))$/i;
+const listed = process.env.SECURITY_CHECK_FORCE_FILESYSTEM === "true"
+  ? { status: 1, stdout: "" }
+  : spawnSync("git", ["ls-files", "-co", "--exclude-standard", "-z"], {
+      cwd: root,
+      encoding: "utf8"
+    });
+const inventorySource = listed.status === 0 ? "repository" : "release artifact";
+const repositoryFiles = listed.status === 0
+  ? listed.stdout.split("\0").filter(Boolean)
+  : listArtifactFiles(root);
+if (repositoryFiles.length === 0) fail("Unable to list files for the security check");
+
+const forbiddenTrackedPath = /^(?:\.env(?!\.example$)(?:\.[^/]+)?|data\/db(?:\.tmp)?\.json|backups\/(?!\.gitkeep$)|logs\/(?!\.gitkeep$)|android-twa\/.*\.(?:jks|keystore|apk|aab))$/i;
 const forbiddenPath = repositoryFiles.find((file) => forbiddenTrackedPath.test(file));
-if (forbiddenPath) fail(`Sensitive runtime or signing artifact is visible to Git: ${forbiddenPath}`);
+if (forbiddenPath) fail(`Sensitive runtime or signing artifact is visible in the ${inventorySource}: ${forbiddenPath}`);
 
 const secretPatterns = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
@@ -39,7 +60,10 @@ const secretPatterns = [
 
 for (const relativePath of repositoryFiles) {
   const absolutePath = path.join(root, relativePath);
-  if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) continue;
+  if (!fs.existsSync(absolutePath)) continue;
+  const fileStat = fs.lstatSync(absolutePath);
+  if (fileStat.isSymbolicLink()) fail(`Symbolic link is not allowed in the ${inventorySource}: ${relativePath}`);
+  if (!fileStat.isFile()) continue;
   const bytes = fs.readFileSync(absolutePath);
   if (bytes.length > 2 * 1024 * 1024 || bytes.includes(0)) continue;
   const text = bytes.toString("utf8");
@@ -103,4 +127,4 @@ for (const fragment of ['android:allowBackup="false"', 'android:usesCleartextTra
 }
 if (androidManifest.includes("android.permission.POST_NOTIFICATIONS")) fail("Android pilot requests notifications that the product does not use");
 
-console.log(`Security check passed: ${repositoryFiles.length} repository files and runtime contracts`);
+console.log(`Security check passed: ${repositoryFiles.length} ${inventorySource} files and runtime contracts`);
