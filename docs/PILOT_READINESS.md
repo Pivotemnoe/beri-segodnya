@@ -3,7 +3,7 @@
 ## Текущее решение после release 14.08.2026
 
 - Внутренняя техническая репетиция под новым Basic Auth, только на тестовых данных — **GO**.
-- Web/PWA release `7b84cb5` развернут и принят на live; backup/restore, role access, credential rotation, desktop/mobile и security negatives подтверждены.
+- Web/PWA/runtime release `1aee6d2` развернут и принят на live; backup/restore, role access, credential rotation, desktop/mobile, security negatives и app-specific Node `24.19.0` подтверждены.
 - Закрытый пилот с реальными клиентами и ПДн — **NO-GO**, пока не заполнены реквизиты оператора и не закрыт legal/RKN gate. Публичные формы до этого безопасно возвращают `503 LEGAL_NOT_READY`.
 - Публичный городской запуск — **NO-GO**.
 - Подробный протокол: `docs/PILOT_RELEASE_EVIDENCE_2026-08-14.md`.
@@ -27,7 +27,8 @@
 - CI проверяет все `.mjs` и полный smoke-сценарий;
 - PWA manifest, icons, safe service worker, offline page и install UI развернуты;
 - опубликованные preview/admin/partner passwords заменены, старые сессии отозваны;
-- live backup script и два restore rehearsal прошли.
+- live backup script и четыре restore rehearsal прошли.
+- app-specific Node `24.19.0`, PM2 interpreter, cron и rollback проверены без замены системного Node.
 
 ## Допустимо только для закрытого пилота
 
@@ -44,7 +45,6 @@
 - не завершена проверка РКН и локализации персональных данных;
 - не подтверждены реальные партнеры, ассортимент и права на фотографии;
 - нет внешнего uptime/error monitoring;
-- VPS использует legacy Node `18.19.1`; перед публичным запуском нужен поддерживаемый LTS после staging-проверки;
 - JSON не рассчитан на несколько процессов и растущую конкурентную запись;
 - нет формализованной политики сроков хранения и удаления персональных данных;
 - нет подтвержденного процесса обработки жалоб и инцидентов.

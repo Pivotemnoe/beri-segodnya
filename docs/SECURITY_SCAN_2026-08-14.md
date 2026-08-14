@@ -75,7 +75,7 @@ them informational and provides no remediation.
 
 ## Live verification after deployment
 
-Release `7b84cb5` was deployed after a separate Node 18 staging-gate. On live:
+Release `1aee6d2` was deployed after exact Node `24.19.0` local/VPS gates and an isolated PM2 rehearsal. On live:
 
 - strict CSP, HSTS, COEP, COOP, CORP, Origin-Agent-Cluster, no-store, noindex,
   frame deny and nosniff were confirmed over HTTPS;
@@ -91,6 +91,10 @@ Release `7b84cb5` was deployed after a separate Node 18 staging-gate. On live:
 - pre-deploy and post-deploy backups passed SHA-256 checks and temporary restore
   rehearsals; the live backup script produced `0600` files and a `0700` uploads
   directory with an integrity manifest;
+- Node 24 pre-switch and post-switch root-only backups passed 10/12-entry
+  manifests and restore rehearsals; DB/env/uploads remained consistent;
+- PM2 runs only `beri-segodnya` through the checksum-verified app-specific Node
+  `24.19.0`; the global Node runtime and other services were not replaced;
 - authenticated client/admin/partner UI was checked on the actual live runtime at
   desktop and mobile sizes; no new error-log entries appeared.
 

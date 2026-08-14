@@ -3,7 +3,7 @@
 ## Technical
 
 - [x] VPS selected.
-- [ ] Supported Node.js LTS installed; current VPS runtime is legacy Node `18.19.1` and must be upgraded after a compatibility rehearsal.
+- [x] App-specific Node.js `24.19.0` installed, checksum-verified, staged, switched under PM2, backed up, and accepted on live; system Node left unchanged.
 - [x] PM2 configured as one fork process under `deploy`.
 - [x] Caddy configured.
 - [x] HTTPS and HSTS enabled.

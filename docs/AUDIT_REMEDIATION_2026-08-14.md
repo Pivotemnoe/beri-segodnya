@@ -16,7 +16,7 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 
 ## Исходное состояние
 
-- Исходный код live-стенда совпадал с commit `1447c83c1d0b2b8a688adc4179a55cf71c5b86e1`; после аудита развернут release `7b84cb5`.
+- Исходный код live-стенда совпадал с commit `1447c83c1d0b2b8a688adc4179a55cf71c5b86e1`; после аудита и runtime hardening развернут release `1aee6d2`.
 - Приложение работает одним Node-процессом под PM2 от пользователя `deploy`.
 - Node слушает только `127.0.0.1:3010`; наружу открыты `22`, `80`, `443`.
 - Caddy, UFW, fail2ban и `pm2-deploy` активны.
@@ -89,8 +89,9 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 - [ ] Отдельный SSH-ключ для `deploy`, проверка sudo и нового входа.
 - [ ] Запрет root/password SSH только после успешного контрольного входа.
 - [x] Контроль firewall/fail2ban, диска и backup cron; Zabbix agent присутствует.
+- [x] App-specific Node `24.19.0`: official SHA-256, local/VPS gate, isolated PM2 rehearsal, live switch, cron и rollback evidence.
 - [ ] Подтвердить доставку app-specific uptime/error/disk/backup alerts ответственному.
-- [x] Два restore drill в отдельных временных каталогах, не на live-базе.
+- [x] Четыре restore drill в отдельных временных каталогах, не на live-базе.
 
 ## Внешние блокеры
 
@@ -99,13 +100,14 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 - Публичный запуск остаётся закрыт до юридической проверки, решения по РКН и подтверждения локализации данных.
 - Для push/PR требуется обновить локальную авторизацию GitHub CLI; текущий token недействителен.
 - Для signed APK/emulator smoke требуется явное принятие Android SDK license; лицензия автоматически не принималась.
-- VPS работает на legacy Node `18.19.1`; переход на поддерживаемый LTS требует отдельной staging-репетиции и не смешивался с текущим release.
 
 ## Фактический выпуск
 
 - Pre-deploy backup: `/var/backups/beri-segodnya/pilot-hardening-20260814T171902Z`, hash и restore — PASS.
 - Post-deploy backup: `/var/backups/beri-segodnya/pilot-hardening-postdeploy-20260814T174320Z`, hash и restore — PASS.
+- Node 24 pre-switch backup: `/var/backups/beri-segodnya/node24-migration-20260814T182333Z`, hash и restore — PASS.
+- Node 24 post-switch backup: `/var/backups/beri-segodnya/node24-postdeploy-20260814T183446Z`, hash и restore — PASS.
 - Business counts сохранены: 7 партнеров, 6 пользователей, 6 адресов, 6 предложений, 3 брони, 3 заявки, 3 обращения, 3 шаблона.
-- Sessions: `9 → 0` после обязательного revoke; audit log: `42 → 52` из-за ожидаемых acceptance login/logout events.
-- Live PWA/headers/role isolation/CSRF/legal gate и browser desktop/mobile — PASS.
+- Sessions: `9 → 0` после обязательного revoke; audit log: `42 → 56` из-за ожидаемых acceptance login events двух выпусков.
+- Live PWA/headers/role isolation/CSRF/legal gate, browser desktop/mobile и отдельные 36 HTTPS checks после Node 24 switch — PASS.
 - Полный протокол: `docs/PILOT_RELEASE_EVIDENCE_2026-08-14.md`.

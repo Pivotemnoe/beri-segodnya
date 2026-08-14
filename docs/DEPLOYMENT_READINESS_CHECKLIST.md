@@ -38,11 +38,12 @@
 - [x] Storage backup process and cron are configured and tested.
 - [x] Domain DNS is configured.
 - [x] HTTPS certificate and HSTS are active.
-- [x] Release `7b84cb5` passed isolated tests on the VPS before synchronization.
+- [x] Release `1aee6d2` passed the full Node `24.19.0` gate and isolated PM2 rehearsal on the VPS before synchronization.
 - [x] Pre-deploy and post-deploy backups passed temporary restore rehearsals.
 - [x] Live client/admin/partner desktop and mobile acceptance passed.
 - [x] Previously published credentials were rotated and old values return `401`.
 - [x] PWA manifest, service worker, icons and Digital Asset Links are live.
+- [x] App-specific Node `24.19.0`, PM2 interpreter, backup cron, rollback evidence and 36-check HTTPS role acceptance are verified.
 - [ ] Legal/operator configuration is complete and `LEGAL_OPERATOR_READY=true` is approved.
 - [ ] Signed APK is built, verified and installed on an Android target.
 - [ ] Dedicated `deploy` SSH key and app-specific alert delivery are verified.
