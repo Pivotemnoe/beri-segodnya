@@ -6,8 +6,8 @@
 - [x] Partner API works.
 - [x] Admin panel opens after one admin app login.
 - [x] Partner cabinet opens after one partner app login.
-- [x] Test admin access is documented.
-- [x] Test partner access is documented.
+- [x] Admin access is handed off outside Git in a `0600` credential file.
+- [x] Partner access is handed off outside Git in a `0600` credential file.
 - [x] Admin can see partner applications.
 - [x] Admin can see contact requests.
 - [x] Admin can see bookings.
@@ -33,12 +33,20 @@
 - [x] Smoke test exists.
 - [x] Site runs on `http://localhost:3010`.
 - [x] Old site "Что поесть" was not changed.
-- [ ] Production VPS/staging server is provisioned.
-- [ ] Production `.env.local` is created on the server.
-- [ ] Production storage backup process is configured.
-- [ ] Domain DNS is configured.
-- [ ] HTTPS certificate is issued.
+- [x] VPS/staging server is provisioned.
+- [x] Staging `.env.local` exists on the server with `0600` mode.
+- [x] Storage backup process and cron are configured and tested.
+- [x] Domain DNS is configured.
+- [x] HTTPS certificate and HSTS are active.
+- [x] Release `7b84cb5` passed isolated tests on the VPS before synchronization.
+- [x] Pre-deploy and post-deploy backups passed temporary restore rehearsals.
+- [x] Live client/admin/partner desktop and mobile acceptance passed.
+- [x] Previously published credentials were rotated and old values return `401`.
+- [x] PWA manifest, service worker, icons and Digital Asset Links are live.
+- [ ] Legal/operator configuration is complete and `LEGAL_OPERATOR_READY=true` is approved.
+- [ ] Signed APK is built, verified and installed on an Android target.
+- [ ] Dedicated `deploy` SSH key and app-specific alert delivery are verified.
 
-Result before DNS/server work: ready for VPS/staging transfer, not yet deployed.
+Result: deployed and ready for an internal technical rehearsal without real personal data. A real-user pilot remains blocked by legal/operator configuration and device acceptance.
 
 Public production remains blocked by the items in `docs/PILOT_READINESS.md`.

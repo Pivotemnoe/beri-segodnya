@@ -2,30 +2,30 @@
 
 ## Technical
 
-- [ ] VPS selected.
-- [ ] Node.js LTS installed.
-- [ ] PM2 or systemd configured.
-- [ ] Caddy or Nginx configured.
-- [ ] HTTPS enabled.
-- [ ] `APP_BASE_URL` and `APP_DOMAIN` set.
-- [ ] Production `.env.local` created manually.
-- [ ] `data/` storage on persistent disk.
-- [ ] Backup procedure tested.
-- [ ] Restore procedure tested on staging.
+- [x] VPS selected.
+- [ ] Supported Node.js LTS installed; current VPS runtime is legacy Node `18.19.1` and must be upgraded after a compatibility rehearsal.
+- [x] PM2 configured as one fork process under `deploy`.
+- [x] Caddy configured.
+- [x] HTTPS and HSTS enabled.
+- [x] `APP_BASE_URL` and `APP_DOMAIN` set.
+- [x] Staging `.env.local` created manually and mode is `0600`.
+- [x] `data/` storage on persistent disk.
+- [x] Backup procedure tested on live.
+- [x] Restore procedure tested twice in temporary directories.
 
 ## Security
 
-- [ ] Test passwords replaced.
-- [ ] `SESSION_SECRET` unique.
+- [x] Published preview/admin/partner passwords replaced; old values return `401`.
+- [x] `SESSION_SECRET` is present and at least 32 characters.
 - [ ] SSH key-only access.
 - [ ] Root login disabled.
-- [ ] Firewall enabled.
-- [ ] Basic Auth enabled on staging.
-- [ ] Admin and partner access separated.
-- [ ] API role checks verified.
-- [ ] Rate limit plan added for login and forms.
-- [ ] Security headers verified.
-- [ ] `noindex` remains until public launch.
+- [x] Firewall and fail2ban enabled.
+- [x] Basic Auth enabled on staging with rotated credentials.
+- [x] Admin and partner access separated.
+- [x] API role checks verified.
+- [x] Rate limit and cleanup added for login and forms.
+- [x] Security headers verified on live HTTPS.
+- [x] `noindex` remains until public launch.
 
 ## Legal
 
@@ -34,7 +34,7 @@
 - [ ] Consent filled with operator details.
 - [ ] Terms filled with operator details.
 - [ ] Partner terms filled with operator details.
-- [ ] Forms have required checkboxes.
+- [x] Forms have required checkboxes and server-side consent enforcement.
 - [ ] RKN notification checked or submitted.
 - [ ] Personal data storage location in Russia confirmed.
 - [ ] Hosting/provider agreement checked.
@@ -50,11 +50,13 @@
 
 ## Verification
 
-- [ ] `node --check server.mjs`.
-- [ ] `npm run test:smoke`.
-- [ ] Customer booking scenario.
-- [ ] Admin scenario.
-- [ ] Partner scenario.
-- [ ] Backup/restore test.
-- [ ] Public pages checked on mobile and desktop.
-- [ ] Admin/partner pages closed from public access.
+- [x] `node --check server.mjs` / full build contract.
+- [x] `npm run test:smoke` on isolated storage.
+- [x] Customer flow checked locally; live PII write is intentionally blocked by legal gate.
+- [x] Admin scenario on live with rotated credentials.
+- [x] Partner scenario on live with rotated credentials.
+- [x] Backup/restore test.
+- [x] Public/admin/partner pages checked on mobile and desktop.
+- [x] Admin/partner APIs closed without role session.
+- [ ] Real Android/iPhone PWA standalone and camera/background/resume.
+- [ ] Signed APK build, signature verification and install.

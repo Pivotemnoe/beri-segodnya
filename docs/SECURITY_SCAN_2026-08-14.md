@@ -73,10 +73,33 @@ only for public icons and other non-sensitive assets.
 These alerts identify the application architecture and login form. ZAP marks
 them informational and provides no remediation.
 
+## Live verification after deployment
+
+Release `7b84cb5` was deployed after a separate Node 18 staging-gate. On live:
+
+- strict CSP, HSTS, COEP, COOP, CORP, Origin-Agent-Cluster, no-store, noindex,
+  frame deny and nosniff were confirmed over HTTPS;
+- manifest, service worker, offline page, icons and Digital Asset Links return
+  `200`, while admin and partner protected API return `401` without a role session;
+- a missing confirmation header and a foreign Origin return `403` with distinct
+  human-safe codes;
+- legal configuration is deliberately absent, so a booking attempt returns
+  `503 LEGAL_NOT_READY` without changing business data;
+- the previously published preview/admin/three partner credentials were rotated,
+  nine old sessions were revoked, old values now return `401`, and new values
+  passed login/logout acceptance without being printed or committed;
+- pre-deploy and post-deploy backups passed SHA-256 checks and temporary restore
+  rehearsals; the live backup script produced `0600` files and a `0700` uploads
+  directory with an integrity manifest;
+- authenticated client/admin/partner UI was checked on the actual live runtime at
+  desktop and mobile sizes; no new error-log entries appeared.
+
 ## Pilot boundary
 
-The technical controls are suitable for a closed pilot only after the exact
-release is deployed with legal/operator configuration, verified backups and
-rollback, retained access protection, and post-deploy role checks. Public launch
-still requires a dedicated external penetration test, vulnerability monitoring,
-incident contacts, and review of infrastructure access keys.
+The technical controls now support an internal rehearsal under Basic Auth with
+test data. A real-person closed pilot remains blocked until legal/operator
+configuration is approved; the server intentionally prevents PII collection in
+the meantime. Public launch still requires a dedicated external authenticated
+penetration test, vulnerability monitoring, retention/incident contacts, and a
+review of infrastructure access keys. The current cross-project root key and
+enabled root/password SSH must not be represented as least-privilege access.

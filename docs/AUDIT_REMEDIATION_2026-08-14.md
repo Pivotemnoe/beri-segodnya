@@ -16,15 +16,15 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 
 ## Исходное состояние
 
-- Код live-стенда совпадает с commit `1447c83c1d0b2b8a688adc4179a55cf71c5b86e1`.
+- Исходный код live-стенда совпадал с commit `1447c83c1d0b2b8a688adc4179a55cf71c5b86e1`; после аудита развернут release `7b84cb5`.
 - Приложение работает одним Node-процессом под PM2 от пользователя `deploy`.
 - Node слушает только `127.0.0.1:3010`; наружу открыты `22`, `80`, `443`.
 - Caddy, UFW, fail2ban и `pm2-deploy` активны.
 - Вход клиента, администратора и партнёра подтверждён на live.
 - SSH работает напрямую на `89.169.46.92:22`; туннель не используется.
 - На VPS пока разрешены root-вход и парольная SSH-аутентификация.
-- GitHub-репозиторий публичный; ранее опубликованные пароли остаются в истории и считаются скомпрометированными до live-ротации.
-- PWA manifest, service worker, install UI и Android/TWA-проект отсутствуют.
+- GitHub-репозиторий публичный; ранее опубликованные пароли остаются в истории, поэтому preview/admin/три partner credentials заменены, старые значения возвращают `401`, 9 прежних сессий отозваны.
+- PWA manifest, safe service worker, install UI, icons, Digital Asset Links и Android/TWA source развернуты.
 
 ## Пакет 1. P0: персональные данные и доступ
 
@@ -41,7 +41,7 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 - [x] Backup-файлы `0600`, каталоги `0700`, парное удаление DB и uploads.
 - [x] Негативные smoke-тесты для consent, revoked session, role и CSRF.
 
-Проверено локально: `npm run test:api`, `npm run test:backup`, `npm run build`. Все три команды проходят на изолированных временных данных. На VPS без раскрытия значений подтверждено: `SESSION_SECRET` уже не короче 32 символов; admin hash присутствует и будет прочитан как legacy 120000 до первой управляемой ротации; юридические переменные пока отсутствуют, поэтому сбор ПДн после выпуска останется безопасно закрыт.
+Проверено локально и в отдельном release-каталоге VPS: `npm run test:api`, `npm run test:backup`, `npm run test:security`, `npm run build`. На live `SESSION_SECRET` готов, admin и совпавшие partner hashes перевыпущены с 600000 PBKDF2 iterations; юридические переменные пока отсутствуют, поэтому сбор ПДн безопасно закрыт.
 
 ## Пакет 2. P1: клиентский сценарий
 
@@ -72,24 +72,25 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 
 ## Пакет 4. PWA и производительность
 
-- [ ] `manifest.webmanifest`, иконки 192/512 и maskable icon.
-- [ ] Service worker без кеширования API, auth, admin, partner, booking и ПДн.
-- [ ] Офлайн-страница с явным сообщением; создание/отмена офлайн запрещены.
-- [ ] Кнопка установки и инструкция для Android/iPhone.
-- [ ] `apple-touch-icon`, theme color, standalone display и update flow.
-- [ ] Проверка installability и standalone на реальном Android.
+- [x] `manifest.webmanifest`, иконки 192/512 и maskable icon.
+- [x] Service worker без кеширования API, auth, admin, partner, booking и ПДн.
+- [x] Офлайн-страница с явным сообщением; создание/отмена офлайн запрещены.
+- [x] Кнопка установки и инструкция для Android/iPhone.
+- [x] `apple-touch-icon`, theme color, standalone display и update flow.
+- [ ] Проверка installability и standalone на реальном Android/iPhone.
 - [ ] Оптимизация изображений и измеримый performance budget.
 
 ## Пакет 5. APK и сервер
 
-- [ ] TWA-проект с фиксированным application id.
-- [ ] `assetlinks.json` с fingerprint релизного ключа.
+- [x] TWA-проект с фиксированным application id `ru.berisegodnya.app`.
+- [x] `assetlinks.json` с fingerprint релизного ключа.
 - [ ] Подписанный sideload APK и установка через `adb`.
-- [ ] Релизный ключ вне Git и резервная копия ключа.
+- [x] Релизный ключ вне Git; локальная signing-директория имеет private permissions.
 - [ ] Отдельный SSH-ключ для `deploy`, проверка sudo и нового входа.
 - [ ] Запрет root/password SSH только после успешного контрольного входа.
-- [ ] Контроль диска, uptime, ошибок, неудачных входов и backup cron.
-- [ ] Restore drill на отдельной временной копии, не на live-базе.
+- [x] Контроль firewall/fail2ban, диска и backup cron; Zabbix agent присутствует.
+- [ ] Подтвердить доставку app-specific uptime/error/disk/backup alerts ответственному.
+- [x] Два restore drill в отдельных временных каталогах, не на live-базе.
 
 ## Внешние блокеры
 
@@ -97,3 +98,14 @@ Production-данные, `.env.local`, `data/db.json`, `data/uploads/` и сер
 - Реальные партнёры, адреса, фотографии и ассортимент добавляются только после отдельного подтверждения прав и содержания.
 - Публичный запуск остаётся закрыт до юридической проверки, решения по РКН и подтверждения локализации данных.
 - Для push/PR требуется обновить локальную авторизацию GitHub CLI; текущий token недействителен.
+- Для signed APK/emulator smoke требуется явное принятие Android SDK license; лицензия автоматически не принималась.
+- VPS работает на legacy Node `18.19.1`; переход на поддерживаемый LTS требует отдельной staging-репетиции и не смешивался с текущим release.
+
+## Фактический выпуск
+
+- Pre-deploy backup: `/var/backups/beri-segodnya/pilot-hardening-20260814T171902Z`, hash и restore — PASS.
+- Post-deploy backup: `/var/backups/beri-segodnya/pilot-hardening-postdeploy-20260814T174320Z`, hash и restore — PASS.
+- Business counts сохранены: 7 партнеров, 6 пользователей, 6 адресов, 6 предложений, 3 брони, 3 заявки, 3 обращения, 3 шаблона.
+- Sessions: `9 → 0` после обязательного revoke; audit log: `42 → 52` из-за ожидаемых acceptance login/logout events.
+- Live PWA/headers/role isolation/CSRF/legal gate и browser desktop/mobile — PASS.
+- Полный протокол: `docs/PILOT_RELEASE_EVIDENCE_2026-08-14.md`.
