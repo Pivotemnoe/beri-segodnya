@@ -119,6 +119,9 @@ async function runScenario(port) {
   const adminCookie = cookieFrom(adminLogin);
   const adminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic", cookie: adminCookie });
   assert(adminMe.status === 200 && adminMe.json.data.authenticated === true, "Admin session probe failed");
+  const safeAuditLog = await request(port, "/api/admin/audit-log", { auth: "adminBasic", cookie: adminCookie });
+  assert(safeAuditLog.status === 200 && safeAuditLog.json.data.length > 0, "Admin audit log is unavailable");
+  assert(safeAuditLog.json.data.every((row) => row.actorRole && row.action && row.entityType && row.createdAt && !row.metadata_json && !row.entity_id && !row.actor_id), "Admin audit log exposes unsafe internal fields");
 
   const onboarded = await request(port, "/api/admin/partners/onboard", {
     auth: "adminBasic",

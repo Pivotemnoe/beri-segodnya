@@ -233,7 +233,7 @@ async function handleAdmin(request, response, url) {
   if (!auth.ok) return sendAuthFailure(response, auth);
 
   if (request.method === "GET" && parts[0] === "dashboard") return ok(response, admin.dashboard());
-  if (request.method === "GET" && parts[0] === "audit-log") return ok(response, listAdminData("auditLog"));
+  if (request.method === "GET" && parts[0] === "audit-log") return ok(response, admin.auditLog());
 
   if (parts[0] === "partners") return handleAdminPartners(request, response, parts);
   if (parts[0] === "offers") return handleAdminOffers(request, response, parts);

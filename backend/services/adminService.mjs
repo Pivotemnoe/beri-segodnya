@@ -108,6 +108,15 @@ export function dashboard() {
   return adminDashboard();
 }
 
+export function auditLog() {
+  return listAdminData("auditLog").map((row) => ({
+    actorRole: row.actor_role,
+    action: row.action,
+    entityType: row.entity_type,
+    createdAt: row.created_at
+  }));
+}
+
 export function list(collection) {
   return listAdminData(collection);
 }
