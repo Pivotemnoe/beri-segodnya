@@ -18,6 +18,8 @@ const credentials = {
 };
 const adminApp = { login: "smoke-admin-app", password: "smoke-admin-app-password" };
 const adminHash = createPasswordHash(adminApp.password);
+const seededPartnerPassword = crypto.randomBytes(18).toString("base64url");
+const managerPassword = crypto.randomBytes(18).toString("base64url");
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -42,10 +44,14 @@ function cookieFrom(response) {
   return (response.headers["set-cookie"] || [""])[0];
 }
 
-function request(port, route, { method = "GET", body, auth = "preview", cookie, headers: extraHeaders = {} } = {}) {
+function request(port, route, { method = "GET", body, auth = "preview", cookie, headers: extraHeaders = {}, confirmRequest = true } = {}) {
   return new Promise((resolve, reject) => {
     const headers = { Accept: "application/json", ...extraHeaders };
     if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (!["GET", "HEAD", "OPTIONS"].includes(method) && confirmRequest) {
+      if (!headers["X-BS-Request"]) headers["X-BS-Request"] = "1";
+      if (!headers.Origin) headers.Origin = `http://127.0.0.1:${port}`;
+    }
     if (auth && credentials[auth]) {
       const value = `${credentials[auth].user}:${credentials[auth].password}`;
       headers.Authorization = `Basic ${Buffer.from(value).toString("base64")}`;
@@ -150,7 +156,7 @@ async function runScenario(port) {
     auth: "adminBasic",
     cookie: adminCookie,
     method: "POST",
-    body: { name: "Тестовый пользователь", login: `smoke-${suffix}`, password: "partner1-preview", role: "manager", status: "active" }
+    body: { name: "Тестовый пользователь", login: `smoke-${suffix}`, password: managerPassword, role: "manager", status: "active" }
   });
   assert(user.status === 201 && user.json.ok && !user.json.data.password_hash, "Admin create partner user failed");
 
@@ -179,7 +185,7 @@ async function runScenario(port) {
 
   const booking = await request(port, "/api/public/bookings", {
     method: "POST",
-    body: { offerId: offer.json.data.id, customerName: "Тест", customerPhone: "+7 900 000-00-00" }
+    body: { offerId: offer.json.data.id, customerName: "Тест", customerPhone: "+7 900 000-00-00", personalDataConsent: true }
   });
   assert(booking.status === 201 && /^BS-\d{4}$/.test(booking.json.data.code), "Public booking failed");
   assert(booking.json.data.publicToken && booking.json.data.bookingUrl, "Persistent booking link missing");
@@ -197,20 +203,20 @@ async function runScenario(port) {
 
   const application = await request(port, "/api/public/partner-applications", {
     method: "POST",
-    body: { venueName: `Тестовая заявка ${suffix}`, venueType: "other", city: "Армавир", firstAddress: "Армавир, тестовый адрес", contactName: "Тест", phone: "+7 900 000-00-00", email: "test@example.test", offerFormats: ["Готовые обеды"], locationsCount: "1", comment: "Изолированный smoke test" }
+    body: { venueName: `Тестовая заявка ${suffix}`, venueType: "other", city: "Армавир", firstAddress: "Армавир, тестовый адрес", contactName: "Тест", phone: "+7 900 000-00-00", email: "test@example.test", offerFormats: ["Готовые обеды"], locationsCount: "1", comment: "Изолированный smoke test", personalDataConsent: true, partnerTermsConsent: true }
   });
   assert(application.status === 201 && application.json.ok, "Partner application failed");
 
   const contact = await request(port, "/api/public/contact-requests", {
     method: "POST",
-    body: { name: "Тест", phone: "+7 900 000-00-00", email: "test@example.test", type: "service_question", message: "Изолированный smoke test" }
+    body: { name: "Тест", phone: "+7 900 000-00-00", email: "test@example.test", type: "service_question", message: "Изолированный smoke test", personalDataConsent: true }
   });
   assert(contact.status === 201 && contact.json.ok, "Contact request failed");
 
   const partnerLogin = await request(port, "/api/partner/auth/login", {
     auth: "partnerBasic",
     method: "POST",
-    body: { login: "partner1", password: "partner1-preview" }
+    body: { login: "partner1", password: seededPartnerPassword }
   });
   assert(partnerLogin.status === 200 && partnerLogin.json.ok && cookieFrom(partnerLogin), "Partner login failed");
   const partnerCookie = cookieFrom(partnerLogin);
@@ -220,6 +226,41 @@ async function runScenario(port) {
   assert(partnerIntoAdmin.status === 403, "Partner session gained access to admin API");
   const adminIntoPartner = await request(port, "/api/partner/profile", { auth: null, cookie: adminCookie });
   assert(adminIntoPartner.status === 403, "Admin session was accepted as a partner session");
+
+  const managerLogin = await request(port, "/api/partner/auth/login", {
+    auth: "partnerBasic",
+    method: "POST",
+    body: { login: `smoke-${suffix}`, password: managerPassword }
+  });
+  assert(managerLogin.status === 200 && managerLogin.json.data.userRole === "manager", "Manager login or role exposure failed");
+  const managerCookie = cookieFrom(managerLogin);
+  const managerProfile = await request(port, "/api/partner/profile", { auth: "partnerBasic", cookie: managerCookie });
+  assert(managerProfile.status === 200, "Manager lost read access to partner profile");
+  const forbiddenManagerProfilePatch = await request(port, "/api/partner/profile", {
+    auth: "partnerBasic",
+    cookie: managerCookie,
+    method: "PATCH",
+    body: { name: "Недопустимое изменение" }
+  });
+  assert(forbiddenManagerProfilePatch.status === 403 && forbiddenManagerProfilePatch.json.error.code === "PARTNER_PERMISSION_DENIED", "Manager changed owner-only partner profile");
+  const forbiddenManagerAddress = await request(port, "/api/partner/addresses", {
+    auth: "partnerBasic",
+    cookie: managerCookie,
+    method: "POST",
+    body: { title: "Недопустимая точка", city: "Армавир", address: "Армавир, тестовый адрес" }
+  });
+  assert(forbiddenManagerAddress.status === 403 && forbiddenManagerAddress.json.error.code === "PARTNER_PERMISSION_DENIED", "Manager changed owner-only addresses");
+  const managerOffers = await request(port, "/api/partner/offers", { auth: "partnerBasic", cookie: managerCookie });
+  assert(managerOffers.status === 200, "Manager lost operational offer access");
+  const disabledManager = await request(port, `/api/admin/partners/${createdPartner.json.data.id}/users/${user.json.data.id}`, {
+    auth: "adminBasic",
+    cookie: adminCookie,
+    method: "PATCH",
+    body: { status: "disabled" }
+  });
+  assert(disabledManager.status === 200 && disabledManager.json.data.status === "disabled", "Admin could not disable manager");
+  const revokedManagerSession = await request(port, "/api/partner/profile", { auth: "partnerBasic", cookie: managerCookie });
+  assert(revokedManagerSession.status === 401, "Disabled manager session remained active");
 
   for (const route of ["/api/partner/auth/me", "/api/partner/dashboard", "/api/partner/profile", "/api/partner/addresses", "/api/partner/offers", "/api/partner/bookings"]) {
     const response = await request(port, route, { auth: "partnerBasic", cookie: partnerCookie });
@@ -365,10 +406,23 @@ async function runScenario(port) {
   const currentPublicOffers = await request(port, "/api/public/offers");
   assert(!currentPublicOffers.json.data.some((item) => item.id === staleOffer.json.data.id), "Stale offer leaked into public API");
 
+  const missingConfirmation = await request(port, "/api/public/contact-requests", {
+    method: "POST",
+    confirmRequest: false,
+    body: { name: "Тест", phone: "+7 900 000-00-00", type: "other", message: "Нет подтверждающего заголовка", personalDataConsent: true }
+  });
+  assert(missingConfirmation.status === 403 && missingConfirmation.json.error.code === "REQUEST_CONFIRMATION_REQUIRED", "State-changing request bypassed confirmation header");
+
+  const missingConsent = await request(port, "/api/public/contact-requests", {
+    method: "POST",
+    body: { name: "Тест", phone: "+7 900 000-00-00", type: "other", message: "Нет согласия" }
+  });
+  assert(missingConsent.status === 400 && missingConsent.json.error.code === "PERSONAL_DATA_CONSENT_REQUIRED", "Personal-data request was accepted without consent");
+
   const csrf = await request(port, "/api/public/contact-requests", {
     method: "POST",
     headers: { Origin: "https://attacker.example" },
-    body: { name: "Тест", phone: "+7 900 000-00-00", type: "other", message: "Запрещённый источник" }
+    body: { name: "Тест", phone: "+7 900 000-00-00", type: "other", message: "Запрещённый источник", personalDataConsent: true }
   });
   assert(csrf.status === 403 && csrf.json.error.code === "ORIGIN_NOT_ALLOWED", "Origin validation failed");
 
@@ -381,6 +435,12 @@ async function runScenario(port) {
   const persisted = JSON.parse(fs.readFileSync(dbFile, "utf8"));
   assert(persisted.sessions.length >= 2, "Server sessions were not persisted");
   assert(persisted.sessions.every((session) => session.id_hash && !session.id), "Raw session token was persisted");
+  const storedBooking = persisted.bookings.find((item) => item.id === booking.json.data.bookingId);
+  assert(storedBooking?.consent_version === "smoke-legal-v1" && storedBooking.consent_given_at, "Booking consent receipt was not persisted");
+  const storedApplication = persisted.partnerApplications.find((item) => item.id === application.json.data.id);
+  assert(storedApplication?.partner_terms_version === "smoke-legal-v1" && storedApplication.consent_given_at, "Partner terms receipt was not persisted");
+  const storedContact = persisted.contactRequests.find((item) => item.id === contact.json.data.id);
+  assert(storedContact?.consent_version === "smoke-legal-v1" && storedContact.consent_given_at, "Contact consent receipt was not persisted");
   if (process.platform !== "win32") {
     assert((fs.statSync(dbFile).mode & 0o777) === 0o600, "Database file permissions must remain 0600");
   }
@@ -393,7 +453,7 @@ async function runScenario(port) {
   });
   assert(disabledPartner.status === 200 && disabledPartner.json.data.status === "disabled", "Admin could not disable partner");
   const disabledSession = await request(port, "/api/partner/profile", { auth: "partnerBasic", cookie: partnerCookie });
-  assert(disabledSession.status === 403 && disabledSession.json.error.code === "PARTNER_DISABLED", "Disabled partner session still has access");
+  assert(disabledSession.status === 401, "Disabled partner session still has access");
 
   const adminLogout = await request(port, "/api/admin/auth/logout", { auth: "adminBasic", cookie: adminCookie, method: "POST" });
   assert(adminLogout.status === 200, "Admin logout failed");
@@ -421,6 +481,17 @@ const child = spawn(process.execPath, ["server.mjs"], {
     ADMIN_APP_LOGIN: adminApp.login,
     ADMIN_APP_PASSWORD_HASH: adminHash.hash,
     ADMIN_APP_PASSWORD_SALT: adminHash.salt,
+    ADMIN_APP_PASSWORD_ITERATIONS: String(adminHash.iterations),
+    SESSION_SECRET: "smoke-session-secret-with-at-least-32-characters",
+    LEGAL_OPERATOR_READY: "true",
+    LEGAL_OPERATOR_NAME: "Тестовый оператор",
+    LEGAL_OPERATOR_ID: "TEST-000000",
+    LEGAL_OPERATOR_ADDRESS: "Армавир, тестовый адрес",
+    LEGAL_PRIVACY_EMAIL: "privacy@example.test",
+    LEGAL_DOCUMENT_VERSION: "smoke-legal-v1",
+    SEED_PARTNER_1_PASSWORD: seededPartnerPassword,
+    SEED_PARTNER_2_PASSWORD: crypto.randomBytes(18).toString("base64url"),
+    SEED_PARTNER_3_PASSWORD: crypto.randomBytes(18).toString("base64url"),
     NEXT_PUBLIC_DEMO_MODE: "true"
   },
   stdio: ["ignore", "pipe", "pipe"]

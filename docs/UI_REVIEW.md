@@ -35,21 +35,7 @@ Partner cabinet:
 
 ## Test Access
 
-If public preview Basic Auth is enabled:
-
-- Site preview: `demo` / `demo-preview`
-
-Admin:
-
-- Admin login: `admin` / `admin-preview`
-
-Seed partner users:
-
-- `partner1` / `partner1-preview`
-- `partner2` / `partner2-preview`
-- `bakery1` / `bakery1-preview`
-
-Real `.env.local` values are not committed and must not be published. If local access differs, check `.env.local` on the machine running the server.
+No password is committed. Obtain the temporary review credentials from the environment owner or create unique local values in `.env.local`. Do not paste credentials into screenshots, issues, reports, terminal transcripts, or chat.
 
 `/admin` and `/partner/login` open their own single login forms. Optional role-specific Basic Auth is disabled by default.
 
@@ -90,7 +76,7 @@ The local seed includes a test partner:
 ## Partner Review
 
 1. Open http://localhost:3010/partner/login.
-2. Login as `partner1` / `partner1-preview`.
+2. Login with a seed partner account whose password was supplied through the local environment.
 4. Check these tabs:
    - Overview
    - Addresses

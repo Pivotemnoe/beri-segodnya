@@ -1,12 +1,14 @@
 import { createBookingAtomic } from "../repositories/databaseRepository.mjs";
 import { generateCode } from "../utils/id.mjs";
+import { consentReceipt } from "../utils/legal.mjs";
 import { cleanString, validatePhone } from "../utils/validation.mjs";
 
 export function createBooking(input) {
   const offerId = cleanString(input.offerId, 120, true, "Предложение");
   const customerName = cleanString(input.customerName, 80, true, "Имя");
   const customerPhone = validatePhone(input.customerPhone);
-  const { booking, offer } = createBookingAtomic(offerId, customerName, customerPhone, generateCode());
+  const receipt = consentReceipt(input, { form: "booking", source: "web:booking" });
+  const { booking, offer } = createBookingAtomic(offerId, customerName, customerPhone, generateCode(), receipt);
   return {
     bookingId: booking.id,
     code: booking.code,

@@ -956,12 +956,12 @@ function adminPage() {
             <div class="onboarding-source" data-admin-onboarding-source hidden><span>Поля заполнены из заявки партнёра</span><button type="button" data-clear-application>Очистить</button></div>
             <fieldset><legend><b>1</b> Организация</legend><div class="onboarding-fields"><label>Название<input name="partnerName" required maxlength="120" placeholder="Тестовая кулинария" /></label><label>Тип<select name="partnerType"><option value="culinary">Кулинария</option><option value="bakery">Пекарня</option><option value="coffee">Кофейня</option><option value="cafe">Кафе</option><option value="ready_food_cafe">Кафе с готовой едой</option><option value="buffet">Буфет</option><option value="other">Другое</option></select></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Имя представителя" /></label><label>Телефон<input name="phone" type="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="partner@example.test" /></label></div></fieldset>
             <fieldset><legend><b>2</b> Первая точка</legend><div class="onboarding-fields"><label>Название точки<input name="addressTitle" required maxlength="120" value="Основная точка" /></label><label>Город<input name="city" required maxlength="80" value="Армавир" /></label><label class="field-wide">Адрес<input name="address" required maxlength="160" placeholder="Армавир, тестовый адрес" /></label></div></fieldset>
-            <fieldset><legend><b>3</b> Вход владельца</legend><div class="onboarding-fields"><label>Имя пользователя<input name="userName" required maxlength="120" placeholder="Владелец точки" /></label><label>Логин<input name="login" required maxlength="80" autocomplete="off" placeholder="partner-new" /></label><label>Временный пароль<input name="password" required minlength="10" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 10 символов" /></label></div></fieldset>
+            <fieldset><legend><b>3</b> Вход владельца</legend><div class="onboarding-fields"><label>Имя пользователя<input name="userName" required maxlength="120" placeholder="Владелец точки" /></label><label>Логин<input name="login" required maxlength="80" autocomplete="off" placeholder="partner-new" /></label><label>Временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 12 символов" /></label></div></fieldset>
             <button class="button button-primary onboarding-submit" type="submit">Создать партнёра и кабинет</button>
           </form>
           <div class="panel-heading list-heading"><div><h3>Подключённые партнёры</h3><p>Отключение партнёра сразу закрывает его кабинет и скрывает активные предложения.</p></div></div><div class="table-wrap" data-admin-partners></div>
         </article>
-        <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form" data-admin-create-address><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="title" required placeholder="Название точки" /><input name="city" required value="Армавир" /><input name="address" required placeholder="Армавир, тестовый адрес" /><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form" data-admin-create-user><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="name" required placeholder="Имя сотрудника" /><input name="login" required placeholder="Логин" /><input name="password" required minlength="10" type="password" placeholder="Временный пароль" /><select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option></select><button class="button button-primary" type="submit">Добавить пользователя</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
+        <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form" data-admin-create-address><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="title" required placeholder="Название точки" /><input name="city" required value="Армавир" /><input name="address" required placeholder="Армавир, тестовый адрес" /><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form" data-admin-create-user><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="name" required placeholder="Имя сотрудника" /><input name="login" required placeholder="Логин" /><input name="password" required minlength="12" type="password" placeholder="Временный пароль от 12 символов" /><select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option></select><button class="button button-primary" type="submit">Добавить пользователя</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
         <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Обычно предложение публикует партнёр из своего кабинета. Эта форма нужна для первого запуска или помощи партнёру.</p></div></div><form class="mini-form offer-editor" data-admin-create-offer><select name="partnerId" required data-admin-offer-partner><option value="">Выберите партнёра</option></select><select name="addressId" required data-admin-offer-address disabled><option value="">Сначала выберите партнёра</option></select><input name="title" required maxlength="120" placeholder="Название предложения" /><select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select><input name="description" maxlength="240" placeholder="Короткое описание" /><input name="contents" maxlength="500" placeholder="Что входит в набор" /><input name="weight" maxlength="80" placeholder="Вес или количество изделий" /><input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /><input name="price" required type="number" min="1" placeholder="Цена" /><input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /><input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /><input name="date" required type="date" data-today-date /><input name="totalQuantity" required type="number" min="1" placeholder="Количество" /><select name="status"><option value="active">Активно</option><option value="paused">Черновик</option></select><button class="button button-primary" type="submit">Опубликовать предложение</button></form><div class="table-wrap" data-admin-offers></div></article>
         <article class="panel-card tab-panel" data-tab-panel="bookings"><h3>Брони и коды</h3><div class="table-wrap" data-admin-bookings></div></article>
         <article class="panel-card tab-panel" data-tab-panel="partner-applications"><h3>Заявки партнёров</h3><div class="table-wrap" data-admin-applications></div></article>
@@ -1213,10 +1213,13 @@ const PUBLIC_JS = `
 
   function api(path, options) {
     options = options || {};
+    var method = options.method || "GET";
+    var headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) headers["X-BS-Request"] = "1";
     return fetch(path, {
       credentials: "same-origin",
-      headers: Object.assign({ "Content-Type": "application/json" }, options.headers || {}),
-      method: options.method || "GET",
+      headers: headers,
+      method: method,
       body: options.body ? JSON.stringify(options.body) : undefined
     }).then(function (response) {
       return response.json().catch(function () {
@@ -1408,7 +1411,7 @@ const PUBLIC_JS = `
       var data = formObject(bookingForm);
       api("/api/public/bookings", {
         method: "POST",
-        body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone }
+        body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone, personalDataConsent: data.personalDataConsent }
       }).then(function (result) {
         document.getElementById("booking-code").textContent = result.code;
         var bookingLink = document.getElementById("booking-page-link");
@@ -1499,10 +1502,14 @@ function escapeHtml(value) {
 }
 
 async function api(path, options = {}) {
+  const method = options.method || "GET";
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (!["GET", "HEAD", "OPTIONS"].includes(method)) headers["X-BS-Request"] = "1";
   const response = await fetch(path, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
+    method,
+    headers,
     body: options.body && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body
   });
   const payload = await response.json().catch(() => ({ ok: false, error: { message: "Некорректный ответ сервера" } }));
@@ -1655,7 +1662,7 @@ function setupBooking() {
     error.hidden = true;
     try {
       const data = formObject(form);
-      const result = await api("/api/public/bookings", { method: "POST", body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone } });
+      const result = await api("/api/public/bookings", { method: "POST", body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone, personalDataConsent: data.personalDataConsent } });
       document.getElementById("booking-code").textContent = result.code;
       document.querySelector('[data-booking-step="form"]').hidden = true;
       document.querySelector('[data-booking-step="success"]').hidden = false;

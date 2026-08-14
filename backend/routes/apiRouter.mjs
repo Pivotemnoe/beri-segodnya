@@ -1,10 +1,12 @@
+import crypto from "node:crypto";
 import { ok, fail } from "../utils/responses.mjs";
 import { allowed, cleanString, enumValue, validateEmail, validatePhone } from "../utils/validation.mjs";
 import { generateId } from "../utils/id.mjs";
 import { nowIso } from "../utils/dates.mjs";
+import { consentReceipt } from "../utils/legal.mjs";
 import { cancelPublicBooking, createContactRequest, createPartnerApplication, getPublicBooking, getPublicOffer, listAdminData, listPublicOffers } from "../repositories/databaseRepository.mjs";
 import { createBooking } from "../services/bookingService.mjs";
-import { adminLogin, cookieForSession, expiredSessionCookie, logout, partnerLogin, rateLimit, requireRole, sessionFromRequest } from "../services/authService.mjs";
+import { adminLogin, cookieForSession, expiredSessionCookie, hasPartnerPermission, logout, partnerLogin, rateLimit, requireRole } from "../services/authService.mjs";
 import * as admin from "../services/adminService.mjs";
 import * as partner from "../services/partnerService.mjs";
 import { savePartnerImages } from "../storage/imageStore.mjs";
@@ -49,13 +51,27 @@ function secureCookie() {
   return process.env.APP_ENV === "production" || String(process.env.APP_BASE_URL || "").startsWith("https://");
 }
 
-function validateOrigin(request) {
+function validateStateRequest(request) {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method || "GET")) return;
+  if (request.headers["sec-fetch-site"] === "cross-site") {
+    const error = new Error("Межсайтовый запрос отклонён");
+    error.status = 403;
+    error.code = "CROSS_SITE_REQUEST";
+    throw error;
+  }
+  if (request.headers["x-bs-request"] !== "1") {
+    const error = new Error("Обновите страницу и повторите действие");
+    error.status = 403;
+    error.code = "REQUEST_CONFIRMATION_REQUIRED";
+    throw error;
+  }
   const origin = request.headers.origin;
   if (!origin) return;
   const configured = process.env.APP_BASE_URL ? new URL(process.env.APP_BASE_URL).origin : null;
-  const forwardedProto = request.headers["x-forwarded-proto"] || "http";
-  const requestOrigin = request.headers.host ? `${forwardedProto}://${request.headers.host}` : null;
+  const trustProxy = process.env.TRUST_PROXY === "true";
+  const forwardedProto = trustProxy ? String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim() : "";
+  const protocol = forwardedProto || (request.socket.encrypted ? "https" : "http");
+  const requestOrigin = request.headers.host ? `${protocol}://${request.headers.host}` : null;
   if (origin !== configured && origin !== requestOrigin) {
     const error = new Error("Источник запроса не разрешён");
     error.status = 403;
@@ -76,19 +92,45 @@ function sendAuthFailure(response, auth) {
   fail(response, auth.status, auth.code, auth.message);
 }
 
+function requirePartnerPermission(response, session, permission) {
+  if (hasPartnerPermission(session, permission)) return true;
+  fail(response, 403, "PARTNER_PERMISSION_DENIED", "У вашей роли нет прав на это действие");
+  return false;
+}
+
 function routeParts(pathname, prefix) {
   return pathname.slice(prefix.length).split("/").filter(Boolean);
 }
 
 export async function handleApiRequest(request, response, url) {
+  const requestId = crypto.randomUUID();
+  response.setHeader("X-Request-ID", requestId);
   try {
-    validateOrigin(request);
+    validateStateRequest(request);
     if (url.pathname.startsWith("/api/public/")) return await handlePublic(request, response, url);
     if (url.pathname.startsWith("/api/admin/")) return await handleAdmin(request, response, url);
     if (url.pathname.startsWith("/api/partner/")) return await handlePartner(request, response, url);
     return fail(response, 404, "NOT_FOUND", "API endpoint не найден");
   } catch (error) {
-    return fail(response, error.status || 500, error.code || "INTERNAL_ERROR", error.message || "Ошибка сервера");
+    const status = Number(error.status) || 500;
+    const expose = status < 500 || error.expose === true;
+    if (status >= 500 && !expose) {
+      console.error(JSON.stringify({
+        level: "error",
+        event: "api_request_failed",
+        requestId,
+        method: request.method,
+        path: url.pathname,
+        code: error.code || "INTERNAL_ERROR",
+        error: error.message || "Unknown error"
+      }));
+    }
+    return fail(
+      response,
+      status,
+      expose ? (error.code || "REQUEST_FAILED") : "INTERNAL_ERROR",
+      expose ? (error.message || "Не удалось выполнить запрос") : "Произошла ошибка. Повторите позже."
+    );
   }
 }
 
@@ -135,6 +177,7 @@ async function handlePublic(request, response, url) {
       offer_formats: Array.isArray(input.offerFormats) ? input.offerFormats.slice(0, 8).map((item) => cleanString(item, 80)).filter(Boolean) : [],
       locations_count: enumValue(input.locationsCount || "1", allowed.locationsCount, "Количество точек"),
       comment: cleanString(input.comment, 1000),
+      ...consentReceipt(input, { form: "partner-application", source: "web:partner-application", partnerTerms: true }),
       status: "new",
       created_at: nowIso(),
       updated_at: nowIso()
@@ -152,6 +195,7 @@ async function handlePublic(request, response, url) {
       email: validateEmail(input.email),
       type: enumValue(input.type || "other", allowed.requestTypes, "Тип обращения"),
       message: cleanString(input.message, 1000, true, "Сообщение"),
+      ...consentReceipt(input, { form: "contact-request", source: "web:contact-request" }),
       status: "new",
       created_at: nowIso(),
       updated_at: nowIso()
@@ -211,7 +255,7 @@ async function handleAdminPartners(request, response, parts) {
   if (request.method === "POST" && partnerId && parts[2] === "addresses") return ok(response, admin.createAddressInput(partnerId, await readBody(request)), 201);
   if (request.method === "PATCH" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, admin.patchAddressInput(partnerId, parts[3], await readBody(request)));
   if (request.method === "DELETE" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, { deleted: admin.deleteItem("partnerAddresses", parts[3]) });
-  if (request.method === "GET" && partnerId && parts[2] === "users") return ok(response, listAdminData("partnerUsers").filter((item) => item.partner_id === partnerId).map(({ password_hash, password_salt, ...safe }) => safe));
+  if (request.method === "GET" && partnerId && parts[2] === "users") return ok(response, listAdminData("partnerUsers").filter((item) => item.partner_id === partnerId).map(({ password_hash, password_salt, password_iterations, ...safe }) => safe));
   if (request.method === "POST" && partnerId && parts[2] === "users") return ok(response, admin.createPartnerUserInput(partnerId, await readBody(request)), 201);
   if (request.method === "PATCH" && partnerId && parts[2] === "users" && parts[3]) return ok(response, admin.patchPartnerUserInput(partnerId, parts[3], await readBody(request)));
   if (request.method === "DELETE" && partnerId && parts[2] === "users" && parts[3]) return ok(response, { deleted: admin.deletePartnerUser(partnerId, parts[3]) });
@@ -266,7 +310,7 @@ async function handlePartner(request, response, url) {
     const input = await readBody(request);
     const session = partnerLogin(input.login, input.password);
     if (!session) return fail(response, 401, "BAD_CREDENTIALS", "Неверный логин или пароль");
-    return ok(response, { role: "partner", partnerId: session.partner_id }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
+    return ok(response, { role: "partner", partnerId: session.partner_id, userId: session.user_id, userRole: session.user_role }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
 
   if (request.method === "POST" && parts.join("/") === "auth/logout") {
@@ -277,7 +321,7 @@ async function handlePartner(request, response, url) {
   if (request.method === "GET" && parts.join("/") === "auth/me") {
     const auth = requirePartner(request);
     return ok(response, auth.ok
-      ? { authenticated: true, role: "partner", partnerId: auth.session.partner_id }
+      ? { authenticated: true, role: "partner", partnerId: auth.session.partner_id, userId: auth.session.user_id, userRole: auth.session.user_role }
       : { authenticated: false });
   }
 
@@ -285,22 +329,33 @@ async function handlePartner(request, response, url) {
   if (!auth.ok) return sendAuthFailure(response, auth);
   const partnerId = auth.session.partner_id;
 
-  if (request.method === "GET" && parts[0] === "dashboard") return ok(response, partner.dashboard(partnerId));
-  if (request.method === "GET" && parts[0] === "profile") return ok(response, partner.profile(partnerId));
-  if (request.method === "PATCH" && parts[0] === "profile") return ok(response, partner.patchProfile(partnerId, await readBody(request)));
+  if (request.method === "GET" && parts[0] === "dashboard") {
+    if (!requirePartnerPermission(response, auth.session, "dashboard:read")) return;
+    return ok(response, partner.dashboard(partnerId));
+  }
+  if (request.method === "GET" && parts[0] === "profile") {
+    if (!requirePartnerPermission(response, auth.session, "profile:read")) return;
+    return ok(response, partner.profile(partnerId));
+  }
+  if (request.method === "PATCH" && parts[0] === "profile") {
+    if (!requirePartnerPermission(response, auth.session, "profile:write")) return;
+    return ok(response, partner.patchProfile(partnerId, await readBody(request)));
+  }
   if (request.method === "POST" && parts[0] === "uploads") {
+    if (!requirePartnerPermission(response, auth.session, "uploads:write")) return;
     if (!rateLimit(`${ip(request)}:${partnerId}:photo-upload`, 30, 60 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Слишком много загрузок. Попробуйте позже");
     const input = await readBody(request, 16 * 1024 * 1024);
     return ok(response, { images: savePartnerImages(partnerId, input.images) }, 201);
   }
-  if (parts[0] === "offer-templates") return handlePartnerTemplates(request, response, parts, partnerId);
-  if (parts[0] === "addresses") return handlePartnerAddresses(request, response, parts, partnerId);
-  if (parts[0] === "offers") return handlePartnerOffers(request, response, parts, partnerId);
-  if (parts[0] === "bookings") return handlePartnerBookings(request, response, parts, partnerId);
+  if (parts[0] === "offer-templates") return handlePartnerTemplates(request, response, parts, partnerId, auth.session);
+  if (parts[0] === "addresses") return handlePartnerAddresses(request, response, parts, partnerId, auth.session);
+  if (parts[0] === "offers") return handlePartnerOffers(request, response, parts, partnerId, auth.session);
+  if (parts[0] === "bookings") return handlePartnerBookings(request, response, parts, partnerId, auth.session);
   return fail(response, 404, "NOT_FOUND", "Partner API endpoint не найден");
 }
 
-async function handlePartnerTemplates(request, response, parts, partnerId) {
+async function handlePartnerTemplates(request, response, parts, partnerId, session) {
+  if (!requirePartnerPermission(response, session, request.method === "GET" ? "templates:read" : "templates:write")) return;
   const id = parts[1];
   if (request.method === "GET" && !id) return ok(response, partner.scoped(partnerId, "templates"));
   if (request.method === "POST" && !id) return ok(response, partner.createOwnTemplate(partnerId, await readBody(request)), 201);
@@ -309,7 +364,8 @@ async function handlePartnerTemplates(request, response, parts, partnerId) {
   return fail(response, 404, "NOT_FOUND", "Template endpoint не найден");
 }
 
-async function handlePartnerAddresses(request, response, parts, partnerId) {
+async function handlePartnerAddresses(request, response, parts, partnerId, session) {
+  if (!requirePartnerPermission(response, session, request.method === "GET" ? "addresses:read" : "addresses:write")) return;
   const id = parts[1];
   if (request.method === "GET" && !id) return ok(response, partner.scoped(partnerId, "addresses"));
   if (request.method === "POST" && !id) return ok(response, partner.createOwnAddress(partnerId, await readBody(request)), 201);
@@ -318,7 +374,8 @@ async function handlePartnerAddresses(request, response, parts, partnerId) {
   return fail(response, 404, "NOT_FOUND", "Address endpoint не найден");
 }
 
-async function handlePartnerOffers(request, response, parts, partnerId) {
+async function handlePartnerOffers(request, response, parts, partnerId, session) {
+  if (!requirePartnerPermission(response, session, request.method === "GET" ? "offers:read" : "offers:write")) return;
   const id = parts[1];
   if (request.method === "GET" && !id) return ok(response, partner.scoped(partnerId, "offers"));
   if (request.method === "POST" && !id) return ok(response, partner.createOwnOffer(partnerId, await readBody(request)), 201);
@@ -329,7 +386,8 @@ async function handlePartnerOffers(request, response, parts, partnerId) {
   return fail(response, 404, "NOT_FOUND", "Offer endpoint не найден");
 }
 
-async function handlePartnerBookings(request, response, parts, partnerId) {
+async function handlePartnerBookings(request, response, parts, partnerId, session) {
+  if (!requirePartnerPermission(response, session, request.method === "GET" ? "bookings:read" : "bookings:write")) return;
   const id = parts[1];
   if (request.method === "GET" && !id) return ok(response, partner.scoped(partnerId, "bookings"));
   if (request.method === "PATCH" && id && parts[2] === "status") {

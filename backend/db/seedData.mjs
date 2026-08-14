@@ -2,8 +2,19 @@ import { generateId } from "../utils/id.mjs";
 import { nowIso, todayDate } from "../utils/dates.mjs";
 import { createPasswordHash } from "../utils/password.mjs";
 
+function seedPassword(variable) {
+  if (process.env.APP_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "true") {
+    throw new Error("Demo seed is disabled in production. Restore a verified database backup instead.");
+  }
+  const value = String(process.env[variable] || "");
+  if (value.length < 12 || /^replace[_-]/i.test(value)) {
+    throw new Error(`${variable} must contain a unique password of at least 12 characters before demo seed can be created`);
+  }
+  return value;
+}
+
 function partnerUser(id, partnerId, login, password, name) {
-  const { hash, salt } = createPasswordHash(password);
+  const { hash, salt, iterations } = createPasswordHash(password);
   const time = nowIso();
   return {
     id,
@@ -12,6 +23,7 @@ function partnerUser(id, partnerId, login, password, name) {
     login,
     password_hash: hash,
     password_salt: salt,
+    password_iterations: iterations,
     role: "owner",
     status: "active",
     created_at: time,
@@ -94,9 +106,9 @@ export function createSeedDb() {
   ];
 
   const partnerUsers = [
-    partnerUser("partner-user-1", "partner-1", "partner1", "partner1-preview", "Партнёр 1"),
-    partnerUser("partner-user-2", "partner-2", "partner2", "partner2-preview", "Партнёр 2"),
-    partnerUser("partner-user-3", "partner-3", "bakery1", "bakery1-preview", "Тестовая пекарня")
+    partnerUser("partner-user-1", "partner-1", "partner1", seedPassword("SEED_PARTNER_1_PASSWORD"), "Партнёр 1"),
+    partnerUser("partner-user-2", "partner-2", "partner2", seedPassword("SEED_PARTNER_2_PASSWORD"), "Партнёр 2"),
+    partnerUser("partner-user-3", "partner-3", "bakery1", seedPassword("SEED_PARTNER_3_PASSWORD"), "Тестовая пекарня")
   ];
 
   const offers = [

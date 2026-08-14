@@ -17,34 +17,31 @@ Admin app password is PBKDF2:
 - `ADMIN_APP_LOGIN`
 - `ADMIN_APP_PASSWORD_HASH`
 - `ADMIN_APP_PASSWORD_SALT`
+- `ADMIN_APP_PASSWORD_ITERATIONS`
 
 ## Partner
 
-Partner uses one login from `partnerUsers`. A successful login creates an HttpOnly `bs_session` with role `partner` and `partner_id`; every partner endpoint uses that `partner_id` to scope data.
+Partner uses one login from `partnerUsers`. A successful login creates an HttpOnly session bound to `partner_id`, `user_id` and the current owner/manager role. Every protected request reloads the user and partner status; disabling the user, changing the role/password, or disabling the partner revokes existing sessions.
 
 `ADMIN_ACCESS_ENABLED` and `PARTNER_ACCESS_ENABLED` default to `false`. Their Basic Auth gates remain optional for an exceptional closed environment, but are not part of the normal login flow.
 
-Seed users:
-
-- `partner1` / `partner1-preview`
-- `partner2` / `partner2-preview`
-- `bakery1` / `bakery1-preview`
+Seed passwords are never committed. Set the three `SEED_PARTNER_*_PASSWORD` variables only for an intentional local/test seed. Demo seed is blocked in production unless a maintainer explicitly sets `ALLOW_DEMO_SEED=true`.
 
 ## Sessions
 
 Session cookie:
 
 ```text
-bs_session
+__Host-bs_session (production HTTPS) / bs_session (local HTTP)
 ```
 
 Flags:
 
 - HttpOnly
-- SameSite=Lax
+- SameSite=Strict
 - Path=/
 - Secure in production
 
 ## Rate limit
 
-Login endpoints use an in-memory rate limit: 10 attempts per 10 minutes per IP/route.
+Login endpoints use a bounded process-local rate limit: 10 attempts per 10 minutes per IP/route. A shared limiter is still required before horizontal scaling.

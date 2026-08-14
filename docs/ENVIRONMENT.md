@@ -29,9 +29,18 @@ PARTNER_ACCESS_PASSWORD_SHA256=replace
 ADMIN_APP_LOGIN=replace
 ADMIN_APP_PASSWORD_HASH=replace
 ADMIN_APP_PASSWORD_SALT=replace
+ADMIN_APP_PASSWORD_ITERATIONS=600000
 
 DB_DRIVER=json
 DB_FILE=data/db.json
+UPLOAD_DIR=data/uploads
+
+LEGAL_OPERATOR_READY=false
+LEGAL_OPERATOR_NAME=
+LEGAL_OPERATOR_ID=
+LEGAL_OPERATOR_ADDRESS=
+LEGAL_PRIVACY_EMAIL=
+LEGAL_DOCUMENT_VERSION=
 
 NEXT_PUBLIC_APP_NAME=Бери сегодня
 NEXT_PUBLIC_APP_CITY=Армавир
@@ -75,7 +84,7 @@ Example:
 node --input-type=module -e "import { createPasswordHash } from './backend/utils/password.mjs'; console.log(createPasswordHash('PASSWORD'))"
 ```
 
-Put `hash` into `ADMIN_APP_PASSWORD_HASH` and `salt` into `ADMIN_APP_PASSWORD_SALT`.
+Put `hash`, `salt` and `iterations` into the matching `ADMIN_APP_PASSWORD_*` variables.
 
 ## Server Setup
 
@@ -86,17 +95,6 @@ Put `hash` into `ADMIN_APP_PASSWORD_HASH` and `salt` into `ADMIN_APP_PASSWORD_SA
 - Never print secrets in logs.
 - Never commit `.env.local`.
 
-## Smoke Test Variables
+## Seed and smoke-test secrets
 
-Smoke tests need plain test passwords only in local/staging env, not production logs:
-
-```text
-TEST_SITE_ACCESS_USER=demo
-TEST_SITE_ACCESS_PASSWORD=demo-preview
-TEST_ADMIN_APP_LOGIN=admin
-TEST_ADMIN_APP_PASSWORD=admin-preview
-TEST_PARTNER_LOGIN=partner1
-TEST_PARTNER_PASSWORD=partner1-preview
-```
-
-Do not publish real production passwords.
+The isolated smoke test generates its own random seed passwords and never touches `data/db.json`. Manual demo seeding requires `SEED_PARTNER_1_PASSWORD`, `SEED_PARTNER_2_PASSWORD` and `SEED_PARTNER_3_PASSWORD`; keep them local and unique. Do not publish or reuse production passwords.

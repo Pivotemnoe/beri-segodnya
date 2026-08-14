@@ -453,7 +453,7 @@ export TEST_ADMIN_APP_PASSWORD=replace
 export TEST_PARTNER_ACCESS_USER=replace
 export TEST_PARTNER_ACCESS_PASSWORD=replace
 export TEST_PARTNER_LOGIN=partner1
-export TEST_PARTNER_PASSWORD=partner1-preview
+export TEST_PARTNER_PASSWORD=replace-with-current-temporary-password
 ```
 
 Run:

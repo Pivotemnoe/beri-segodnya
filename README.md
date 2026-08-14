@@ -74,23 +74,9 @@ http://localhost:3010
 
 Старые localStorage-данные демо-версии больше не используются.
 
-## Тестовые доступы
+## Доступы для локальной проверки
 
-Preview Basic Auth:
-
-- `demo` / `demo-preview`
-
-Admin login (one form at `/admin`):
-
-- `admin` / `admin-preview`
-
-Partner login (one form at `/partner/login`), seed users:
-
-- `partner1` / `partner1-preview`
-- `partner2` / `partner2-preview`
-- `bakery1` / `bakery1-preview`
-
-Боевые значения задаются только через `.env.local` или переменные окружения хостинга.
+Пароли не хранятся в репозитории. Preview Basic Auth, администратор и три демонстрационных seed-пользователя получают уникальные значения через `.env.local` или переменные окружения. Перед `db:seed`/`db:reset` задайте `SEED_PARTNER_1_PASSWORD`, `SEED_PARTNER_2_PASSWORD` и `SEED_PARTNER_3_PASSWORD` длиной не менее 12 символов. Не используйте эти значения в production.
 
 `ADMIN_ACCESS_ENABLED` и `PARTNER_ACCESS_ENABLED` по умолчанию выключены: роли защищены внутренними HttpOnly-сессиями. Их Basic Auth можно включить только как дополнительный аварийный слой закрытого стенда.
 
@@ -104,6 +90,7 @@ npm run db:seed
 npm run db:reset
 npm run test:api
 npm run test:smoke
+npm run test:backup
 npm run backup:data
 npm run restore:data -- backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```
@@ -153,6 +140,7 @@ Backup/restore также сохраняет соответствующий сн
 - `ADMIN_APP_LOGIN`
 - `ADMIN_APP_PASSWORD_HASH`
 - `ADMIN_APP_PASSWORD_SALT`
+- `ADMIN_APP_PASSWORD_ITERATIONS`
 - `PARTNER_ACCESS_ENABLED`
 - `PARTNER_ACCESS_USER`
 - `PARTNER_ACCESS_PASSWORD_SHA256`
@@ -164,6 +152,7 @@ Backup/restore также сохраняет соответствующий сн
 - `DB_DRIVER`
 - `DB_FILE`
 - `UPLOAD_DIR`
+- `LEGAL_OPERATOR_READY` и реквизиты `LEGAL_*`
 
 Access instructions are in `docs/ACCESS.md`. Deployment guidance is in `docs/DEPLOYMENT.md`; the current architecture is best deployed to a VPS with a persistent disk.
 

@@ -77,12 +77,9 @@ Environment variables:
 - `ADMIN_APP_LOGIN`
 - `ADMIN_APP_PASSWORD_HASH`
 - `ADMIN_APP_PASSWORD_SALT`
+- `ADMIN_APP_PASSWORD_ITERATIONS`
 
-Dev/test values used by local scripts:
-
-- Admin login: `admin` / `admin-preview`
-
-Admin app credentials are read from env. There is no admin password stored in `data/db.json`.
+Admin app credentials are read from env and are not published in the repository. There is no admin password stored in `data/db.json`.
 
 ## Partner Cabinet
 
@@ -94,11 +91,7 @@ http://localhost:3010/partner/login
 
 Access: one partner user login checked server-side against `partnerUsers`.
 
-Seed partner users:
-
-- `partner1` / `partner1-preview`
-- `partner2` / `partner2-preview`
-- `bakery1` / `bakery1-preview`
+Seed logins may be created for local review, but their passwords must be supplied through the `SEED_PARTNER_*_PASSWORD` environment variables. Never reuse a seed password on the VPS.
 
 Partner user passwords are stored as PBKDF2 `password_hash` + `password_salt`, not as plain text.
 
@@ -119,7 +112,7 @@ Partner applications from `/partners` can prefill the same onboarding form. The 
 - Check seed data: `node backend/db/seed.mjs`.
 - Check storage exists: `data/db.json`.
 - Check server logs from `node server.mjs`.
-- Check cookies, especially `bs_session`.
+- Check cookies, especially `__Host-bs_session` on HTTPS or `bs_session` locally.
 - Clear cookies for `localhost:3010`.
 - Restart the server.
 - For local public review, start with `SITE_ACCESS_ENABLED=false node server.mjs`.

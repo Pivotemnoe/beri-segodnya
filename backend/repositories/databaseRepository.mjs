@@ -10,7 +10,14 @@ const categoryImages = {
 };
 
 function sessionHash(value) {
-  return crypto.createHash("sha256").update(String(value)).digest("hex");
+  const secret = String(process.env.SESSION_SECRET || "");
+  if (process.env.APP_ENV === "production" && secret.length < 32) {
+    throw new Error("SESSION_SECRET must contain at least 32 characters in production");
+  }
+  return crypto
+    .createHmac("sha256", secret || "beri-segodnya-local-session-secret")
+    .update(String(value))
+    .digest("hex");
 }
 
 function activeOfferRecord(offer, db, date = new Date()) {
@@ -93,19 +100,22 @@ export function addAudit(db, actorRole, actorId, action, entityType, entityId, m
   });
 }
 
-export function createSession(role, partnerId = null) {
+export function createSession(role, partnerId = null, userId = null, userRole = null) {
   return updateDb((db) => {
     db.sessions = db.sessions.filter((item) => new Date(item.expires_at).getTime() > Date.now());
     const token = generateId("session");
+    const ttlMs = role === "admin" ? 12 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
     const session = {
       id_hash: sessionHash(token),
       role,
       partner_id: partnerId,
+      user_id: userId,
+      user_role: userRole,
       created_at: nowIso(),
-      expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString()
+      expires_at: new Date(Date.now() + ttlMs).toISOString()
     };
     db.sessions.push(session);
-    addAudit(db, role, partnerId, `${role}_login`, "session", session.id_hash);
+    addAudit(db, role, userId || partnerId, `${role}_login`, "session", session.id_hash);
     return { ...session, id: token };
   });
 }
@@ -126,6 +136,28 @@ export function deleteSession(id) {
   });
 }
 
+export function deleteSessionsForUser(userId) {
+  if (!userId) return 0;
+  return updateDb((db) => {
+    const before = db.sessions.length;
+    db.sessions = db.sessions.filter((item) => item.user_id !== userId);
+    const deleted = before - db.sessions.length;
+    if (deleted) addAudit(db, "system", userId, "revoke_user_sessions", "partner_user", userId, { count: deleted });
+    return deleted;
+  });
+}
+
+export function deleteSessionsForPartner(partnerId) {
+  if (!partnerId) return 0;
+  return updateDb((db) => {
+    const before = db.sessions.length;
+    db.sessions = db.sessions.filter((item) => item.partner_id !== partnerId);
+    const deleted = before - db.sessions.length;
+    if (deleted) addAudit(db, "system", partnerId, "revoke_partner_sessions", "partner", partnerId, { count: deleted });
+    return deleted;
+  });
+}
+
 export function findPartnerUser(login) {
   const db = readDb();
   const normalized = String(login || "").trim().toLowerCase();
@@ -134,11 +166,30 @@ export function findPartnerUser(login) {
   return owner?.status === "active" ? user : null;
 }
 
+export function findPartnerUserById(userId) {
+  if (!userId) return null;
+  return readDb().partnerUsers.find((item) => item.id === userId) || null;
+}
+
+export function updatePartnerUserPassword(userId, { hash, salt, iterations }) {
+  return updateDb((db) => {
+    const user = db.partnerUsers.find((item) => item.id === userId);
+    if (!user) return null;
+    user.password_hash = hash;
+    user.password_salt = salt;
+    user.password_iterations = iterations;
+    user.updated_at = nowIso();
+    db.sessions = db.sessions.filter((item) => item.user_id !== userId);
+    addAudit(db, "system", userId, "rehash_partner_password", "partner_user", userId);
+    return user;
+  });
+}
+
 export function isPartnerActive(partnerId) {
   return readDb().partners.some((partner) => partner.id === partnerId && partner.status === "active");
 }
 
-export function createBookingAtomic(offerId, customerName, customerPhone, code) {
+export function createBookingAtomic(offerId, customerName, customerPhone, code, receipt = {}) {
   return updateDb((db) => {
     const offer = db.offers.find((item) => item.id === offerId);
     const partner = db.partners.find((item) => item.id === offer?.partner_id);
@@ -177,6 +228,7 @@ export function createBookingAtomic(offerId, customerName, customerPhone, code) 
       address_id: offer.address_id,
       customer_name: customerName,
       customer_phone: customerPhone,
+      ...receipt,
       status: "created",
       public_token: generateId("booking-view"),
       expires_at: pickupEndIso(offer.date, offer.pickup_window),
@@ -376,7 +428,7 @@ export function onboardPartner({ partner: partnerData, address: addressData, use
     }
     addAudit(db, "admin", null, "onboard_partner", "partner", partner.id, { applicationId });
 
-    const { password_hash, password_salt, ...safeUser } = user;
+    const { password_hash, password_salt, password_iterations, ...safeUser } = user;
     return { partner, address, user: safeUser };
   });
 }
@@ -386,6 +438,12 @@ export function patchCollectionItem(collection, id, patch, actorRole = "admin") 
     const item = db[collection].find((entry) => entry.id === id);
     if (!item) return null;
     Object.assign(item, patch, { updated_at: nowIso() });
+    if (collection === "partnerUsers" && ["status", "role", "login", "password_hash", "password_salt", "password_iterations"].some((key) => Object.prototype.hasOwnProperty.call(patch, key))) {
+      db.sessions = db.sessions.filter((session) => session.user_id !== id);
+    }
+    if (collection === "partners" && patch.status && patch.status !== "active") {
+      db.sessions = db.sessions.filter((session) => session.partner_id !== id);
+    }
     addAudit(db, actorRole, null, `patch_${collection}`, collection, id, patch);
     return item;
   });
@@ -458,7 +516,7 @@ export function createPartnerUser(data) {
     const user = { id: generateId("partner-user"), role: "owner", status: "active", ...data, created_at: time, updated_at: time };
     db.partnerUsers.push(user);
     addAudit(db, "admin", null, "create_partner_user", "partner_user", user.id, { partnerId: user.partner_id });
-    const { password_hash, password_salt, ...safe } = user;
+    const { password_hash, password_salt, password_iterations, ...safe } = user;
     return safe;
   });
 }

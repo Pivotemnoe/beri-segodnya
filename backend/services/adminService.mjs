@@ -22,8 +22,8 @@ function has(input, key) {
 
 function passwordValue(value) {
   const password = cleanString(value, 120, true, "Пароль");
-  if (password.length < 10) {
-    const error = new Error("Пароль должен содержать не менее 10 символов");
+  if (password.length < 12) {
+    const error = new Error("Пароль должен содержать не менее 12 символов");
     error.status = 400;
     error.code = "WEAK_PASSWORD";
     throw error;
@@ -124,7 +124,7 @@ export function createPartnerInput(input) {
 }
 
 export function onboardPartnerInput(input) {
-  const { hash, salt } = createPasswordHash(passwordValue(input.password));
+  const { hash, salt, iterations } = createPasswordHash(passwordValue(input.password));
   return onboardPartner({
     partner: {
       name: cleanString(input.partnerName || input.name, 120, true, "Название партнёра"),
@@ -145,6 +145,7 @@ export function onboardPartnerInput(input) {
       login: cleanString(input.login, 80, true, "Логин"),
       password_hash: hash,
       password_salt: salt,
+      password_iterations: iterations,
       role: "owner",
       status: "active"
     },
@@ -162,13 +163,14 @@ export function createAddressInput(partnerId, input) {
 }
 
 export function createPartnerUserInput(partnerId, input) {
-  const { hash, salt } = createPasswordHash(passwordValue(input.password));
+  const { hash, salt, iterations } = createPasswordHash(passwordValue(input.password));
   return createPartnerUser({
     partner_id: partnerId,
     name: cleanString(input.name, 120, true, "Имя"),
     login: cleanString(input.login, 80, true, "Логин"),
     password_hash: hash,
     password_salt: salt,
+    password_iterations: iterations,
     role: enumValue(input.role || "owner", allowed.userRoles, "Роль"),
     status: enumValue(input.status || "active", allowed.userStatuses, "Статус")
   });
@@ -179,9 +181,10 @@ export function patchPartnerUserInput(partnerId, userId, input) {
   if (input.name !== undefined) patch.name = cleanString(input.name, 120, true, "Имя");
   if (input.login !== undefined) patch.login = cleanString(input.login, 80, true, "Логин");
   if (input.password !== undefined) {
-    const { hash, salt } = createPasswordHash(passwordValue(input.password));
+    const { hash, salt, iterations } = createPasswordHash(passwordValue(input.password));
     patch.password_hash = hash;
     patch.password_salt = salt;
+    patch.password_iterations = iterations;
   }
   if (input.role !== undefined) patch.role = enumValue(input.role, allowed.userRoles, "Роль");
   if (input.status !== undefined) patch.status = enumValue(input.status, allowed.userStatuses, "Статус");
@@ -190,7 +193,7 @@ export function patchPartnerUserInput(partnerId, userId, input) {
   if (!user) return null;
   const updated = patchCollectionItem("partnerUsers", userId, patch);
   if (!updated) return null;
-  const { password_hash, password_salt, ...safe } = updated;
+  const { password_hash, password_salt, password_iterations, ...safe } = updated;
   return safe;
 }
 
