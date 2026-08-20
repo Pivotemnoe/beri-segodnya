@@ -158,6 +158,43 @@ export function deleteSessionsForPartner(partnerId) {
   });
 }
 
+export function deleteSessionsForRole(role) {
+  return updateDb((db) => {
+    const before = db.sessions.length;
+    db.sessions = db.sessions.filter((item) => item.role !== role);
+    const deleted = before - db.sessions.length;
+    if (deleted) addAudit(db, "system", null, "revoke_role_sessions", "session", null, { role, count: deleted });
+    return deleted;
+  });
+}
+
+export function findAdminUser(login) {
+  const normalized = String(login || "").trim().toLowerCase();
+  return readDb().adminUsers.find((item) => item.login.toLowerCase() === normalized && item.status === "active") || null;
+}
+
+export function upsertAdminUserPassword(login, { hash, salt, iterations }) {
+  return updateDb((db) => {
+    const normalized = String(login || "").trim();
+    const time = nowIso();
+    let user = db.adminUsers.find((item) => item.login.toLowerCase() === normalized.toLowerCase());
+    if (!user) {
+      user = { id: `admin:${normalized}`, login: normalized, status: "active", created_at: time };
+      db.adminUsers.push(user);
+    }
+    Object.assign(user, {
+      password_hash: hash,
+      password_salt: salt,
+      password_iterations: iterations,
+      must_change_password: false,
+      updated_at: time
+    });
+    db.sessions = db.sessions.filter((item) => item.role !== "admin");
+    addAudit(db, "admin", user.id, "change_admin_password", "admin_user", user.id);
+    return user;
+  });
+}
+
 export function findPartnerUser(login) {
   const db = readDb();
   const normalized = String(login || "").trim().toLowerCase();
@@ -171,16 +208,17 @@ export function findPartnerUserById(userId) {
   return readDb().partnerUsers.find((item) => item.id === userId) || null;
 }
 
-export function updatePartnerUserPassword(userId, { hash, salt, iterations }) {
+export function updatePartnerUserPassword(userId, { hash, salt, iterations }, action = "change_partner_password") {
   return updateDb((db) => {
     const user = db.partnerUsers.find((item) => item.id === userId);
     if (!user) return null;
     user.password_hash = hash;
     user.password_salt = salt;
     user.password_iterations = iterations;
+    if (action !== "rehash_partner_password") user.must_change_password = false;
     user.updated_at = nowIso();
     db.sessions = db.sessions.filter((item) => item.user_id !== userId);
-    addAudit(db, "system", userId, "rehash_partner_password", "partner_user", userId);
+    addAudit(db, action === "rehash_partner_password" ? "system" : "partner", userId, action, "partner_user", userId);
     return user;
   });
 }
@@ -456,6 +494,64 @@ export function deleteCollectionItem(collection, id, actorRole = "admin") {
     if (before !== db[collection].length) addAudit(db, actorRole, null, `delete_${collection}`, collection, id);
     return before !== db[collection].length;
   });
+}
+
+export function archivePartner(partnerId) {
+  return updateDb((db) => {
+    const partner = db.partners.find((item) => item.id === partnerId);
+    if (!partner) return null;
+    const time = nowIso();
+    partner.status = "archived";
+    partner.updated_at = time;
+    db.partnerUsers.filter((item) => item.partner_id === partnerId).forEach((item) => {
+      item.status = "disabled";
+      item.updated_at = time;
+    });
+    db.partnerAddresses.filter((item) => item.partner_id === partnerId).forEach((item) => {
+      item.is_active = false;
+      item.updated_at = time;
+    });
+    db.offers.filter((item) => item.partner_id === partnerId && item.status === "active").forEach((item) => {
+      item.status = "paused";
+      item.updated_at = time;
+    });
+    db.sessions = db.sessions.filter((item) => item.partner_id !== partnerId);
+    addAudit(db, "admin", null, "archive_partner", "partner", partnerId);
+    return partner;
+  });
+}
+
+export function deletePartnerPermanently(partnerId, confirmation) {
+  return updateDb((db) => {
+    const partner = db.partners.find((item) => item.id === partnerId);
+    if (!partner) return false;
+    if (String(confirmation || "").trim() !== partner.name) {
+      const error = new Error("Для удаления укажите точное название партнёра");
+      error.status = 400;
+      error.code = "PARTNER_DELETE_CONFIRMATION_REQUIRED";
+      throw error;
+    }
+    const hasHistory = db.bookings.some((item) => item.partner_id === partnerId)
+      || db.offers.some((item) => item.partner_id === partnerId)
+      || db.offerTemplates.some((item) => item.partner_id === partnerId);
+    if (hasHistory) {
+      const error = new Error("У партнёра есть предложения или брони. Перенесите его в архив, чтобы сохранить историю");
+      error.status = 409;
+      error.code = "PARTNER_HAS_HISTORY";
+      throw error;
+    }
+    db.partners = db.partners.filter((item) => item.id !== partnerId);
+    db.partnerUsers = db.partnerUsers.filter((item) => item.partner_id !== partnerId);
+    db.partnerAddresses = db.partnerAddresses.filter((item) => item.partner_id !== partnerId);
+    db.sessions = db.sessions.filter((item) => item.partner_id !== partnerId);
+    addAudit(db, "admin", null, "delete_partner", "partner", partnerId);
+    return true;
+  });
+}
+
+export function deleteAdminRecord(collection, id) {
+  if (!["partnerApplications", "contactRequests"].includes(collection)) return false;
+  return deleteCollectionItem(collection, id, "admin");
 }
 
 export function createAddress(partnerId, data, actorRole = "admin") {

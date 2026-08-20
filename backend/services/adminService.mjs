@@ -10,7 +10,10 @@ import {
   createPartner,
   createPartnerFromApplication,
   createPartnerUser,
+  archivePartner,
+  deleteAdminRecord,
   deleteCollectionItem,
+  deletePartnerPermanently,
   listAdminData,
   patchCollectionItem,
   setBookingStatus
@@ -155,6 +158,7 @@ export function onboardPartnerInput(input) {
       password_hash: hash,
       password_salt: salt,
       password_iterations: iterations,
+      must_change_password: true,
       role: "owner",
       status: "active"
     },
@@ -180,6 +184,7 @@ export function createPartnerUserInput(partnerId, input) {
     password_hash: hash,
     password_salt: salt,
     password_iterations: iterations,
+    must_change_password: true,
     role: enumValue(input.role || "owner", allowed.userRoles, "Роль"),
     status: enumValue(input.status || "active", allowed.userStatuses, "Статус")
   });
@@ -194,6 +199,7 @@ export function patchPartnerUserInput(partnerId, userId, input) {
     patch.password_hash = hash;
     patch.password_salt = salt;
     patch.password_iterations = iterations;
+    patch.must_change_password = true;
   }
   if (input.role !== undefined) patch.role = enumValue(input.role, allowed.userRoles, "Роль");
   if (input.status !== undefined) patch.status = enumValue(input.status, allowed.userStatuses, "Статус");
@@ -210,6 +216,18 @@ export function deletePartnerUser(partnerId, userId) {
   const user = listAdminData("partnerUsers").find((item) => item.id === userId && item.partner_id === partnerId);
   if (!user) return false;
   return Boolean(patchCollectionItem("partnerUsers", userId, { status: "disabled" }));
+}
+
+export function deletePartnerInput(partnerId, input = {}) {
+  return deletePartnerPermanently(partnerId, cleanString(input.confirmation, 120));
+}
+
+export function archivePartnerInput(partnerId) {
+  return archivePartner(partnerId);
+}
+
+export function deleteRecord(collection, id) {
+  return deleteAdminRecord(collection, id);
 }
 
 export function createOfferInput(input, actorRole = "admin", actorId = null) {
@@ -262,6 +280,7 @@ export function patchPartnerInput(id, input) {
   if (has(input, "phone")) patch.phone = input.phone ? validatePhone(input.phone) : "";
   if (has(input, "email")) patch.email = validateEmail(input.email);
   if (has(input, "status")) patch.status = enumValue(input.status, allowed.partnerStatuses, "Статус");
+  if (patch.status === "archived") return archivePartner(id);
   return patchCollectionItem("partners", id, patch);
 }
 

@@ -6,7 +6,20 @@ import { nowIso } from "../utils/dates.mjs";
 import { consentReceipt } from "../utils/legal.mjs";
 import { cancelPublicBooking, createContactRequest, createPartnerApplication, getPublicBooking, getPublicOffer, listAdminData, listPublicOffers } from "../repositories/databaseRepository.mjs";
 import { createBooking } from "../services/bookingService.mjs";
-import { adminLogin, cookieForSession, expiredSessionCookie, hasPartnerPermission, logout, partnerLogin, rateLimit, requireRole } from "../services/authService.mjs";
+import {
+  adminLogin,
+  adminPasswordChangeRequired,
+  changeAdminPassword,
+  changePartnerPassword,
+  cookieForSession,
+  expiredSessionCookie,
+  hasPartnerPermission,
+  logout,
+  partnerLogin,
+  partnerPasswordChangeRequired,
+  rateLimit,
+  requireRole
+} from "../services/authService.mjs";
 import * as admin from "../services/adminService.mjs";
 import * as partner from "../services/partnerService.mjs";
 import { savePartnerImages } from "../storage/imageStore.mjs";
@@ -214,13 +227,13 @@ async function handleAdmin(request, response, url) {
     const input = await readBody(request);
     const session = adminLogin(input.login, input.password);
     if (!session) return fail(response, 401, "BAD_CREDENTIALS", "Неверный логин или пароль");
-    return ok(response, { role: "admin" }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
+    return ok(response, { role: "admin", passwordChangeRequired: adminPasswordChangeRequired(session) }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
 
   if (request.method === "GET" && parts.join("/") === "auth/me") {
     const auth = requireAdmin(request);
     return ok(response, auth.ok
-      ? { authenticated: true, role: "admin" }
+      ? { authenticated: true, role: "admin", passwordChangeRequired: adminPasswordChangeRequired(auth.session) }
       : { authenticated: false });
   }
 
@@ -231,6 +244,14 @@ async function handleAdmin(request, response, url) {
 
   const auth = requireAdmin(request);
   if (!auth.ok) return sendAuthFailure(response, auth);
+
+  if (request.method === "POST" && parts.join("/") === "auth/change-password") {
+    const input = await readBody(request);
+    if (input.newPassword !== input.confirmPassword) return fail(response, 400, "PASSWORD_CONFIRMATION_MISMATCH", "Новый пароль и подтверждение не совпадают");
+    const session = changeAdminPassword(auth.session, input.currentPassword, input.newPassword);
+    return ok(response, { changed: true, passwordChangeRequired: false }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
+  }
+  if (adminPasswordChangeRequired(auth.session)) return fail(response, 403, "PASSWORD_CHANGE_REQUIRED", "Сначала задайте новый постоянный пароль");
 
   if (request.method === "GET" && parts[0] === "dashboard") return ok(response, admin.dashboard());
   if (request.method === "GET" && parts[0] === "audit-log") return ok(response, admin.auditLog());
@@ -250,7 +271,7 @@ async function handleAdminPartners(request, response, parts) {
   if (request.method === "GET" && !partnerId) return ok(response, listAdminData("partners"));
   if (request.method === "POST" && !partnerId) return ok(response, admin.createPartnerInput(await readBody(request)), 201);
   if (request.method === "PATCH" && partnerId && !parts[2]) return ok(response, admin.patchPartnerInput(partnerId, await readBody(request)));
-  if (request.method === "DELETE" && partnerId && !parts[2]) return ok(response, { deleted: admin.deleteItem("partners", partnerId) });
+  if (request.method === "DELETE" && partnerId && !parts[2]) return ok(response, { deleted: admin.deletePartnerInput(partnerId, await readBody(request)) });
   if (request.method === "GET" && partnerId && parts[2] === "addresses") return ok(response, listAdminData("partnerAddresses").filter((item) => item.partner_id === partnerId));
   if (request.method === "POST" && partnerId && parts[2] === "addresses") return ok(response, admin.createAddressInput(partnerId, await readBody(request)), 201);
   if (request.method === "PATCH" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, admin.patchAddressInput(partnerId, parts[3], await readBody(request)));
@@ -289,6 +310,7 @@ async function handleAdminApplications(request, response, parts) {
     return ok(response, admin.setStatus("partnerApplications", id, input.status, allowed.applicationStatuses));
   }
   if (request.method === "POST" && id && parts[2] === "create-partner") return ok(response, admin.approveApplication(id), 201);
+  if (request.method === "DELETE" && id && !parts[2]) return ok(response, { deleted: admin.deleteRecord("partnerApplications", id) });
   return fail(response, 404, "NOT_FOUND", "Действие с заявкой не найдено. Обновите страницу.");
 }
 
@@ -299,6 +321,7 @@ async function handleAdminContacts(request, response, parts) {
     const input = await readBody(request);
     return ok(response, admin.setStatus("contactRequests", id, input.status, allowed.contactStatuses));
   }
+  if (request.method === "DELETE" && id && !parts[2]) return ok(response, { deleted: admin.deleteRecord("contactRequests", id) });
   return fail(response, 404, "NOT_FOUND", "Действие с обращением не найдено. Обновите страницу.");
 }
 
@@ -310,7 +333,7 @@ async function handlePartner(request, response, url) {
     const input = await readBody(request);
     const session = partnerLogin(input.login, input.password);
     if (!session) return fail(response, 401, "BAD_CREDENTIALS", "Неверный логин или пароль");
-    return ok(response, { role: "partner", partnerId: session.partner_id, userId: session.user_id, userRole: session.user_role }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
+    return ok(response, { role: "partner", partnerId: session.partner_id, userId: session.user_id, userRole: session.user_role, passwordChangeRequired: partnerPasswordChangeRequired(session) }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
 
   if (request.method === "POST" && parts.join("/") === "auth/logout") {
@@ -321,13 +344,21 @@ async function handlePartner(request, response, url) {
   if (request.method === "GET" && parts.join("/") === "auth/me") {
     const auth = requirePartner(request);
     return ok(response, auth.ok
-      ? { authenticated: true, role: "partner", partnerId: auth.session.partner_id, userId: auth.session.user_id, userRole: auth.session.user_role }
+      ? { authenticated: true, role: "partner", partnerId: auth.session.partner_id, userId: auth.session.user_id, userRole: auth.session.user_role, passwordChangeRequired: partnerPasswordChangeRequired(auth.session) }
       : { authenticated: false });
   }
 
   const auth = requirePartner(request);
   if (!auth.ok) return sendAuthFailure(response, auth);
   const partnerId = auth.session.partner_id;
+
+  if (request.method === "POST" && parts.join("/") === "auth/change-password") {
+    const input = await readBody(request);
+    if (input.newPassword !== input.confirmPassword) return fail(response, 400, "PASSWORD_CONFIRMATION_MISMATCH", "Новый пароль и подтверждение не совпадают");
+    const session = changePartnerPassword(auth.session, input.currentPassword, input.newPassword);
+    return ok(response, { changed: true, passwordChangeRequired: false }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
+  }
+  if (partnerPasswordChangeRequired(auth.session)) return fail(response, 403, "PASSWORD_CHANGE_REQUIRED", "Сначала задайте новый постоянный пароль");
 
   if (request.method === "GET" && parts[0] === "dashboard") {
     if (!requirePartnerPermission(response, auth.session, "dashboard:read")) return;

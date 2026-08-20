@@ -16,12 +16,13 @@ The site collects and stores personal data:
 
 ## Operator
 
-Before public launch, define the personal data operator:
+The operator details approved for the closed pilot are:
 
-- individual entrepreneur;
-- LLC;
-- individual;
-- another legal structure.
+- ИП Темичев Константин Валерьевич;
+- ИНН 230210303969;
+- ОГРНИП 309230218400037;
+- г. Армавир, ул. Каспарова, 27/2;
+- `support@berisegodnya.ru` for privacy and support requests.
 
 Fill operator details in:
 
@@ -30,16 +31,13 @@ Fill operator details in:
 - `/terms`;
 - `/partner-terms`.
 
-Required placeholders to replace:
-
-- `[Полное наименование оператора]`;
-- `[ИНН/ОГРН/ОГРНИП]`;
-- `[Адрес]`;
-- `[Email для обращений по персональным данным]`.
+Production must set the matching `LEGAL_OPERATOR_*`, `LEGAL_PRIVACY_EMAIL`, and `PUBLIC_SUPPORT_EMAIL` environment values. The application must stay fail-closed if these fields are missing.
 
 ## Roskomnadzor Notification
 
 Check whether Roskomnadzor notification is required for this processing. If required, submit the notification through the Roskomnadzor personal data portal before public launch.
+
+Status on 2026-08-20: operator data is prepared, but registry presence or notification submission has not been independently confirmed. Treat this as an external launch gate for an unrestricted public launch.
 
 ## Data Localization
 
@@ -69,9 +67,9 @@ Prepare internal documents:
 
 ## Launch Gate
 
-Do not remove `noindex` and do not open public production until:
+Do not remove `noindex` or start unrestricted public promotion until:
 
-- operator details are filled;
+- operator details are filled in the production environment;
 - forms link to policy and consent;
 - RKN notification question is resolved;
 - storage location is confirmed;

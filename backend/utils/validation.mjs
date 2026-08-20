@@ -47,13 +47,13 @@ export function integerRange(value, min, max, label) {
 
 export const allowed = {
   partnerTypes: ["bakery", "cafe", "culinary", "buffet", "coffee", "ready_food_cafe", "other"],
-  partnerStatuses: ["active", "paused", "disabled"],
+  partnerStatuses: ["active", "paused", "disabled", "archived"],
   categories: ["bakery", "lunch", "evening"],
   offerStatuses: ["active", "paused", "sold_out", "expired"],
   offerSourceTypes: ["manual", "quick_photo", "template"],
   bookingStatuses: ["created", "issued", "no_show", "cancelled"],
-  applicationStatuses: ["new", "contacted", "approved", "rejected"],
-  contactStatuses: ["new", "in_progress", "closed"],
+  applicationStatuses: ["new", "contacted", "approved", "rejected", "archived"],
+  contactStatuses: ["new", "in_progress", "closed", "archived"],
   requestTypes: ["venue_connection", "service_question", "partner_pilot", "order_question", "other"],
   locationsCount: ["1", "2-3", "4+", "unknown"],
   userRoles: ["owner", "manager"],

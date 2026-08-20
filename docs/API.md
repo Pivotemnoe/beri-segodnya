@@ -34,6 +34,7 @@ Requires an admin app session unless the endpoint is login. Optional admin Basic
 
 - `POST /api/admin/auth/login`
 - `GET /api/admin/auth/me`
+- `POST /api/admin/auth/change-password`
 - `POST /api/admin/auth/logout`
 - `GET /api/admin/dashboard`
 - `GET/POST/PATCH/DELETE /api/admin/partners`
@@ -46,8 +47,10 @@ Requires an admin app session unless the endpoint is login. Optional admin Basic
 - `GET /api/admin/partner-applications`
 - `PATCH /api/admin/partner-applications/:id/status`
 - `POST /api/admin/partner-applications/:id/create-partner`
+- `DELETE /api/admin/partner-applications/:id`
 - `GET /api/admin/contact-requests`
 - `PATCH /api/admin/contact-requests/:id/status`
+- `DELETE /api/admin/contact-requests/:id`
 - `GET /api/admin/audit-log`
 
 ## Partner
@@ -56,6 +59,7 @@ Requires a partner app session unless the endpoint is login. Optional partner Ba
 
 - `POST /api/partner/auth/login`
 - `GET /api/partner/auth/me`
+- `POST /api/partner/auth/change-password`
 - `POST /api/partner/auth/logout`
 - `GET /api/partner/dashboard`
 - `GET/PATCH /api/partner/profile`
@@ -69,6 +73,10 @@ Requires a partner app session unless the endpoint is login. Optional partner Ba
 - `PATCH /api/partner/bookings/:id/status`
 
 Partner endpoints are scoped by `session.partner_id`.
+
+When `passwordChangeRequired=true`, all protected admin or partner data endpoints return `PASSWORD_CHANGE_REQUIRED` until the authenticated user changes the temporary password. The password-change endpoint verifies the current password, requires a different replacement of 12–120 characters, revokes old sessions and returns a new session cookie.
+
+`PATCH /api/admin/partners/:id` with `status=archived` disables that partner's users and addresses, pauses active offers and revokes partner sessions while preserving history. `DELETE /api/admin/partners/:id` requires the exact partner name in `confirmation` and refuses permanent deletion when offers, templates or bookings exist.
 
 `POST /api/partner/uploads` accepts `{ "images": [{ "dataUrl": "data:image/jpeg;base64,...", "capturedAt": "ISO date" }] }`. It allows JPEG, PNG and WebP, at most three files and 4 MiB per decoded image. Files are written to `data/uploads/<partner-id>/`; an offer created by a partner may reference only that partner's upload folder.
 

@@ -5,6 +5,7 @@ import { createSeedDb } from "../db/seedData.mjs";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 
 const collections = [
+  "adminUsers",
   "partners",
   "partnerUsers",
   "partnerAddresses",

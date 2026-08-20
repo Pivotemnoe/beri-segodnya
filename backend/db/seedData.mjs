@@ -24,6 +24,7 @@ function partnerUser(id, partnerId, login, password, name) {
     password_hash: hash,
     password_salt: salt,
     password_iterations: iterations,
+    must_change_password: true,
     role: "owner",
     status: "active",
     created_at: time,
@@ -247,6 +248,7 @@ export function createSeedDb() {
   ];
 
   return {
+    adminUsers: [],
     partners,
     partnerUsers,
     partnerAddresses,

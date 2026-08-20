@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { createPasswordHash } from "../backend/utils/password.mjs";
+import { createPasswordHash, LEGACY_PASSWORD_ITERATIONS } from "../backend/utils/password.mjs";
 import { todayDate } from "../backend/utils/dates.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -133,7 +133,7 @@ async function runScenario(port) {
   assertFormsUsePost(publicHome.text, "Public home");
   assert(publicHome.text.includes('role="dialog" aria-modal="true" aria-label="Карточка предложения"'), "Offer dialog semantics are missing");
   assert(publicHome.text.includes('aria-label="Закрыть форму бронирования"'), "Booking dialog close button has no accessible label");
-  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes('data-pwa-install'), "PWA install affordance is missing from the page");
+  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "PWA development status is inconsistent");
   assert(publicHome.text.includes('class="offer-row-mobile-pickup"'), "Mobile pickup window is missing from offer rows");
   assert(!publicHome.text.includes("Фото сделано сегодня") && !publicHome.text.includes("Фото сегодня"), "Public home claims that a photo was made today without evidence");
   const injectionMarker = `<img src=x onerror=alert-${suffix}>`;
@@ -168,10 +168,21 @@ async function runScenario(port) {
     method: "POST",
     body: adminApp
   });
-  assert(adminLogin.status === 200 && adminLogin.json.ok && cookieFrom(adminLogin), "Admin app login failed");
-  const adminCookie = cookieFrom(adminLogin);
+  assert(adminLogin.status === 200 && adminLogin.json.ok && adminLogin.json.data.passwordChangeRequired === true && cookieFrom(adminLogin), "Admin app login or first-login password gate failed");
+  let adminCookie = cookieFrom(adminLogin);
   const adminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic", cookie: adminCookie });
-  assert(adminMe.status === 200 && adminMe.json.data.authenticated === true, "Admin session probe failed");
+  assert(adminMe.status === 200 && adminMe.json.data.authenticated === true && adminMe.json.data.passwordChangeRequired === true, "Admin session probe failed");
+  const gatedAdminDashboard = await request(port, "/api/admin/dashboard", { auth: "adminBasic", cookie: adminCookie });
+  assert(gatedAdminDashboard.status === 403 && gatedAdminDashboard.json.error.code === "PASSWORD_CHANGE_REQUIRED", "Admin bypassed required password change");
+  const changedAdminPassword = "smoke-admin-permanent-password";
+  const adminPasswordChange = await request(port, "/api/admin/auth/change-password", {
+    auth: "adminBasic",
+    cookie: adminCookie,
+    method: "POST",
+    body: { currentPassword: adminApp.password, newPassword: changedAdminPassword, confirmPassword: changedAdminPassword }
+  });
+  assert(adminPasswordChange.status === 200 && cookieFrom(adminPasswordChange), "Admin password change failed");
+  adminCookie = cookieFrom(adminPasswordChange);
   const safeAuditLog = await request(port, "/api/admin/audit-log", { auth: "adminBasic", cookie: adminCookie });
   assert(safeAuditLog.status === 200 && safeAuditLog.json.data.length > 0, "Admin audit log is unavailable");
   assert(safeAuditLog.json.data.every((row) => row.actorRole && row.action && row.entityType && row.createdAt && !row.metadata_json && !row.entity_id && !row.actor_id), "Admin audit log exposes unsafe internal fields");
@@ -282,22 +293,53 @@ async function runScenario(port) {
     method: "POST",
     body: { login: "partner1", password: seededPartnerPassword }
   });
-  assert(partnerLogin.status === 200 && partnerLogin.json.ok && cookieFrom(partnerLogin), "Partner login failed");
-  const partnerCookie = cookieFrom(partnerLogin);
+  assert(partnerLogin.status === 200 && partnerLogin.json.ok && partnerLogin.json.data.passwordChangeRequired === true && cookieFrom(partnerLogin), "Partner login or first-login password gate failed");
+  let partnerCookie = cookieFrom(partnerLogin);
   const partnerMe = await request(port, "/api/partner/auth/me", { auth: "partnerBasic", cookie: partnerCookie });
-  assert(partnerMe.status === 200 && partnerMe.json.data.authenticated === true, "Partner session probe failed");
+  assert(partnerMe.status === 200 && partnerMe.json.data.authenticated === true && partnerMe.json.data.passwordChangeRequired === true, "Partner session probe failed");
+  const gatedPartnerProfile = await request(port, "/api/partner/profile", { auth: "partnerBasic", cookie: partnerCookie });
+  assert(gatedPartnerProfile.status === 403 && gatedPartnerProfile.json.error.code === "PASSWORD_CHANGE_REQUIRED", "Partner bypassed required password change");
+  const changedPartnerPassword = "smoke-partner-permanent-password";
+  const partnerPasswordChange = await request(port, "/api/partner/auth/change-password", {
+    auth: "partnerBasic",
+    cookie: partnerCookie,
+    method: "POST",
+    body: { currentPassword: seededPartnerPassword, newPassword: changedPartnerPassword, confirmPassword: changedPartnerPassword }
+  });
+  assert(partnerPasswordChange.status === 200 && cookieFrom(partnerPasswordChange), "Partner password change failed");
+  partnerCookie = cookieFrom(partnerPasswordChange);
   const partnerIntoAdmin = await request(port, "/api/admin/dashboard", { auth: null, cookie: partnerCookie });
   assert(partnerIntoAdmin.status === 403, "Partner session gained access to admin API");
   const adminIntoPartner = await request(port, "/api/partner/profile", { auth: null, cookie: adminCookie });
   assert(adminIntoPartner.status === 403, "Admin session was accepted as a partner session");
+
+  const legacyManagerCredentials = createPasswordHash(managerPassword, LEGACY_PASSWORD_ITERATIONS);
+  const beforeLegacyLogin = JSON.parse(fs.readFileSync(dbFile, "utf8"));
+  const legacyManager = beforeLegacyLogin.partnerUsers.find((item) => item.id === user.json.data.id);
+  Object.assign(legacyManager, {
+    password_hash: legacyManagerCredentials.hash,
+    password_salt: legacyManagerCredentials.salt,
+    password_iterations: legacyManagerCredentials.iterations,
+    must_change_password: true
+  });
+  fs.writeFileSync(dbFile, `${JSON.stringify(beforeLegacyLogin, null, 2)}\n`, { mode: 0o600 });
 
   const managerLogin = await request(port, "/api/partner/auth/login", {
     auth: "partnerBasic",
     method: "POST",
     body: { login: `smoke-${suffix}`, password: managerPassword }
   });
-  assert(managerLogin.status === 200 && managerLogin.json.data.userRole === "manager", "Manager login or role exposure failed");
-  const managerCookie = cookieFrom(managerLogin);
+  assert(managerLogin.status === 200 && managerLogin.json.data.userRole === "manager" && managerLogin.json.data.passwordChangeRequired === true, "Manager login, role exposure, or first-login password gate failed");
+  let managerCookie = cookieFrom(managerLogin);
+  const changedManagerPassword = "smoke-manager-permanent-password";
+  const managerPasswordChange = await request(port, "/api/partner/auth/change-password", {
+    auth: "partnerBasic",
+    cookie: managerCookie,
+    method: "POST",
+    body: { currentPassword: managerPassword, newPassword: changedManagerPassword, confirmPassword: changedManagerPassword }
+  });
+  assert(managerPasswordChange.status === 200 && cookieFrom(managerPasswordChange), "Manager password change failed");
+  managerCookie = cookieFrom(managerPasswordChange);
   const managerProfile = await request(port, "/api/partner/profile", { auth: "partnerBasic", cookie: managerCookie });
   assert(managerProfile.status === 200, "Manager lost read access to partner profile");
   const forbiddenManagerProfilePatch = await request(port, "/api/partner/profile", {

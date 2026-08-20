@@ -1,10 +1,12 @@
 import {
   createSession,
   deleteSession,
+  findAdminUser,
   findPartnerUser,
   findPartnerUserById,
   getSession,
   isPartnerActive,
+  upsertAdminUserPassword,
   updatePartnerUserPassword
 } from "../repositories/databaseRepository.mjs";
 import {
@@ -79,8 +81,15 @@ export function sessionFromRequest(request) {
 }
 
 export function adminLogin(login, password) {
+  const normalized = String(login || "").trim();
+  const stored = findAdminUser(normalized);
+  if (stored) {
+    const iterations = Number(stored.password_iterations || LEGACY_PASSWORD_ITERATIONS);
+    if (!verifyPassword(password, stored.password_hash, stored.password_salt, iterations)) return null;
+    return createSession("admin", null, stored.id, "admin");
+  }
   const expectedLogin = process.env.ADMIN_APP_LOGIN || "admin";
-  if (login !== expectedLogin) return null;
+  if (normalized !== expectedLogin) return null;
   const iterations = Number(process.env.ADMIN_APP_PASSWORD_ITERATIONS || LEGACY_PASSWORD_ITERATIONS);
   if (!verifyPassword(password, process.env.ADMIN_APP_PASSWORD_HASH, process.env.ADMIN_APP_PASSWORD_SALT, iterations)) return null;
   return createSession("admin", null, `admin:${expectedLogin}`, "admin");
@@ -92,8 +101,72 @@ export function partnerLogin(login, password) {
   if (!user || !verifyPassword(password, user.password_hash, user.password_salt, iterations)) return null;
   if (passwordNeedsRehash(iterations)) {
     const next = createPasswordHash(password);
-    updatePartnerUserPassword(user.id, next);
+    updatePartnerUserPassword(user.id, next, "rehash_partner_password");
   }
+  return createSession("partner", user.partner_id, user.id, user.role);
+}
+
+function passwordValue(value) {
+  const password = String(value || "");
+  if (password.length < 12 || password.length > 120) {
+    const error = new Error("Новый пароль должен содержать от 12 до 120 символов");
+    error.status = 400;
+    error.code = "WEAK_PASSWORD";
+    throw error;
+  }
+  return password;
+}
+
+function requireDifferentPassword(currentPassword, nextPassword) {
+  if (currentPassword === nextPassword) {
+    const error = new Error("Новый пароль должен отличаться от текущего");
+    error.status = 400;
+    error.code = "PASSWORD_NOT_CHANGED";
+    throw error;
+  }
+}
+
+export function adminPasswordChangeRequired(session) {
+  if (!session?.user_id) return true;
+  const login = String(session.user_id).replace(/^admin:/, "");
+  return !findAdminUser(login);
+}
+
+export function partnerPasswordChangeRequired(session) {
+  return Boolean(findPartnerUserById(session?.user_id)?.must_change_password);
+}
+
+export function changeAdminPassword(session, currentPassword, nextPassword) {
+  const login = String(session?.user_id || "").replace(/^admin:/, "");
+  const stored = findAdminUser(login);
+  const currentIterations = Number(stored?.password_iterations || process.env.ADMIN_APP_PASSWORD_ITERATIONS || LEGACY_PASSWORD_ITERATIONS);
+  const currentHash = stored?.password_hash || process.env.ADMIN_APP_PASSWORD_HASH;
+  const currentSalt = stored?.password_salt || process.env.ADMIN_APP_PASSWORD_SALT;
+  if (!login || !verifyPassword(currentPassword, currentHash, currentSalt, currentIterations)) {
+    const error = new Error("Текущий пароль указан неверно");
+    error.status = 401;
+    error.code = "BAD_CURRENT_PASSWORD";
+    throw error;
+  }
+  const next = passwordValue(nextPassword);
+  requireDifferentPassword(currentPassword, next);
+  const credentials = createPasswordHash(next);
+  const user = upsertAdminUserPassword(login, credentials);
+  return createSession("admin", null, user.id, "admin");
+}
+
+export function changePartnerPassword(session, currentPassword, nextPassword) {
+  const user = findPartnerUserById(session?.user_id);
+  const iterations = Number(user?.password_iterations || LEGACY_PASSWORD_ITERATIONS);
+  if (!user || !verifyPassword(currentPassword, user.password_hash, user.password_salt, iterations)) {
+    const error = new Error("Текущий пароль указан неверно");
+    error.status = 401;
+    error.code = "BAD_CURRENT_PASSWORD";
+    throw error;
+  }
+  const next = passwordValue(nextPassword);
+  requireDifferentPassword(currentPassword, next);
+  updatePartnerUserPassword(user.id, createPasswordHash(next), "change_partner_password");
   return createSession("partner", user.partner_id, user.id, user.role);
 }
 
