@@ -405,6 +405,7 @@ function codePreview() {
   return `<div class="booking-preview">
     <div class="browser-dots"><span></span><span></span><span></span></div>
     <div class="code-card">
+      <p class="preview-label">Пример брони</p>
       <p>Ваш код бронирования</p>
       <strong>BS-1042</strong>
       <span>Покажите код в заведении и оплатите на кассе.</span>
@@ -588,6 +589,7 @@ function howItWorksPage() {
 
 function partnerDashboardCard() {
   return `<article class="partner-dashboard">
+    <p class="preview-label">Пример интерфейса</p>
     <h2>Панель партнёра</h2>
     <div class="stats-row">
       <span><small>Сегодняшние предложения</small><b>4</b></span>
@@ -4682,6 +4684,33 @@ body { background: var(--color-bg); }
   .record-details { grid-template-columns: 1fr; }
   .record-details dt { padding-bottom: 4px; }
   .record-details dd { padding-top: 4px; }
+}
+
+.marketplace-catalog[id],
+.form-section[id] {
+  scroll-margin-top: 92px;
+}
+.preview-label {
+  width: max-content;
+  margin: 0 0 10px;
+  padding: 4px 8px;
+  border: 1px solid #c7d8d5;
+  border-radius: 999px;
+  background: #edf4f1;
+  color: #315a60;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.code-card .preview-label { margin-bottom: 8px; color: #315a60; }
+.partner-dashboard > .preview-label { margin-bottom: 10px; }
+@media (max-width: 720px) {
+  .marketplace-catalog[id],
+  .form-section[id] {
+    scroll-margin-top: 80px;
+  }
 }
 `;
 
