@@ -26,6 +26,7 @@
     "backup:data": "node scripts/backup-data.mjs",
     "backup:prune": "node scripts/prune-backups.mjs",
     "restore:data": "node scripts/restore-data.mjs",
+    "reset:partner-password": "node scripts/reset-partner-password.mjs",
     "dev:next": "next dev -p 3010"
   },
   "dependencies": {},
