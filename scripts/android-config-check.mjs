@@ -118,7 +118,7 @@ const androidBuild = read("android-twa/app/build.gradle");
 for (const fragment of [
   "compileSdk = 36",
   "resValues = true",
-  "minSdk = 21",
+  "minSdk = 23",
   "targetSdk = 36",
   "versionCode = 1",
   'versionName = "0.1.0-pilot"',

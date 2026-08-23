@@ -118,7 +118,7 @@ actual_fingerprint="$(printf '%s\n' "${signature_info}" | awk -F': ' '/certifica
 badging="$("${BUILD_TOOLS_DIR}/aapt2" dump badging "${SIGNED_APK}")" || fail "Unable to inspect the signed APK manifest"
 grep -Fq "package: name='${PILOT_PACKAGE_ID}' versionCode='${PILOT_VERSION_CODE}' versionName='${PILOT_VERSION_NAME}'" <<<"${badging}" \
   || fail "Signed APK package or version is incorrect"
-grep -Fq "sdkVersion:'21'" <<<"${badging}" || fail "Signed APK minSdk is incorrect"
+grep -Fq "sdkVersion:'23'" <<<"${badging}" || fail "Signed APK minSdk is incorrect"
 grep -Fq "targetSdkVersion:'36'" <<<"${badging}" || fail "Signed APK targetSdk is incorrect"
 grep -Fq "launchable-activity: name='${PILOT_PACKAGE_ID}.LauncherActivity'" <<<"${badging}" \
   || fail "Signed APK launcher activity is incorrect"
