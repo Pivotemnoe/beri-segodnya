@@ -674,12 +674,12 @@ function partnersPage() {
     ${sectionTitle("", "Оставить заявку на подключение", "Расскажите о заведении — мы свяжемся с вами и поможем запустить пилот.")}
       ${config.demoMode ? `<p class="demo-notice">Тестовый режим: не вводите реальные персональные данные.</p>` : ""}
     ${config.legal.ready ? `<form class="smart-form" method="post" data-form="partner">
-      <label>Название заведения<input name="venueName" required maxlength="120" placeholder="Например: Заведение 1" /></label>
+      <label>Название заведения<input name="venueName" required maxlength="120" placeholder="Шашлычная" /></label>
       <label>Тип заведения<select name="venueType" required><option value="">Выберите тип</option><option value="bakery">Пекарня</option><option value="coffee">Кофейня</option><option value="culinary">Кулинария</option><option value="buffet">Буфет</option><option value="ready_food_cafe">Кафе с готовой едой</option><option value="other">Другое</option></select></label>
       <label>Город<input name="city" required maxlength="80" value="Армавир" /></label>
-      <label>Адрес первой точки<input name="firstAddress" required maxlength="160" placeholder="Например: ул. Тестовая, 1" /></label>
+      <label>Адрес первой точки<input name="firstAddress" required maxlength="160" placeholder="ул. Ленина, 1" /></label>
       <label>Контактное лицо<input name="contactName" required maxlength="80" placeholder="Ваше имя" /></label>
-      <label>Телефон<input name="phone" required type="tel" inputmode="tel" minlength="7" maxlength="30" placeholder="+7 (___) ___-__-__" /></label>
+      <label>Телефон<input name="phone" required type="tel" inputmode="tel" maxlength="19" placeholder="+7 (___) ___-__-__" data-russian-phone /></label>
       <label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.ru" /></label>
       <label>Сколько точек<select name="locationsCount"><option value="1">1</option><option value="2-3">2–3</option><option value="4+">4+</option><option value="unknown">пока не знаю</option></select></label>
       <label class="full">Что хотите размещать<input name="offerFormats" maxlength="240" placeholder="Готовые обеды, выпечка, вечерние наборы" /></label>
@@ -746,7 +746,7 @@ function contactsPage() {
       ${config.demoMode ? `<p class="demo-notice">Тестовый режим: не вводите реальные персональные данные.</p>` : ""}
       ${config.legal.ready ? `<form class="smart-form" method="post" data-form="contact">
         <label>Имя<input name="name" required maxlength="80" placeholder="Ваше имя" /></label>
-        <label>Телефон<input name="phone" required type="tel" inputmode="tel" minlength="7" maxlength="30" placeholder="+7 (___) ___-__-__" /></label>
+        <label>Телефон<input name="phone" required type="tel" inputmode="tel" maxlength="19" placeholder="+7 (___) ___-__-__" data-russian-phone /></label>
         <label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.ru" /></label>
         <label class="full">Тип обращения<select name="type" required><option value="venue_connection">Подключение заведения</option><option value="service_question">Вопрос по сервису</option><option value="partner_pilot">Партнёрский пилот</option><option value="order_question">Вопрос по заказу</option><option value="other">Другое</option></select></label>
         <label class="full">Сообщение<textarea name="message" required maxlength="1000" placeholder="Опишите ваш вопрос или оставьте комментарий"></textarea></label>
@@ -1069,7 +1069,7 @@ function adminPage() {
           </form>
           <div class="panel-heading list-heading"><div><h3>Подключённые партнёры</h3><p>«В архив» закрывает доступ и сохраняет историю. «Удалить» доступно только партнёру без предложений и броней.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-partners]"><input type="search" placeholder="Найти партнёра" data-filter-query /><select data-filter-status aria-label="Статус партнёра"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Отключён">Отключённые</option><option value="В архиве">В архиве</option></select></div></div><div class="table-wrap" data-admin-partners></div>
         </article>
-        <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form" method="post" data-admin-create-address><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="title" required placeholder="Название точки" /><input name="city" required value="Армавир" /><input name="address" required placeholder="Армавир, тестовый адрес" /><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form" method="post" data-admin-create-user><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="name" required placeholder="Имя сотрудника" /><input name="login" required placeholder="Логин" /><input name="password" required minlength="12" type="password" placeholder="Временный пароль от 12 символов" /><select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option></select><button class="button button-primary" type="submit">Добавить пользователя</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
+        <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form" method="post" data-admin-create-address><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="title" required placeholder="Название точки" /><input name="city" required value="Армавир" /><input name="address" required placeholder="Армавир, тестовый адрес" /><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form" method="post" data-admin-create-user><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="name" required placeholder="Имя сотрудника" /><input name="login" required placeholder="Логин" /><input name="password" required minlength="12" type="password" placeholder="Временный пароль от 12 символов" /><select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option></select><button class="button button-primary" type="submit">Добавить пользователя</button></form><h3 class="maintenance-subheading">Сбросить пароль сотрудника</h3><p class="maintenance-note">Старые сеансы закроются. При следующем входе сотрудник задаст собственный пароль.</p><form class="mini-form" method="post" data-admin-reset-user-password><select name="userId" required data-admin-user-reset-select><option value="">Выберите сотрудника</option></select><label>Новый временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 12 символов" /></label><button class="button button-primary" type="submit">Сбросить пароль</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
         <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Обычно предложение публикует партнёр из своего кабинета. Эта форма нужна для первого запуска или помощи партнёру.</p></div></div><form class="mini-form offer-editor" method="post" data-admin-create-offer><select name="partnerId" required data-admin-offer-partner><option value="">Выберите партнёра</option></select><select name="addressId" required data-admin-offer-address disabled><option value="">Сначала выберите партнёра</option></select><input name="title" required maxlength="120" placeholder="Название предложения" /><select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select><input name="description" maxlength="240" placeholder="Короткое описание" /><input name="contents" maxlength="500" placeholder="Что входит в набор" /><input name="weight" maxlength="80" placeholder="Вес или количество изделий" /><input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /><input name="price" required type="number" min="1" placeholder="Цена" /><input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /><input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /><input name="date" required type="date" data-today-date /><input name="totalQuantity" required type="number" min="1" placeholder="Количество" /><select name="status"><option value="active">Активно</option><option value="paused">Черновик</option></select><button class="button button-primary" type="submit">Опубликовать предложение</button></form><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-offers]"><input type="search" placeholder="Найти предложение или партнёра" data-filter-query /><select data-filter-status aria-label="Статус предложения"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Черновик">Черновики</option><option value="Распродано">Распроданные</option><option value="Истекло">Истёкшие</option></select></div><div class="table-wrap" data-admin-offers></div></article>
         <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Брони и коды</h3><p>Найдите код, покупателя или заведение и подтвердите результат выдачи.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-bookings]"><input type="search" placeholder="Найти код или покупателя" data-filter-query /><select data-filter-status aria-label="Статус брони"><option value="">Все статусы</option><option value="Забронировано">Текущие</option><option value="Выдано">Выданные</option><option value="Не пришёл">Не полученные</option><option value="Отменено">Отменённые</option></select></div></div><div class="table-wrap" data-admin-bookings></div></article>
         <article class="panel-card tab-panel" data-tab-panel="partner-applications"><div class="panel-heading"><div><h3>Заявки партнёров</h3><p>Здесь появляются заявки со страницы «Для заведений». Откройте заявку, свяжитесь с представителем, затем подключите или отклоните.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-applications]"><input type="search" placeholder="Найти заведение или контакт" data-filter-query /><select data-filter-status aria-label="Статус заявки"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="Связались">Связались</option><option value="Подключён">Подключённые</option><option value="Отклонено">Отклонённые</option></select></div></div><div class="table-wrap" data-admin-applications></div></article>
@@ -1287,7 +1287,7 @@ function bookingModal() {
         <div class="booking-summary" id="booking-summary"></div>
         <form class="booking-form" id="booking-form" method="post">
           <label>Имя<input name="customerName" required maxlength="80" placeholder="Ваше имя" /></label>
-          <label>Телефон<input name="customerPhone" required type="tel" inputmode="tel" minlength="7" maxlength="30" placeholder="+7 (___) ___-__-__" /></label>
+          <label>Телефон<input name="customerPhone" required type="tel" inputmode="tel" maxlength="19" placeholder="+7 (___) ___-__-__" data-russian-phone /></label>
           <label class="consent"><input type="checkbox" name="personalDataConsent" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">Политику обработки персональных данных</a></span></label>
           <p class="form-error" role="alert" aria-live="polite" hidden></p>
           <button class="button button-primary" type="submit">Получить код</button>
@@ -1369,6 +1369,48 @@ const PUBLIC_JS = `
 
   function formObject(form) {
     return Object.fromEntries(new FormData(form).entries());
+  }
+
+  function russianPhoneDigits(value) {
+    var digits = String(value || "").replace(/\\D/g, "");
+    if (digits.charAt(0) === "7") {
+      digits = digits.slice(1);
+      if (digits.length === 11 && digits.charAt(0) === "8") digits = digits.slice(1);
+    } else if (digits.length === 11 && digits.charAt(0) === "8") {
+      digits = digits.slice(1);
+    }
+    return digits.slice(0, 10);
+  }
+
+  function formatRussianPhone(digits) {
+    if (!digits) return "+7 (";
+    var formatted = "+7 (" + digits.slice(0, 3);
+    if (digits.length >= 3) formatted += ")";
+    if (digits.length > 3) formatted += " " + digits.slice(3, 6);
+    if (digits.length > 6) formatted += "-" + digits.slice(6, 8);
+    if (digits.length > 8) formatted += "-" + digits.slice(8, 10);
+    return formatted;
+  }
+
+  function setupRussianPhoneInputs() {
+    document.querySelectorAll("[data-russian-phone]").forEach(function (input) {
+      var sync = function () {
+        var digits = russianPhoneDigits(input.value);
+        input.value = formatRussianPhone(digits);
+        input.setCustomValidity(digits.length === 10 ? "" : "Введите номер полностью: +7 (XXX) XXX-XX-XX");
+      };
+      input.addEventListener("focus", function () {
+        if (!input.value) input.value = "+7 (";
+      });
+      input.addEventListener("input", function () {
+        sync();
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
+      input.addEventListener("blur", function () {
+        if (!russianPhoneDigits(input.value).length) input.value = "";
+      });
+      if (input.value) sync();
+    });
   }
 
   function humanError(error, fallback) {
@@ -1750,6 +1792,7 @@ const PUBLIC_JS = `
       if (bookingHelp) bookingHelp.innerHTML = '<h2>Что можно сделать</h2><p>Вернитесь к предложениям и создайте новую бронь.</p>';
     });
   }
+  setupRussianPhoneInputs();
   restoreLatestBooking();
   refreshOffers().catch(showMarketplaceError);
 })();
@@ -1790,6 +1833,36 @@ async function api(path, options = {}) {
 
 function formObject(form) {
   return Object.fromEntries(new FormData(form).entries());
+}
+
+function setupPasswordVisibility(root = document) {
+  root.querySelectorAll('input[type="password"]').forEach((input) => {
+    if (input.closest(".password-field")) return;
+    const wrapper = document.createElement("span");
+    wrapper.className = "password-field";
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "password-toggle";
+    button.setAttribute("data-password-toggle", "");
+    button.setAttribute("aria-label", "Показать пароль");
+    button.setAttribute("aria-pressed", "false");
+    button.title = "Показать пароль";
+    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle><path class="password-toggle-slash" d="M4 4l16 16"></path></svg>';
+    wrapper.appendChild(button);
+
+    button.addEventListener("click", () => {
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      button.setAttribute("aria-pressed", String(show));
+      button.setAttribute("aria-label", show ? "Скрыть пароль" : "Показать пароль");
+      button.title = show ? "Скрыть пароль" : "Показать пароль";
+      input.focus({ preventScroll: true });
+      input.setSelectionRange?.(input.value.length, input.value.length);
+    });
+  });
 }
 
 function localDateValue(date = new Date()) {
@@ -2134,6 +2207,7 @@ async function setupAdmin() {
   let applicationCache = [];
   let contactCache = [];
   let partnerCache = [];
+  let userCache = [];
 
   const showRecord = (kind, row) => {
     const dialog = document.querySelector("[data-record-dialog]");
@@ -2182,9 +2256,11 @@ async function setupAdmin() {
     partnerCache = partners;
     const addresses = (await Promise.all(partners.map(async (partner) => (await api("/api/admin/partners/" + partner.id + "/addresses")).map((item) => ({ ...item, partnerName: partner.name }))))).flat();
     const users = (await Promise.all(partners.map(async (partner) => (await api("/api/admin/partners/" + partner.id + "/users")).map((item) => ({ ...item, partnerName: partner.name }))))).flat();
+    userCache = users;
     const partnerById = Object.fromEntries(partners.map((item) => [item.id, item]));
     const addressById = Object.fromEntries(addresses.map((item) => [item.id, item]));
     document.querySelectorAll("[data-admin-partner-select]").forEach((select) => setSelectOptions(select, partners, "Выберите партнёра", "id", (item) => item.name));
+    setSelectOptions(document.querySelector("[data-admin-user-reset-select]"), users, "Выберите сотрудника", "id", (item) => item.name + " · " + item.login + " · " + item.partnerName);
     const offerPartnerSelect = document.querySelector("[data-admin-offer-partner]");
     const offerAddressSelect = document.querySelector("[data-admin-offer-address]");
     setSelectOptions(offerPartnerSelect, partners, "Выберите партнёра", "id", (item) => item.name);
@@ -2265,6 +2341,7 @@ async function setupAdmin() {
   });
   document.querySelector("[data-admin-create-address]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); await api("/api/admin/partners/" + data.partnerId + "/addresses", { method: "POST", body: data }); form.reset(); }, "Точка добавлена"); });
   document.querySelector("[data-admin-create-user]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); await api("/api/admin/partners/" + data.partnerId + "/users", { method: "POST", body: data }); form.reset(); }, "Пользователь партнёра создан"); });
+  document.querySelector("[data-admin-reset-user-password]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); const user = userCache.find((item) => item.id === data.userId); if (!user) throw new Error("Выберите сотрудника"); await api("/api/admin/partners/" + user.partner_id + "/users/" + user.id, { method: "PATCH", body: { password: data.password } }); form.reset(); }, "Временный пароль сохранён, старые входы закрыты"); });
   document.querySelector("[data-admin-create-offer]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); await api("/api/admin/offers", { method: "POST", body: { ...data, totalQuantity: Number(data.totalQuantity), remainingQuantity: Number(data.totalQuantity), price: Number(data.price), oldPrice: data.oldPrice ? Number(data.oldPrice) : undefined, ctaLabel: "Получить код" } }); form.reset(); }, "Предложение сохранено"); });
   document.addEventListener("click", async (event) => {
     const confirmation = event.target.closest("[data-confirm-action]");
@@ -2781,6 +2858,7 @@ async function setupPartnerDashboard() {
   }
 }
 
+setupPasswordVisibility();
 loadOffers();
 setupFilters();
 setupBooking();
@@ -3270,6 +3348,28 @@ input, select, textarea {
 }
 textarea { min-height: 110px; padding-top: 14px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(184, 74, 43, .12); }
+.password-field { position: relative; display: block; min-width: 0; }
+.password-field input { padding-right: 54px; }
+.password-toggle {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #49636d;
+  cursor: pointer;
+}
+.password-toggle:hover { background: #eef4f2; color: #073b4c; }
+.password-toggle:focus-visible { outline: 3px solid rgba(11, 100, 106, .24); outline-offset: 1px; }
+.password-toggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.password-toggle-slash { display: none; }
+.password-toggle[aria-pressed="true"] .password-toggle-slash { display: block; }
 .full { grid-column: 1 / -1; }
 .consent {
   display: grid;
@@ -3924,6 +4024,8 @@ body { background: var(--color-bg); }
 .maintenance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border-top: 1px solid #d4e0dd; background: #d4e0dd; }
 .maintenance-grid section { min-width: 0; padding: 20px; background: #fbfcfb; }
 .maintenance-grid h3 { margin: 0; color: #062f3d; font-size: 17px; }
+.maintenance-grid .maintenance-subheading { margin-top: 26px; padding-top: 20px; border-top: 1px solid #d4e0dd; }
+.maintenance-note { margin: 7px 0 0; color: #60767e; font-size: 13px; line-height: 1.45; }
 .maintenance-grid .mini-form { grid-template-columns: 1fr; }
 .panel-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
 .panel-heading h3, .panel-heading p { margin: 0; }
