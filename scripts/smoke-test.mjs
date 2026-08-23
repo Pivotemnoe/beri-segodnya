@@ -8,6 +8,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createPasswordHash, LEGACY_PASSWORD_ITERATIONS } from "../backend/utils/password.mjs";
 import { todayDate } from "../backend/utils/dates.mjs";
+import { validatePhone } from "../backend/utils/validation.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
@@ -97,6 +98,16 @@ async function waitForServer(port, child, logs) {
 }
 
 async function runScenario(port) {
+  assert(validatePhone("+7 (900) 123-45-67") === "+7 (900) 123-45-67", "Canonical Russian phone was changed unexpectedly");
+  assert(validatePhone("8 900 123-45-67") === "+7 (900) 123-45-67", "Phone beginning with 8 was not normalized to +7");
+  assert(validatePhone("9001234567") === "+7 (900) 123-45-67", "Ten-digit phone was not normalized to +7");
+  let invalidPhoneRejected = false;
+  try { validatePhone("+7 (900) 123"); } catch (error) { invalidPhoneRejected = error?.status === 400; }
+  assert(invalidPhoneRejected, "Incomplete Russian phone was accepted");
+  let nonNumericPhoneRejected = false;
+  try { validatePhone("телефон 9001234567"); } catch (error) { nonNumericPhoneRejected = error?.status === 400; }
+  assert(nonNumericPhoneRejected, "Phone with letters was accepted");
+
   const suffix = Date.now().toString(36);
   const health = await request(port, "/api/public/health");
   assert(
@@ -120,6 +131,9 @@ async function runScenario(port) {
   assert(offlineScript.status === 200 && offlineScript.headers["content-type"]?.includes("text/javascript"), "Offline script is unavailable");
   const publicScript = await request(port, "/public.js", { auth: null });
   assert(publicScript.status === 200 && publicScript.headers["content-type"]?.includes("text/javascript"), "Public browser script is unavailable");
+  assert(publicScript.text.includes("setupRussianPhoneInputs") && publicScript.text.includes("data-russian-phone"), "Russian phone mask is missing from the public browser script");
+  const appScript = await request(port, "/app.js", { auth: null });
+  assert(appScript.status === 200 && appScript.text.includes("setupPasswordVisibility") && appScript.text.includes("data-password-toggle"), "Password visibility controls are missing from the application script");
   const pwaIcon = await request(port, "/icons/icon-192.png", { auth: null });
   assert(pwaIcon.status === 200 && pwaIcon.headers["content-type"] === "image/png", "PWA icon is unavailable");
   const assetLinks = await request(port, "/.well-known/assetlinks.json", { auth: null });
@@ -148,6 +162,8 @@ async function runScenario(port) {
   assert(publicStyles.status === 200 && publicStyles.text.includes("scroll-margin-top: 92px"), "Sticky-header anchor offset is missing");
   const partnersPage = await request(port, "/partners");
   assert(partnersPage.status === 200 && partnersPage.text.includes("Пример интерфейса"), "Synthetic partner dashboard is not identified as an example");
+  assert(partnersPage.text.includes('placeholder="Шашлычная"') && partnersPage.text.includes('placeholder="ул. Ленина, 1"'), "Partner application still uses test-style examples");
+  assert(!partnersPage.text.includes("Например: Заведение 1") && !partnersPage.text.includes("Например: ул. Тестовая, 1"), "Old partner application examples are still rendered");
   const injectionMarker = `<img src=x onerror=alert-${suffix}>`;
   const reflectedQuery = await request(port, `/contacts?type=${encodeURIComponent(injectionMarker)}`);
   assert(reflectedQuery.status === 200 && !reflectedQuery.text.includes(injectionMarker), "Query input was reflected into public HTML");
@@ -168,6 +184,11 @@ async function runScenario(port) {
   const partnerLoginPage = await request(port, "/partner/login", { auth: null });
   assert(partnerLoginPage.status === 200, "Partner login page must open without a second Basic Auth prompt");
   assertFormsUsePost(partnerLoginPage.text, "Partner page");
+  const partnerDashboardPage = await request(port, "/partner/dashboard", { auth: null });
+  assert(partnerDashboardPage.status === 200, "Partner dashboard shell is unavailable");
+  const passwordInputCount = [adminPage.text, partnerLoginPage.text, partnerDashboardPage.text]
+    .reduce((count, markup) => count + (markup.match(/type="password"/g) || []).length, 0);
+  assert(passwordInputCount === 14, `Expected 14 password inputs to receive visibility controls, found ${passwordInputCount}`);
   const anonymousAdminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic" });
   assert(anonymousAdminMe.status === 200 && anonymousAdminMe.json.data.authenticated === false, "Anonymous admin session probe failed");
   const anonymousPartnerMe = await request(port, "/api/partner/auth/me", { auth: "partnerBasic" });
@@ -244,6 +265,35 @@ async function runScenario(port) {
     body: { name: "Тестовый пользователь", login: `smoke-${suffix}`, password: managerPassword, role: "manager", status: "active" }
   });
   assert(user.status === 201 && user.json.ok && !user.json.data.password_hash, "Admin create partner user failed");
+
+  const managerSessionBeforeReset = await request(port, "/api/partner/auth/login", {
+    auth: "partnerBasic",
+    method: "POST",
+    body: { login: `smoke-${suffix}`, password: managerPassword }
+  });
+  assert(managerSessionBeforeReset.status === 200 && cookieFrom(managerSessionBeforeReset), "Manager pre-reset login failed");
+  const resetManagerPassword = "smoke-manager-reset-password";
+  const resetManager = await request(port, `/api/admin/partners/${createdPartner.json.data.id}/users/${user.json.data.id}`, {
+    auth: "adminBasic",
+    cookie: adminCookie,
+    method: "PATCH",
+    body: { password: resetManagerPassword }
+  });
+  assert(resetManager.status === 200 && resetManager.json.data.must_change_password === true && !resetManager.json.data.password_hash, "Admin password reset failed or exposed credentials");
+  const revokedManagerSessionAfterReset = await request(port, "/api/partner/auth/me", { auth: "partnerBasic", cookie: cookieFrom(managerSessionBeforeReset) });
+  assert(revokedManagerSessionAfterReset.status === 200 && revokedManagerSessionAfterReset.json.data.authenticated === false, "Password reset did not revoke the previous manager session");
+  const oldManagerPassword = await request(port, "/api/partner/auth/login", {
+    auth: "partnerBasic",
+    method: "POST",
+    body: { login: `smoke-${suffix}`, password: managerPassword }
+  });
+  assert(oldManagerPassword.status === 401, "Old manager password remained valid after reset");
+  const resetManagerLogin = await request(port, "/api/partner/auth/login", {
+    auth: "partnerBasic",
+    method: "POST",
+    body: { login: `smoke-${suffix}`, password: resetManagerPassword }
+  });
+  assert(resetManagerLogin.status === 200 && resetManagerLogin.json.data.passwordChangeRequired === true, "Reset manager password did not require first-login rotation");
 
   const offer = await request(port, "/api/admin/offers", {
     auth: "adminBasic",

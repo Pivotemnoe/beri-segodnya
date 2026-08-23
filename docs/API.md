@@ -25,6 +25,8 @@ Errors:
 
 Public API is behind preview Basic Auth when `SITE_ACCESS_ENABLED=true`. The live boundary must be checked separately from this code default.
 
+Телефоны в публичных формах и бронировании принимаются как `8XXXXXXXXXX`, `7XXXXXXXXXX` или десять национальных цифр и сохраняются единообразно как `+7 (XXX) XXX-XX-XX`. Неполный номер и символы, кроме цифр и знаков форматирования, отклоняются.
+
 Only offers for the current Moscow date, before pickup end, with an active partner/address and positive remaining quantity are public. Booking cancellation is a terminal status and restores one unit only while the offer is still available.
 
 JSON request bodies are limited to 32 KiB, except the authenticated partner photo upload endpoint, which accepts up to 16 MiB for one to three compressed images. Public forms and login routes are rate-limited per process. A state-changing request with an `Origin` outside `APP_BASE_URL`/current host receives `ORIGIN_NOT_ALLOWED`.
@@ -53,6 +55,8 @@ Requires an admin app session unless the endpoint is login. Optional admin Basic
 - `PATCH /api/admin/contact-requests/:id/status`
 - `DELETE /api/admin/contact-requests/:id`
 - `GET /api/admin/audit-log`
+
+`PATCH /api/admin/partners/:partnerId/users/:userId` с полем `password` задаёт временный пароль, отзывает активные сеансы пользователя и устанавливает обязательную смену пароля при следующем входе. Хеш, соль и исходный пароль в ответ не возвращаются.
 
 ## Partner
 

@@ -63,6 +63,16 @@ Direct Node:
 node scripts/restore-data.mjs backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```
 
+## Служебный сброс пароля партнёра
+
+Перед сбросом создайте резервную копию и остановите процесс приложения, чтобы исключить одновременную запись в JSON-базу. Передавайте логин и временный пароль только через переменные окружения:
+
+```bash
+RESET_PARTNER_LOGIN='<login>' RESET_PARTNER_PASSWORD='<temporary-password>' node scripts/reset-partner-password.mjs
+```
+
+Команда требует точного единственного совпадения логина, отзывает старые сессии и включает обязательную смену временного пароля при следующем входе. Сам пароль в консоль и журнал аудита не выводится.
+
 The restore script creates backups of the current `data/db.json` and `data/uploads/` before replacing them. If a matching uploads backup is absent, the current photo directory is preserved.
 
 ## Manual pre-deploy scenarios

@@ -14,8 +14,11 @@ export function cleanString(value, max = 120, required = false, label = "Пол�
 
 export function validatePhone(value) {
   const phone = cleanString(value, 30, true, "Телефон");
-  if (!/^[+0-9 ()-]{7,30}$/.test(phone)) throw new ValidationError("Введите корректный телефон");
-  return phone;
+  if (!/^[+0-9 ()-]+$/.test(phone)) throw new ValidationError("Введите телефон цифрами в формате +7 (XXX) XXX-XX-XX");
+  let digits = phone.replace(/\D/g, "");
+  if (digits.length === 11 && (digits.startsWith("7") || digits.startsWith("8"))) digits = digits.slice(1);
+  if (digits.length !== 10) throw new ValidationError("Введите телефон полностью в формате +7 (XXX) XXX-XX-XX");
+  return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
 }
 
 export function validateEmail(value) {
