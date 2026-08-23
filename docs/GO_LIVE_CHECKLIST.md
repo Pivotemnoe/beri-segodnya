@@ -21,22 +21,22 @@
 - [ ] SSH key-only access.
 - [ ] Root login disabled.
 - [x] Firewall and fail2ban enabled.
-- [x] Basic Auth enabled on staging with rotated credentials.
+- [ ] Live access boundary reconciled: Basic Auth is restored or the current public prelaunch mode is formally approved.
 - [x] Admin and partner access separated.
 - [x] API role checks verified.
 - [x] Rate limit and cleanup added for login and forms.
 - [x] Security headers verified on live HTTPS.
 - [x] `noindex` remains until public launch.
-- [x] 53 APK runtime dependencies are locked and OSV-clean; 627 Gradle artifacts require SHA-256 verification without trust bypasses.
+- [x] 53 APK runtime dependencies are locked and OSV-clean; 633 Gradle artifacts require SHA-256 verification without trust bypasses.
 - [x] GitHub workflow uses read-only contents permission, immutable action SHAs and no persisted checkout credential.
 
 ## Legal
 
-- [ ] Operator defined.
-- [ ] Privacy policy filled with operator details.
-- [ ] Consent filled with operator details.
-- [ ] Terms filled with operator details.
-- [ ] Partner terms filled with operator details.
+- [x] Operator details are published on live as of 20.08.2026.
+- [x] Privacy policy is filled with operator details on live.
+- [x] Consent is filled with operator details on live.
+- [x] Terms are filled with operator details on live.
+- [x] Partner terms are filled with operator details on live.
 - [x] Forms have required checkboxes and server-side consent enforcement.
 - [ ] RKN notification checked or submitted.
 - [ ] Personal data storage location in Russia confirmed.
@@ -55,7 +55,7 @@
 
 - [x] `node --check server.mjs` / full build contract.
 - [x] `npm run test:smoke` on isolated storage.
-- [x] Customer flow checked locally; live PII write is intentionally blocked by legal gate.
+- [x] Customer flow checked locally; live forms are open, but no acceptance-test record was submitted.
 - [x] Admin scenario on live with rotated credentials.
 - [x] Partner scenario on live with rotated credentials.
 - [x] Backup/restore test.
@@ -63,5 +63,6 @@
 - [x] Admin/partner APIs closed without role session.
 - [x] Android config/build/security gates and real-key signing preflight passed without installing Android SDK packages or accepting a license.
 - [x] Android GitHub Actions run `32641699229` passed `pilot-gate` and `android-source-gate` after merge to `main`.
+- [x] Storage-backed `/api/public/health` readiness contract is covered by the isolated smoke test.
 - [ ] Real Android/iPhone PWA standalone and camera/background/resume.
 - [ ] Signed APK build, signature verification and install.

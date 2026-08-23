@@ -98,6 +98,13 @@ async function waitForServer(port, child, logs) {
 
 async function runScenario(port) {
   const suffix = Date.now().toString(36);
+  const health = await request(port, "/api/public/health");
+  assert(
+    health.status === 200
+      && health.json.data?.status === "ready"
+      && Object.keys(health.json.data).join(",") === "status",
+    "Public health endpoint is unavailable or exposes unnecessary runtime metadata"
+  );
   const manifest = await request(port, "/manifest.webmanifest", { auth: null });
   assert(manifest.status === 200 && manifest.json.display === "standalone" && manifest.json.scope === "/", "PWA manifest is unavailable or incomplete");
   assert(manifest.headers["content-type"]?.includes("application/manifest+json"), "PWA manifest has the wrong content type");

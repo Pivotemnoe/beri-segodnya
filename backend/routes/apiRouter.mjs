@@ -150,6 +150,11 @@ export async function handleApiRequest(request, response, url) {
 async function handlePublic(request, response, url) {
   const parts = routeParts(url.pathname, "/api/public/");
 
+  if (request.method === "GET" && parts[0] === "health" && !parts[1]) {
+    listPublicOffers();
+    return ok(response, { status: "ready" });
+  }
+
   if (request.method === "GET" && parts[0] === "offers" && !parts[1]) {
     return ok(response, listPublicOffers(url.searchParams.get("category")));
   }
