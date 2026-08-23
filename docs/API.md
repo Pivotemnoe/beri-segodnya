@@ -14,6 +14,7 @@ Errors:
 
 ## Public
 
+- `GET /api/public/health` — storage-backed readiness probe; returns only `{ "status": "ready" }`.
 - `GET /api/public/offers`
 - `GET /api/public/offers/:id`
 - `POST /api/public/bookings`
@@ -22,7 +23,7 @@ Errors:
 - `POST /api/public/partner-applications`
 - `POST /api/public/contact-requests`
 
-Public API is still behind preview Basic Auth when `SITE_ACCESS_ENABLED=true`.
+Public API is behind preview Basic Auth when `SITE_ACCESS_ENABLED=true`. The live boundary must be checked separately from this code default.
 
 Only offers for the current Moscow date, before pickup end, with an active partner/address and positive remaining quantity are public. Booking cancellation is a terminal status and restores one unit only while the offer is still available.
 
