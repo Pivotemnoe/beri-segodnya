@@ -62,6 +62,6 @@
 - [x] Public/admin/partner pages checked on mobile and desktop.
 - [x] Admin/partner APIs closed without role session.
 - [x] Android config/build/security gates and real-key signing preflight passed without installing Android SDK packages or accepting a license.
-- [ ] New Android GitHub Actions gate has run successfully after branch push.
+- [x] Android GitHub Actions run `32641699229` passed `pilot-gate` and `android-source-gate` after merge to `main`.
 - [ ] Real Android/iPhone PWA standalone and camera/background/resume.
 - [ ] Signed APK build, signature verification and install.

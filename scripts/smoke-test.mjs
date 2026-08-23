@@ -135,7 +135,12 @@ async function runScenario(port) {
   assert(publicHome.text.includes('aria-label="Закрыть форму бронирования"'), "Booking dialog close button has no accessible label");
   assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "PWA development status is inconsistent");
   assert(publicHome.text.includes('class="offer-row-mobile-pickup"'), "Mobile pickup window is missing from offer rows");
+  assert(publicHome.text.includes("Пример брони"), "Synthetic booking preview is not identified as an example");
   assert(!publicHome.text.includes("Фото сделано сегодня") && !publicHome.text.includes("Фото сегодня"), "Public home claims that a photo was made today without evidence");
+  const publicStyles = await request(port, "/styles.css", { auth: null });
+  assert(publicStyles.status === 200 && publicStyles.text.includes("scroll-margin-top: 92px"), "Sticky-header anchor offset is missing");
+  const partnersPage = await request(port, "/partners");
+  assert(partnersPage.status === 200 && partnersPage.text.includes("Пример интерфейса"), "Synthetic partner dashboard is not identified as an example");
   const injectionMarker = `<img src=x onerror=alert-${suffix}>`;
   const reflectedQuery = await request(port, `/contacts?type=${encodeURIComponent(injectionMarker)}`);
   assert(reflectedQuery.status === 200 && !reflectedQuery.text.includes(injectionMarker), "Query input was reflected into public HTML");

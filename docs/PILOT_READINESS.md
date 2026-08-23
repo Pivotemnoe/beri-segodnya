@@ -1,10 +1,11 @@
 # Готовность пилота
 
-## Текущее решение после release 14.08.2026
+## Текущее решение после интеграции 23.08.2026
 
 - Внутренняя техническая репетиция под новым Basic Auth, только на тестовых данных — **GO**.
 - Web/PWA/runtime release `1aee6d2` развернут и принят на live; backup/restore, role access, credential rotation, desktop/mobile, security negatives и app-specific Node `24.19.0` подтверждены.
-- Android/TWA source hardening завершён локальным commit `f2dd0e3`: AGP `9.3.1`, Gradle `9.5.0`, lock/verification metadata, release OSV gate и signing preflight подтверждены. Подписанный APK пока не собран и не проверен на устройстве.
+- PR #1 объединён с `main`; source release/tag `pilot-web-2026-08-23` указывает на `569b4da`. GitHub Actions run `32641699229` успешно завершил `pilot-gate` и `android-source-gate`, включая strict dependency verification, `lintRelease` и `assembleRelease`.
+- Android/TWA source hardening интегрирован: AGP `9.3.1`, Gradle `9.5.0`, 53 release dependencies, 633 SHA-256 verified artifacts, release OSV gate и signing preflight подтверждены. Подписанный APK пока не собран и не проверен на устройстве.
 - Закрытый пилот с реальными клиентами и ПДн — **NO-GO**, пока не заполнены реквизиты оператора и не закрыт legal/RKN gate. Публичные формы до этого безопасно возвращают `503 LEGAL_NOT_READY`.
 - Публичный городской запуск — **NO-GO**.
 - Подробный протокол: `docs/PILOT_RELEASE_EVIDENCE_2026-08-14.md`.
@@ -30,8 +31,9 @@
 - опубликованные preview/admin/partner passwords заменены, старые сессии отозваны;
 - live backup script и четыре restore rehearsal прошли.
 - app-specific Node `24.19.0`, PM2 interpreter, cron и rollback проверены без замены системного Node.
-- Android wrapper закрепляет JDK 17, AGP `9.3.1`, Gradle `9.5.0`, 53 release dependencies и SHA-256 для 627 артефактов; release OSV gate не нашёл известных уязвимостей.
+- Android wrapper закрепляет JDK 17, AGP `9.3.1`, Gradle `9.5.0`, 53 release dependencies и SHA-256 для 633 артефактов; release OSV gate не нашёл известных уязвимостей.
 - signing preflight сопоставляет закрытый ключ, alias, public fingerprint и Digital Asset Links без вывода секрета; CI source gate использует read-only permissions и immutable action SHAs.
+- GitHub source/Android gate подтверждён успешным run `32641699229` на объединённом `main`.
 
 ## Допустимо только для закрытого пилота
 
@@ -51,7 +53,7 @@
 - JSON не рассчитан на несколько процессов и растущую конкурентную запись;
 - нет формализованной политики сроков хранения и удаления персональных данных;
 - нет подтвержденного процесса обработки жалоб и инцидентов.
-- не выполнены signed APK build/install/device acceptance и GitHub run нового Android CI gate.
+- не выполнены signed APK build/install/device acceptance.
 
 ## Перед приглашением первых пользователей
 

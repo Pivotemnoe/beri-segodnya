@@ -44,13 +44,14 @@
 - [x] Previously published credentials were rotated and old values return `401`.
 - [x] PWA manifest, service worker, icons and Digital Asset Links are live.
 - [x] App-specific Node `24.19.0`, PM2 interpreter, backup cron, rollback evidence and 36-check HTTPS role acceptance are verified.
-- [x] Android source commit `f2dd0e3` pins AGP `9.3.1`/Gradle `9.5.0`, 53 release dependencies and SHA-256 verification for 627 artifacts.
+- [x] Source release `569b4da` pins AGP `9.3.1`/Gradle `9.5.0`, 53 release dependencies and SHA-256 verification for 633 artifacts.
 - [x] Android release dependency OSV gate, offline Gradle configuration and real-key signing preflight passed.
+- [x] GitHub PR #1 merged into `main`; remote `main` and tag `pilot-web-2026-08-23` resolve to `569b4da`.
+- [x] GitHub Actions run `32641699229` passed both `pilot-gate` and `android-source-gate`, including strict dependency verification, `lintRelease` and `assembleRelease`.
 - [ ] Legal/operator configuration is complete and `LEGAL_OPERATOR_READY=true` is approved.
-- [ ] Android GitHub Actions gate has passed after push; current local `gh` credential is invalid.
 - [ ] Signed APK is built, verified and installed on an Android target.
 - [ ] Dedicated `deploy` SSH key and app-specific alert delivery are verified.
 
-Result: the deployed web/PWA is ready for an internal technical rehearsal without real personal data. Android source is hardened, but a real-user pilot remains blocked by legal/operator configuration, signed APK/device acceptance and the external operating gates.
+Result: the deployed web/PWA is ready for an internal technical rehearsal without real personal data, and the integrated source/CI gate is green. The signed APK/device acceptance, legal/operator configuration and external operating gates remain open. Source changes after `569b4da` must pass a new PR before deployment.
 
 Public production remains blocked by the items in `docs/PILOT_READINESS.md`.
