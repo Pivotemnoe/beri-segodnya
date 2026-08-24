@@ -54,7 +54,54 @@ The right drawer and mobile publishing wizard were checked separately because th
 
 ## Follow-up polish
 
-- P3: add a standard icon package in a later dependency-backed design-system pass for calendar, location, camera and sustainability icons.
+- Resolved in the 2026-08-24 addendum: a standard Lucide icon set now covers shared interface symbols.
 - P3: add drag ordering for two or three offer photos after the pilot proves partners use multi-photo listings.
+
+final result: passed
+
+---
+
+## Addendum 2026-08-24: logo, icons and payment copy
+
+Page: `/partners`
+
+Result: `passed`
+
+### Source and target
+
+- Source screen: `/Users/konstantin/Documents/New project/audits/beri-segodnya-icons/01-partners-current.png`.
+- Approved icon map: `/Users/konstantin/Documents/New project/audits/beri-segodnya-icons/icon-proposal.md`.
+- Final desktop screen: `/Users/konstantin/Documents/New project/audits/beri-segodnya-icons/06-partners-icons-final-desktop.png`.
+- Final mobile screen: `/Users/konstantin/Documents/New project/audits/beri-segodnya-icons/07-partners-icons-mobile.png`.
+- Lower-page controls: `/Users/konstantin/Documents/New project/audits/beri-segodnya-icons/12-partners-icons-final-lower.png` and `/Users/konstantin/Documents/New project/audits/beri-segodnya-icons/14-partners-icons-final-steps-aligned.png`.
+
+The desktop comparison used 1611 x 1032 CSS px, matching the 3222 x 2064 source at 2x density. Mobile was checked at 390 x 844 CSS px.
+
+### Surfaces checked
+
+- The existing brand asset appears next to the product name in public and workspace headers and in the footer.
+- Abstract text glyphs were replaced with a consistent set of official Lucide SVG icons.
+- Icons are semantically distinct across revenue, current-day sales, pickup, dashboard, reservation, handoff, statistics and venue categories.
+- The site now states that the web service works today and the mobile application is in development.
+- Payment copy follows one scenario: reserve on the site and pay at the venue when collecting the order.
+- At 390 px there is no horizontal overflow, clipping or broken card layout.
+- Logo and SVG requests load successfully without browser console errors or warnings.
+- FAQ disclosure, close controls and password-visibility toggles keep their functional behavior.
+
+### Comparison history
+
+1. The source used ambiguous text symbols that did not communicate the card meanings.
+2. The first pass still overemphasized implementation details instead of the customer journey.
+3. The final pass aligned the icons and copy while preserving the existing grid, typography, colors, spacing and page structure.
+4. Desktop and mobile rechecks found no remaining P0-P3 visual defects.
+
+### Technical verification
+
+- `node --check server.mjs` passed.
+- `node scripts/check-build.mjs` passed.
+- `node scripts/security-check.mjs` passed.
+- `node scripts/smoke-test.mjs` passed against an isolated temporary database.
+- `git diff --check` passed.
+- SVG assets return `Content-Type: image/svg+xml; charset=utf-8`.
 
 final result: passed

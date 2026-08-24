@@ -178,21 +178,37 @@ const nav = [
 ];
 
 const icon = {
-  search: "⌕",
-  ticket: "⌁",
-  shop: "▤",
-  card: "▭",
-  phone: "▧",
-  clock: "◷",
-  wallet: "▰",
-  bolt: "ϟ",
-  chart: "▥",
-  bag: "▢",
-  doc: "▨",
-  plus: "+",
-  help: "?",
-  mail: "✉",
-  pin: "⌖"
+  search: "search",
+  ticket: "ticket-check",
+  shop: "store",
+  card: "hand-coins",
+  phone: "phone",
+  clock: "clock-3",
+  wallet: "wallet-cards",
+  bolt: "zap",
+  chart: "trending-up",
+  bag: "shopping-bag",
+  plus: "circle-plus",
+  help: "circle-help",
+  mail: "mail",
+  pin: "map-pin",
+  dashboard: "layout-dashboard",
+  package: "package-check",
+  stats: "chart-column-increasing",
+  smartphone: "smartphone",
+  today: "calendar-clock",
+  bakery: "croissant",
+  coffee: "coffee",
+  culinary: "cooking-pot",
+  buffet: "utensils-crossed",
+  cafe: "store",
+  rocket: "rocket",
+  contactQuestion: "message-circle-question",
+  checkBig: "circle-check-big",
+  eye: "eye",
+  eyeOff: "eye-off",
+  chevron: "chevron-down",
+  close: "x"
 };
 
 function json(value) {
@@ -203,13 +219,19 @@ function html(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
 }
 
+function uiIcon(name, className = "ui-icon") {
+  const filename = icon[name] || icon.help;
+  const safeClassName = String(className).replace(/[^a-zA-Z0-9 _-]/g, "");
+  return `<img class="${safeClassName}" src="/icons/ui/${filename}.svg" alt="" aria-hidden="true" width="24" height="24" />`;
+}
+
 function header(pathname) {
   return `<header class="site-header">
     <a class="brand" href="/" aria-label="Бери сегодня">
-      <span class="brand-mark" aria-hidden="true">БС</span>
+      <img class="brand-mark" src="/icons/icon-192.png" alt="" width="38" height="38" />
       <span class="brand-text"><strong>Бери сегодня</strong><small>Еда выгоднее сегодня</small></span>
     </a>
-    <span class="city-pill"><span aria-hidden="true">●</span> Армавир</span>
+    <span class="city-pill">${uiIcon("pin", "city-icon")} Армавир</span>
     <nav class="site-nav" aria-label="Основная навигация">
       ${nav
         .map((item) => {
@@ -237,7 +259,7 @@ function workspaceHeader(pathname) {
   const role = pathname === "/admin" ? "Управление сервисом" : "Кабинет заведения";
   return `<header class="workspace-header">
     <a class="brand" href="/" aria-label="Бери сегодня">
-      <span class="brand-mark" aria-hidden="true">БС</span>
+      <img class="brand-mark" src="/icons/icon-192.png" alt="" width="38" height="38" />
       <span class="brand-text"><strong>Бери сегодня</strong><small>${role}</small></span>
     </a>
     <a class="workspace-site-link" href="/">Открыть сайт</a>
@@ -247,8 +269,8 @@ function workspaceHeader(pathname) {
 function footer() {
   return `<footer class="site-footer">
     <div>
-      <a class="footer-logo" href="/">Бери сегодня</a>
-      <p>Свежая еда из заведений Армавира дешевле сегодня. Бронь по коду, самовывоз и оплата на кассе.</p>
+      <a class="footer-logo" href="/" aria-label="Бери сегодня"><img src="/icons/icon-192.png" alt="" width="34" height="34" /><span>Бери сегодня</span></a>
+      <p>Свежая еда из заведений Армавира дешевле сегодня. Бронь по коду, самовывоз и оплата в заведении при получении.</p>
     </div>
     <nav class="footer-links" aria-label="Ссылки в подвале">
       <a href="/#offers">Предложения</a>
@@ -274,7 +296,7 @@ function pwaInstallDialog() {
   return `<div class="pwa-dialog" data-pwa-dialog hidden>
     <div class="pwa-dialog-backdrop" data-pwa-dialog-close></div>
     <section class="pwa-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="pwa-dialog-title">
-      <button class="pwa-dialog-close" type="button" data-pwa-dialog-close aria-label="Закрыть подсказку">×</button>
+      <button class="pwa-dialog-close" type="button" data-pwa-dialog-close aria-label="Закрыть подсказку">${uiIcon("close", "button-icon")}</button>
       <img src="/icons/icon-192.png" alt="" width="80" height="80" />
       <h2 id="pwa-dialog-title">Добавить «Бери сегодня» на экран</h2>
       <p data-pwa-instructions>Откройте меню браузера и выберите установку приложения.</p>
@@ -331,7 +353,7 @@ function legalUnavailableDocument(title) {
 }
 
 function miniIcon(name) {
-  return `<span class="line-icon" aria-hidden="true">${icon[name] || "•"}</span>`;
+  return `<span class="line-icon" aria-hidden="true">${uiIcon(name)}</span>`;
 }
 
 function featureCard(title, text, name = "shop") {
@@ -358,7 +380,7 @@ function faq(items) {
     ${items
       .map(
         (item, index) => `<details class="faq-item" ${index === 0 ? "open" : ""}>
-          <summary><span>${item.q}</span><b aria-hidden="true">+</b></summary>
+          <summary><span>${item.q}</span><b aria-hidden="true">${uiIcon("chevron", "faq-icon")}</b></summary>
           <p>${item.a}</p>
         </details>`
       )
@@ -393,7 +415,7 @@ function offerCardMarkup(offer) {
       <div class="offer-eyebrow"><p class="partner-name">${html(offer.partnerName || "Заведение")}</p><span>${html(categoryLabel(offer.category))}</span></div>
       <h3>${html(offer.title)}</h3>
       <p class="offer-description">${html(offer.description || "Набор приготовлен сегодня и доступен по предварительной брони.")}</p>
-      <p class="offer-address"><span aria-hidden="true">⌖</span> ${html(offer.address || "Адрес тестовой точки")}</p>
+      <p class="offer-address">${uiIcon("pin", "inline-icon")}<span>${html(offer.address || "Адрес тестовой точки")}</span></p>
       <div class="pickup-row"><span><small>Забрать</small><b>${html(pickupWindow)}</b></span><span class="stock-badge">${soldOut ? "Распродано" : `Осталось ${remaining}`}</span></div>
       <div class="price-line"><strong>${offer.price} ₽</strong>${oldPrice ? `<span>${oldPrice} ₽</span>` : ""}</div>
       <button class="button button-primary js-open-booking" data-offer-id="${html(offer.id)}" ${soldOut ? "disabled" : ""}>${soldOut ? "Распродано" : html(ctaLabel)}</button>
@@ -408,13 +430,13 @@ function codePreview() {
       <p class="preview-label">Пример брони</p>
       <p>Ваш код бронирования</p>
       <strong>BS-1042</strong>
-      <span>Покажите код в заведении и оплатите на кассе.</span>
-      <small>◷ Сегодня, до 18:00</small>
-      <small>⌖ Заведение 1, ул. Тестовая, 1</small>
+      <span>Покажите код в заведении и оплатите при получении.</span>
+      <small class="icon-line">${uiIcon("clock", "inline-icon")}<span>Сегодня, до 18:00</span></small>
+      <small class="icon-line">${uiIcon("pin", "inline-icon")}<span>Заведение 1, ул. Тестовая, 1</span></small>
       ${badge("Осталось 8 наборов", "success")}
     </div>
     <div class="code-photo">${foodImage("")}</div>
-    <div class="float-badge">${miniIcon("card")}<b>Оплата<br/>на кассе</b></div>
+    <div class="float-badge">${miniIcon("wallet")}<b>Оплата<br/>в заведении</b></div>
   </div>`;
 }
 
@@ -501,7 +523,7 @@ function homePage() {
     <div class="customer-hero-copy">
       <p class="kicker">Еда на сегодня · Армавир</p>
       <h1>Заберите готовую еду дешевле — сегодня</h1>
-      <p>Выберите предложение заведения, получите код и оплатите заказ на кассе при получении. Без регистрации и звонков.</p>
+      <p>Выберите предложение заведения, получите код и оплатите заказ в заведении при получении. Без регистрации и звонков.</p>
       <div class="actions"><a class="button button-primary" href="#offers">Выбрать предложение</a><a class="button button-outline" href="/how-it-works">Как это работает</a></div>
       <ul class="customer-trust"><li>Бронь по коду</li><li>Самовывоз сегодня</li><li>Оплата в заведении</li></ul>
     </div>
@@ -525,7 +547,7 @@ function homePage() {
       { title: "Выберите", text: "Откройте карточку предложения и проверьте состав, цену, адрес и время выдачи.", icon: "search" },
       { title: "Забронируйте", text: "Получите уникальный код брони на сайте.", icon: "ticket" },
       { title: "Приходите", text: "Подойдите в выбранное заведение в указанное время.", icon: "shop" },
-      { title: "Получите", text: "Покажите код сотруднику и оплатите заказ на кассе.", icon: "card" }
+      { title: "Получите", text: "Покажите код сотруднику и оплатите заказ при получении.", icon: "card" }
     ])}
   </section>
   <section class="section customer-faq">
@@ -539,7 +561,7 @@ function homePage() {
   </section>
   <div class="offer-drawer-backdrop" data-close-offer-drawer hidden></div>
   <aside class="offer-drawer" id="offer-drawer" role="dialog" aria-modal="true" aria-label="Карточка предложения" aria-hidden="true" tabindex="-1" hidden>
-    <button class="drawer-close" type="button" data-close-offer-drawer aria-label="Закрыть" title="Закрыть">×</button>
+    <button class="drawer-close" type="button" data-close-offer-drawer aria-label="Закрыть" title="Закрыть">${uiIcon("close", "button-icon")}</button>
     <div data-offer-drawer-content></div>
   </aside>`;
 }
@@ -548,7 +570,7 @@ function howItWorksPage() {
   return `<section class="hero split-hero">
     <div class="hero-copy">
       <h1>Как работает Бери сегодня</h1>
-      <p>Сервис помогает быстро забронировать выгодные предложения еды на сегодня. Без звонков, без приложения, с оплатой прямо в заведении.</p>
+      <p>Сервис помогает быстро забронировать выгодные предложения еды на сегодня. Сейчас он работает на сайте, а мобильное приложение для покупателей находится в разработке.</p>
       <div class="actions">
         <a class="button button-primary" href="/#offers">Смотреть предложения</a>
       </div>
@@ -561,23 +583,23 @@ function howItWorksPage() {
       { title: "Выберите предложение", text: "Найдите готовый обед, выпечку или вечерний набор, который доступен сегодня.", icon: "search" },
       { title: "Получите код", text: "Подтвердите бронь на сайте и сохраните код.", icon: "ticket" },
       { title: "Приходите в заведение", text: "Заберите заказ в указанное время в точке партнёра.", icon: "shop" },
-      { title: "Покажите код и оплатите", text: "Покажите код сотруднику, оплатите на кассе и получите своё предложение.", icon: "card" }
+      { title: "Покажите код и оплатите", text: "Покажите код сотруднику, оплатите при получении и заберите заказ.", icon: "card" }
     ])}
     <p class="center-note">Все предложения ограничены по количеству и действуют только сегодня.</p>
   </section>
   <section class="section">
     ${sectionTitle("", "Для покупателя")}
     <div class="info-grid">
-      ${featureCard("Без приложения", "Бронь и коды работают прямо на сайте. Ничего скачивать не нужно.", "phone")}
-      ${featureCard("Только актуальные предложения", "Видите только то, что доступно сегодня здесь и сейчас.", "clock")}
-      ${featureCard("Оплата в заведении", "Оплачивайте удобным способом на кассе при получении заказа.", "wallet")}
+      ${featureCard("Мобильное приложение в разработке", "Сейчас сервис доступен на сайте. Приложение для покупателей — следующий этап развития проекта.", "smartphone")}
+      ${featureCard("Только актуальные предложения", "Видите только то, что доступно сегодня здесь и сейчас.", "today")}
+      ${featureCard("Оплата в заведении", "Оплачивайте заказ непосредственно в заведении при получении.", "wallet")}
       ${featureCard("Быстро и понятно", "Несколько шагов — и ваш заказ забронирован. Всё просто и прозрачно.", "bolt")}
     </div>
   </section>
   <section class="section">
     ${sectionTitle("", "Частые вопросы")}
     ${faq([
-      { q: "Нужно ли приложение?", a: "Нет, приложение не требуется. Всё работает прямо на сайте: выбираете предложение, получаете код и забираете заказ." },
+      { q: "Когда появится мобильное приложение?", a: "Сейчас сервис доступен на сайте. Мобильное приложение для покупателей находится в разработке и станет следующим этапом развития проекта." },
       { q: "Как происходит оплата?", a: "Оплата происходит в заведении при получении заказа. Сервис на старте не принимает онлайн-оплату." },
       { q: "Можно ли отменить бронь?", a: "Да. Откройте страницу своей брони и подтвердите отмену — набор снова станет доступен, если время выдачи ещё не закончилось." },
       { q: "Что если я не успел забрать заказ?", a: "Предложения действуют только в указанное время. Если клиент не приходит, бронь считается неиспользованной." },
@@ -609,7 +631,7 @@ function partnerDashboardCard() {
       </div>
       <div class="dash-photo">${foodImage("")}</div>
     </div>
-    <div class="float-badge dash-badge">${miniIcon("plus")}<b>Без сложной<br/>интеграции</b></div>
+    <div class="float-badge dash-badge">${miniIcon("wallet")}<b>Бронь здесь —<br/>оплата в заведении</b></div>
   </article>`;
 }
 
@@ -640,9 +662,9 @@ function partnersPage() {
     ${sectionTitle("", "Почему это выгодно заведению")}
     <div class="info-grid">
       ${featureCard("Дополнительная выручка", "Продавайте ограниченные предложения на сегодня и увеличивайте выручку без лишних процессов.", "chart")}
-      ${featureCard("Продажа предложений на сегодня", "Вы сами решаете, что предложить, по какой цене и в каком количестве.", "clock")}
+      ${featureCard("Продажа предложений на сегодня", "Вы сами решаете, что предложить, по какой цене и в каком количестве.", "today")}
       ${featureCard("Самовывоз без сложной логистики", "Клиенты забирают заказ в вашей точке в выбранное время.", "bag")}
-      ${featureCard("Простое подключение и отчётность", "Быстрый старт, понятная панель и отчёты по выданным кодам.", "doc")}
+      ${featureCard("Личный кабинет и понятная отчётность", "Управляйте предложениями, бронями и выручкой в одном месте.", "dashboard")}
     </div>
   </section>
   <section class="section">
@@ -650,22 +672,28 @@ function partnersPage() {
     ${steps([
       { title: "Добавьте предложение", text: "Укажите название, цену, время выдачи и количество на сегодня.", icon: "plus" },
       { title: "Получайте брони и коды", text: "Клиенты бронируют предложение на сайте и получают код.", icon: "ticket" },
-      { title: "Выдавайте заказ в своей точке", text: "Клиент приходит к вам, показывает код и получает заказ после оплаты.", icon: "bag" },
-      { title: "Смотрите статистику и выручку", text: "Следите за кодами, заказами и дополнительной выручкой.", icon: "chart" }
+      { title: "Выдавайте заказ в своей точке", text: "Клиент приходит к вам, показывает код и получает заказ после оплаты.", icon: "package" },
+      { title: "Смотрите статистику и выручку", text: "Следите за кодами, заказами и дополнительной выручкой.", icon: "stats" }
     ])}
-    <p class="center-note">Вы сами решаете, какие предложения доступны на сегодня. Оплата всегда происходит у вас на кассе.</p>
+    <p class="center-note">Вы сами решаете, какие предложения доступны на сегодня. Оплата происходит в заведении при получении.</p>
   </section>
   <section class="section">
     ${sectionTitle("", "Кому подходит")}
     <div class="category-grid">
-      ${["Пекарни", "Кофейни", "Кулинарии", "Буфеты", "Кафе с готовой едой"].map((name) => `<article>${miniIcon("shop")}<h3>${name}</h3><div class="food-strip">${foodImage("")}</div></article>`).join("")}
+      ${[
+        { name: "Пекарни", icon: "bakery" },
+        { name: "Кофейни", icon: "coffee" },
+        { name: "Кулинарии", icon: "culinary" },
+        { name: "Буфеты", icon: "buffet" },
+        { name: "Кафе с готовой едой", icon: "cafe" }
+      ].map((item) => `<article>${miniIcon(item.icon)}<h3>${item.name}</h3><div class="food-strip">${foodImage("")}</div></article>`).join("")}
     </div>
   </section>
   <section class="section pilot-grid">
     <article class="panel-card">
       <h2>Что входит в пилот</h2>
       <ul class="check-list two-columns">
-        <li>14 дней теста</li><li>1 точка на старте</li><li>Ограниченные предложения на сегодня</li><li>Бронь по коду</li><li>Оплата на кассе</li><li>Отчёт по выданным кодам</li><li>Поддержка при запуске</li>
+        <li>14 дней теста</li><li>1 точка на старте</li><li>Ограниченные предложения на сегодня</li><li>Бронь по коду</li><li>Оплата при получении</li><li>Отчёт по выданным кодам</li><li>Поддержка при запуске</li>
       </ul>
     </article>
     <article class="accent-card"><span class="calendar-mark">14</span><div><h2>Первые 14 дней — без комиссии</h2><p>Протестируйте сервис и оцените результат без рисков.</p></div></article>
@@ -694,8 +722,8 @@ function partnersPage() {
   <section class="section">
     ${sectionTitle("", "Частые вопросы")}
     ${faq([
-      { q: "Нужна ли интеграция с кассой?", a: "Нет, интеграция не требуется. Выдача заказа и оплата происходят у вас на кассе." },
-      { q: "Кто принимает оплату?", a: "Оплату принимает заведение. Клиент оплачивает заказ у вас на кассе при получении." },
+      { q: "Где клиент бронирует и оплачивает заказ?", a: "Бронь оформляется здесь на сайте. Оплата происходит непосредственно в заведении при получении." },
+      { q: "Кто принимает оплату?", a: "Оплату принимает заведение при получении заказа." },
       { q: "Можно ли подключить одну точку?", a: "Да. Для пилота лучше начать с одной точки, проверить спрос и потом масштабировать." },
       { q: "Какие предложения можно размещать?", a: "Ограниченные предложения на сегодня: готовые обеды, выпечку, вечерние наборы и предложения после пика." },
       { q: "Как считается результат?", a: "Мы считаем полученные коды, выданные заказы, неиспользованные брони и примерную дополнительную выручку." },
@@ -735,8 +763,8 @@ function contactsPage() {
   <section class="section">
     <div class="info-grid contact-options">
       ${featureCard("Подключить заведение", "Расскажите о заведении — мы поможем запустить пилот и разместить первые предложения.", "shop")}
-      ${featureCard("Вопрос по заказу", "Поможем с кодом, бронью, временем выдачи или другим вопросом по предложению.", "mail")}
-      ${featureCard("Партнёрский пилот", "Обсудим тестовый запуск, формат предложений и критерии результата.", "bolt")}
+      ${featureCard("Вопрос по заказу", "Поможем с кодом, бронью, временем выдачи или другим вопросом по предложению.", "contactQuestion")}
+      ${featureCard("Партнёрский пилот", "Обсудим тестовый запуск, формат предложений и критерии результата.", "rocket")}
       ${featureCard("Общий вопрос", "Любой другой вопрос о сервисе, условиях работы и возможностях платформы.", "help")}
     </div>
   </section>
@@ -772,7 +800,7 @@ function contactsPage() {
     ${faq([
       { q: "Как быстро вы отвечаете?", a: "Мы на связи в течение рабочего дня и обычно отвечаем в течение 1–2 часов." },
       { q: "Можно ли подключить одну точку?", a: "Да. Для пилота можно подключить одну точку, проверить спрос и потом масштабировать." },
-      { q: "Нужна ли интеграция с кассой?", a: "Нет. Клиент оплачивает заказ у вас на кассе, а сервис фиксирует код бронирования." },
+      { q: "Где оформляется бронь и проходит оплата?", a: "Бронь оформляется здесь на сайте, а оплата происходит непосредственно в заведении при получении." },
       { q: "Сколько длится пилот?", a: "Стандартный тестовый период — 14 дней. После него можно оценить результат." },
       { q: "Кто принимает оплату?", a: "Оплату принимает заведение. Сервис на старте не принимает онлайн-оплату." },
       { q: "В каких форматах можно работать?", a: "Можно размещать готовые обеды, выпечку, вечерние наборы и предложения после пика." }
@@ -927,7 +955,7 @@ function termsPage() {
         "Сервис предоставляет информационную витрину предложений и бронирование кода."
       ])}
       ${legalBlock("3. Важное ограничение", [
-        "На текущем этапе сервис не является продавцом товара, не принимает оплату за еду и не выдаёт кассовый чек за товар."
+        "На текущем этапе сервис не является продавцом товара, не принимает оплату за еду и не выдаёт платёжные документы за товар."
       ])}
       ${legalBlock("4. Оплата", [
         "Оплата происходит в заведении-партнёре при получении предложения."
@@ -989,12 +1017,12 @@ function partnerTermsPage() {
       ${legalBlock("4. Как работает выдача", [
         "Клиент получает код на сайте.",
         "Клиент приходит в точку партнёра.",
-        "Клиент оплачивает заказ на кассе партнёра.",
+        "Клиент оплачивает заказ непосредственно партнёру при получении.",
         "Партнёр выдаёт заказ и отмечает код в кабинете."
       ])}
       ${legalBlock("5. Ответственность партнёра", [
         "Партнёр отвечает за качество товара, срок годности, условия хранения и соответствие предложения.",
-        "Партнёр отвечает за чек, оплату и работу сотрудников при выдаче."
+        "Партнёр отвечает за приём оплаты, платёжные документы и работу сотрудников при выдаче."
       ])}
       ${legalBlock("6. Роль сервиса", [
         "Сервис предоставляет размещение предложения, код бронирования, кабинет партнёра и отчётность по кодам."
@@ -1078,7 +1106,7 @@ function adminPage() {
         <article class="panel-card tab-panel" data-tab-panel="settings"><div class="settings-grid"><section><h3>Сменить пароль администратора</h3><form class="mini-form labelled-form" method="post" data-admin-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сменить пароль</button></form></section><section><h3>Рабочая проверка</h3><ul class="check-list"><li>Перед обновлением создайте резервную копию данных и фотографий.</li><li>После обновления проверьте входы, бронирование и выдачу кода.</li><li>Проверяйте журнал действий и уведомления мониторинга.</li></ul></section></div></article>
       </div>
     </div>
-    <div class="record-dialog" data-record-dialog hidden><div class="record-dialog-backdrop" data-close-record-dialog></div><section class="record-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="record-dialog-title" tabindex="-1"><button class="modal-close" type="button" data-close-record-dialog aria-label="Закрыть">×</button><p class="kicker" data-record-kind></p><h2 id="record-dialog-title" data-record-title></h2><dl class="record-details" data-record-details></dl><div class="record-message" data-record-message hidden></div></section></div>
+    <div class="record-dialog" data-record-dialog hidden><div class="record-dialog-backdrop" data-close-record-dialog></div><section class="record-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="record-dialog-title" tabindex="-1"><button class="modal-close" type="button" data-close-record-dialog aria-label="Закрыть">${uiIcon("close", "button-icon")}</button><p class="kicker" data-record-kind></p><h2 id="record-dialog-title" data-record-title></h2><dl class="record-details" data-record-details></dl><div class="record-message" data-record-message hidden></div></section></div>
   </section>`;
 }
 
@@ -1131,7 +1159,7 @@ function partnerDashboardPage() {
       <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Коды и брони</h3><p>Сначала найдите код, затем подтвердите результат выдачи.</p></div><div class="table-filters"><input type="search" placeholder="Найти код или предложение" data-partner-booking-search /><select data-partner-booking-status aria-label="Статус брони"><option value="">Все статусы</option><option value="created">Текущие</option><option value="issued">Выданные</option><option value="no_show">Не полученные</option><option value="cancelled">Отменённые</option></select></div></div><div class="table-wrap" data-partner-bookings></div></article>
       <article class="panel-card tab-panel" data-tab-panel="profile"><h3>Профиль</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать профиль. Изменять реквизиты может владелец.</p><form class="mini-form labelled-form" method="post" data-partner-profile-form data-owner-only><label>Название заведения<input name="name" maxlength="120" placeholder="Название партнёра" /></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Контактное лицо" /></label><label>Телефон<input name="phone" type="tel" inputmode="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.test" /></label><button class="button button-primary" type="submit">Сохранить профиль</button></form><div class="table-wrap" data-partner-profile></div></article>
       <article class="panel-card tab-panel" data-tab-panel="security"><h3>Пароль кабинета</h3><p>Партнёр меняет пароль самостоятельно. После смены другие активные входы будут закрыты.</p><form class="mini-form labelled-form password-form" method="post" data-partner-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сохранить новый пароль</button></form></article>
-      <article class="panel-card tab-panel" data-tab-panel="help"><h3>Помощь</h3><div class="help-steps"><p><strong>Где появляются брони?</strong><span>Во вкладке «Коды и брони». Новая бронь появляется там сразу после получения кода покупателем.</span></p><p><strong>Как выдать заказ?</strong><span>Найдите код покупателя и нажмите «Выдан» после оплаты на кассе.</span></p><p><strong>Как сменить пароль?</strong><span>Откройте вкладку «Пароль». Временный пароль, выданный администратором, нужно заменить при первом входе.</span></p></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="help"><h3>Помощь</h3><div class="help-steps"><p><strong>Где появляются брони?</strong><span>Во вкладке «Коды и брони». Новая бронь появляется там сразу после получения кода покупателем.</span></p><p><strong>Как выдать заказ?</strong><span>Найдите код покупателя и нажмите «Выдан» после оплаты в заведении.</span></p><p><strong>Как сменить пароль?</strong><span>Откройте вкладку «Пароль». Временный пароль, выданный администратором, нужно заменить при первом входе.</span></p></div></article>
     </div>
   </section>
   <div class="offer-wizard" data-offer-wizard hidden>
@@ -1207,7 +1235,7 @@ function bookingPage(pathname) {
         <ol>
           <li>Приходите в указанное время.</li>
           <li>Покажите код сотруднику.</li>
-          <li>Оплатите набор на кассе.</li>
+          <li>Оплатите набор при получении.</li>
         </ol>
         <p>Не успеваете? Отмените бронь, чтобы набор снова стал доступен.</p>
       </aside>
@@ -1281,7 +1309,7 @@ function bookingModal() {
   return `<div class="modal" id="booking-modal" hidden>
     <div class="modal-backdrop" data-close-modal></div>
     <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="booking-title">
-      <button class="modal-close" type="button" data-close-modal aria-label="Закрыть форму бронирования" title="Закрыть">×</button>
+      <button class="modal-close" type="button" data-close-modal aria-label="Закрыть форму бронирования" title="Закрыть">${uiIcon("close", "button-icon")}</button>
       <div data-booking-step="form">
         <h2 id="booking-title">Получить код</h2>
         <div class="booking-summary" id="booking-summary"></div>
@@ -1294,7 +1322,7 @@ function bookingModal() {
         </form>
       </div>
       <div class="booking-success" data-booking-step="success" hidden>
-        <p class="success-mark" aria-hidden="true">✓</p>
+        <p class="success-mark" aria-hidden="true">${uiIcon("checkBig", "success-icon")}</p>
         <h2 tabindex="-1" data-booking-success-title>Набор забронирован</h2>
         <p>Сохраните код и покажите его сотруднику в указанное время.</p>
         <strong id="booking-code">BS-1042</strong>
@@ -1760,10 +1788,10 @@ const PUBLIC_JS = `
         if (bookingHelp) bookingHelp.innerHTML = '<h2>Что теперь</h2><p>Ничего оплачивать и показывать сотруднику не нужно.</p><p><a href="/#offers">Вернитесь к предложениям</a>, если хотите выбрать другой набор.</p>';
         return;
       }
-      if (bookingHelp) bookingHelp.innerHTML = '<h2>Что делать дальше</h2><ol><li>Приходите в указанное время.</li><li>Покажите код сотруднику.</li><li>Оплатите набор на кассе.</li></ol>' + (canCancel ? '<p>Не успеваете? Отмените бронь, чтобы набор снова стал доступен.</p>' : '');
+      if (bookingHelp) bookingHelp.innerHTML = '<h2>Что делать дальше</h2><ol><li>Приходите в указанное время.</li><li>Покажите код сотруднику.</li><li>Оплатите набор при получении.</li></ol>' + (canCancel ? '<p>Не успеваете? Отмените бронь, чтобы набор снова стал доступен.</p>' : '');
       content.innerHTML = '<div class="booking-status-row"><span class="booking-status status-' + escapeHtml(booking.status) + '">' + escapeHtml(statusLabels[booking.status] || booking.status) + '</span><small>Оплата при получении</small></div>' +
         '<div class="public-code"><small>Код бронирования</small><strong>' + escapeHtml(booking.code) + '</strong></div>' +
-        '<dl class="booking-details"><div><dt>Предложение</dt><dd>' + escapeHtml(booking.offerTitle) + '</dd></div><div><dt>Заведение</dt><dd>' + escapeHtml(booking.partnerName) + '</dd></div><div><dt>Адрес</dt><dd>' + escapeHtml(booking.address) + '</dd></div><div><dt>Забрать</dt><dd>Сегодня, ' + escapeHtml(booking.pickupWindow) + '</dd></div><div><dt>К оплате</dt><dd>' + Number(booking.price) + ' ₽ на кассе</dd></div></dl>' +
+        '<dl class="booking-details"><div><dt>Предложение</dt><dd>' + escapeHtml(booking.offerTitle) + '</dd></div><div><dt>Заведение</dt><dd>' + escapeHtml(booking.partnerName) + '</dd></div><div><dt>Адрес</dt><dd>' + escapeHtml(booking.address) + '</dd></div><div><dt>Забрать</dt><dd>Сегодня, ' + escapeHtml(booking.pickupWindow) + '</dd></div><div><dt>К оплате</dt><dd>' + Number(booking.price) + ' ₽ при получении</dd></div></dl>' +
         '<div class="booking-page-actions"><button class="button button-outline" type="button" data-page-copy>Копировать код</button>' + (canCancel ? '<button class="text-danger" type="button" data-cancel-booking>Отменить бронь</button>' : '') + '</div>';
       content.querySelector("[data-page-copy]")?.addEventListener("click", function (event) {
         if (navigator.clipboard) navigator.clipboard.writeText(booking.code).then(function () { event.currentTarget.textContent = "Код скопирован"; });
@@ -1850,7 +1878,7 @@ function setupPasswordVisibility(root = document) {
     button.setAttribute("aria-label", "Показать пароль");
     button.setAttribute("aria-pressed", "false");
     button.title = "Показать пароль";
-    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle><path class="password-toggle-slash" d="M4 4l16 16"></path></svg>';
+    button.innerHTML = '<img class="password-toggle-icon" src="/icons/ui/eye.svg" alt="" aria-hidden="true" width="22" height="22" />';
     wrapper.appendChild(button);
 
     button.addEventListener("click", () => {
@@ -1859,6 +1887,7 @@ function setupPasswordVisibility(root = document) {
       button.setAttribute("aria-pressed", String(show));
       button.setAttribute("aria-label", show ? "Скрыть пароль" : "Показать пароль");
       button.title = show ? "Скрыть пароль" : "Показать пароль";
+      button.querySelector(".password-toggle-icon").src = show ? "/icons/ui/eye-off.svg" : "/icons/ui/eye.svg";
       input.focus({ preventScroll: true });
       input.setSelectionRange?.(input.value.length, input.value.length);
     });
@@ -2007,7 +2036,7 @@ function setupBooking() {
         const images = Array.isArray(offer.imageUrls) && offer.imageUrls.length ? offer.imageUrls : [offer.imageUrl || "/images/offer-lunch-v2.png"];
         const oldPrice = Number(offer.oldPrice || 0);
         const discount = oldPrice > Number(offer.price) ? Math.round((1 - Number(offer.price) / oldPrice) * 100) : 0;
-        drawer.querySelector("[data-offer-drawer-content]").innerHTML = '<div class="drawer-heading"><h2>' + escapeHtml(offer.title) + '</h2><p>' + escapeHtml(offer.partnerName) + ' · ' + escapeHtml(offer.address) + '</p></div><span class="drawer-fresh">Обновлено заведением</span><div class="drawer-gallery"><img src="' + escapeHtml(images[0]) + '" alt="' + escapeHtml(offer.imageAlt || offer.title) + '" /></div><div class="drawer-pickup"><span><small>Забрать сегодня</small><strong>' + escapeHtml(offer.pickupWindow) + '</strong></span><b>Осталось ' + Number(offer.remaining || 0) + '</b></div><div class="drawer-description"><p>' + escapeHtml(offer.description || "Предложение приготовлено сегодня.") + '</p><p><strong>В наборе:</strong> ' + escapeHtml(offer.contents || "Состав уточняйте в точке") + '</p></div><div class="drawer-price"><strong>' + Number(offer.price) + ' ₽</strong>' + (oldPrice ? '<del>' + oldPrice + ' ₽</del>' : '') + (discount ? '<span>−' + discount + '%</span>' : '') + '</div><button class="button button-primary js-open-booking" data-offer-id="' + escapeHtml(offer.id) + '">Получить код</button><small class="drawer-payment-note">Оплата при получении в заведении</small><div class="drawer-trust"><span><b>Актуальное предложение</b><small>Данные добавляет заведение</small></span><span><b>Самовывоз сегодня</b><small>Оплата на кассе</small></span></div>';
+        drawer.querySelector("[data-offer-drawer-content]").innerHTML = '<div class="drawer-heading"><h2>' + escapeHtml(offer.title) + '</h2><p>' + escapeHtml(offer.partnerName) + ' · ' + escapeHtml(offer.address) + '</p></div><span class="drawer-fresh">Обновлено заведением</span><div class="drawer-gallery"><img src="' + escapeHtml(images[0]) + '" alt="' + escapeHtml(offer.imageAlt || offer.title) + '" /></div><div class="drawer-pickup"><span><small>Забрать сегодня</small><strong>' + escapeHtml(offer.pickupWindow) + '</strong></span><b>Осталось ' + Number(offer.remaining || 0) + '</b></div><div class="drawer-description"><p>' + escapeHtml(offer.description || "Предложение приготовлено сегодня.") + '</p><p><strong>В наборе:</strong> ' + escapeHtml(offer.contents || "Состав уточняйте в точке") + '</p></div><div class="drawer-price"><strong>' + Number(offer.price) + ' ₽</strong>' + (oldPrice ? '<del>' + oldPrice + ' ₽</del>' : '') + (discount ? '<span>−' + discount + '%</span>' : '') + '</div><button class="button button-primary js-open-booking" data-offer-id="' + escapeHtml(offer.id) + '">Получить код</button><small class="drawer-payment-note">Оплата при получении в заведении</small><div class="drawer-trust"><span><b>Актуальное предложение</b><small>Данные добавляет заведение</small></span><span><b>Самовывоз сегодня</b><small>Оплата при получении</small></span></div>';
         drawer.hidden = false; drawer.setAttribute("aria-hidden", "false"); drawer.dataset.offerId = offer.id;
         document.querySelector(".offer-drawer-backdrop").hidden = false; document.body.classList.add("drawer-open");
       }
@@ -3249,7 +3278,7 @@ main { overflow: hidden; }
 .check-list { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 13px; }
 .check-list li { position: relative; padding-left: 28px; color: var(--color-text-soft); }
 .check-list li::before {
-  content: "✓";
+  content: "";
   position: absolute;
   left: 0;
   color: var(--color-primary);
@@ -4649,7 +4678,7 @@ body { background: var(--color-bg); }
 .access-intro > p:not(.kicker) { max-width: 520px; color: #49636d; line-height: 1.55; }
 .access-points { margin: 24px 0 0; padding: 0; display: grid; gap: 12px; list-style: none; }
 .access-points li { position: relative; padding-left: 24px; color: #173a45; font-weight: 800; }
-.access-points li::before { content: "✓"; position: absolute; left: 0; color: #0b646a; }
+.access-points li::before { content: ""; position: absolute; left: 0; color: #0b646a; }
 .access-layout .auth-box { max-width: none; padding: 38px; border: 0; border-radius: 0; }
 .access-layout .auth-box h3 { margin: 0; color: #062f3d; font-size: 26px; }
 .access-layout .auth-box > p { margin: 8px 0 24px; color: #687d84; }
@@ -4699,7 +4728,7 @@ body { background: var(--color-bg); }
 .customer-hero-copy .actions { margin-top: 24px; }
 .customer-trust { margin: 26px 0 0; padding: 0; display: flex; gap: 12px 24px; flex-wrap: wrap; list-style: none; }
 .customer-trust li { position: relative; padding-left: 20px; color: #31515b; font-size: 13px; font-weight: 850; }
-.customer-trust li::before { content: "✓"; position: absolute; left: 0; color: #0b646a; }
+.customer-trust li::before { content: ""; position: absolute; left: 0; color: #0b646a; }
 .customer-hero .booking-preview { max-width: 440px; justify-self: end; }
 .customer-guide, .customer-faq { padding-top: 48px; padding-bottom: 48px; }
 .footer-app-status { color: #f4ce67; font-weight: 850; }
@@ -4808,10 +4837,106 @@ body { background: var(--color-bg); }
 }
 .code-card .preview-label { margin-bottom: 8px; color: #315a60; }
 .partner-dashboard > .preview-label { margin-bottom: 10px; }
+
+/* Approved Lucide icon system. */
+.ui-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  flex: 0 0 auto;
+}
+.brand-mark,
+.site-header .brand-mark,
+.workspace-header .brand-mark {
+  width: 38px;
+  height: 38px;
+  display: block;
+  flex: 0 0 38px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: 0 5px 14px rgba(0,0,0,.13);
+}
+.city-pill .city-icon { width: 15px; height: 15px; }
+.line-icon {
+  flex: 0 0 52px;
+  color: #0b646a;
+  border-color: #0b646a;
+  background: #fff;
+  font-size: 0;
+}
+.line-icon .ui-icon { width: 24px; height: 24px; }
+.float-badge .line-icon { flex-basis: 42px; }
+.float-badge b { line-height: 1.2; }
+.inline-icon { width: 16px; height: 16px; }
+.offer-address,
+.code-card .icon-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.offer-address span { color: inherit; }
+.footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.footer-logo img {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 8px;
+}
+.faq-item b { transition: background .16s ease; }
+.faq-item .faq-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform .16s ease, filter .16s ease;
+}
+.faq-item[open] .faq-icon {
+  transform: rotate(180deg);
+  filter: brightness(0) invert(1);
+}
+.password-toggle .password-toggle-icon { width: 22px; height: 22px; pointer-events: none; }
+.password-toggle svg { display: none; }
+.button-icon { width: 20px; height: 20px; pointer-events: none; }
+.pwa-dialog-panel > img { width: 80px; height: 80px; border-radius: 18px; }
+.pwa-dialog-close .button-icon,
+.modal-close .button-icon,
+.drawer-close .button-icon { margin: auto; }
+.pwa-dialog-panel .pwa-dialog-close .button-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+}
+.success-mark .success-icon { width: 26px; height: 26px; }
+.check-list li::before,
+.access-points li::before,
+.customer-trust li::before {
+  content: "";
+  width: 17px;
+  height: 17px;
+  position: absolute;
+  left: 0;
+  top: .12em;
+  background: url("/icons/ui/circle-check.svg") center / contain no-repeat;
+}
+
 @media (max-width: 720px) {
   .marketplace-catalog[id],
   .form-section[id] {
     scroll-margin-top: 80px;
+  }
+}
+@media (max-width: 640px) {
+  .brand-mark,
+  .site-header .brand-mark,
+  .workspace-header .brand-mark {
+    width: 34px;
+    height: 34px;
+    display: block;
+    flex-basis: 34px;
   }
 }
 `;
@@ -4868,8 +4993,9 @@ const server = http.createServer(async (request, response) => {
   if (url.pathname.startsWith("/icons/")) {
     const iconRoot = path.join(ROOT, "public", "icons");
     const filePath = path.normalize(path.join(ROOT, "public", url.pathname));
-    if (filePath.startsWith(iconRoot + path.sep) && fs.existsSync(filePath) && path.extname(filePath).toLowerCase() === ".png") {
-      sendFile(response, filePath, "image/png", "public, max-age=31536000, immutable");
+    const iconContentType = { ".png": "image/png", ".svg": "image/svg+xml; charset=utf-8" }[path.extname(filePath).toLowerCase()];
+    if (filePath.startsWith(iconRoot + path.sep) && fs.existsSync(filePath) && iconContentType) {
+      sendFile(response, filePath, iconContentType, "public, max-age=31536000, immutable");
       return;
     }
   }
