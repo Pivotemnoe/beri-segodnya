@@ -155,7 +155,7 @@ async function runScenario(port) {
   assertFormsUsePost(publicHome.text, "Public home");
   assert(publicHome.text.includes('role="dialog" aria-modal="true" aria-label="Карточка предложения"'), "Offer dialog semantics are missing");
   assert(publicHome.text.includes('aria-label="Закрыть форму бронирования"'), "Booking dialog close button has no accessible label");
-  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes('class="footer-app-status" href="/android"') && publicHome.text.includes("Приложение для Android") && !publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "Android application link or PWA status is inconsistent");
+  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes('class="footer-app-status" href="/android"') && publicHome.text.includes('href="/android">Приложение</a>') && publicHome.text.includes('class="button button-outline home-app-button" href="/android">Скачать приложение</a>') && !publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "Android application links or PWA status are inconsistent");
   assert(publicHome.text.includes('class="offer-row-mobile-pickup"'), "Mobile pickup window is missing from offer rows");
   assert(publicHome.text.includes("Пример брони"), "Synthetic booking preview is not identified as an example");
   assert(!publicHome.text.includes("Фото сделано сегодня") && !publicHome.text.includes("Фото сегодня"), "Public home claims that a photo was made today without evidence");
@@ -166,7 +166,10 @@ async function runScenario(port) {
   assert(partnersPage.text.includes('placeholder="Шашлычная"') && partnersPage.text.includes('placeholder="ул. Ленина, 1"'), "Partner application still uses test-style examples");
   assert(!partnersPage.text.includes("Например: Заведение 1") && !partnersPage.text.includes("Например: ул. Тестовая, 1"), "Old partner application examples are still rendered");
   const androidPage = await request(port, "/android");
-  assert(androidPage.status === 200 && androidPage.text.includes("«Бери сегодня» для Android") && androidPage.text.includes("Тестовая версия для участников пилота") && androidPage.text.includes('href="/downloads/beri-segodnya-android-0.1.0-pilot.apk"'), "Android download page is unavailable or incomplete");
+  assert(androidPage.status === 200 && androidPage.text.includes("Приложение «Бери сегодня»") && androidPage.text.includes('src="/icons/android-download-qr.svg"') && androidPage.text.includes('href="/downloads/beri-segodnya-android-0.1.0-pilot.apk"') && androidPage.text.includes("Скачать приложение"), "Android download page is unavailable or incomplete");
+  for (const technicalCopy of ["Официальная тестовая сборка", "Версия 0.1.0-pilot", "Проверить SHA-256", "Как установить приложение", "Что важно знать"]) {
+    assert(!androidPage.text.includes(technicalCopy), `Android download page still exposes technical copy: ${technicalCopy}`);
+  }
   const publishedApk = await request(port, "/downloads/beri-segodnya-android-0.1.0-pilot.apk");
   assert(publishedApk.status === 200 && publishedApk.headers["content-type"] === "application/vnd.android.package-archive", "Published APK is unavailable or has the wrong content type");
   assert(publishedApk.headers["content-disposition"] === 'attachment; filename="beri-segodnya-android-0.1.0-pilot.apk"' && publishedApk.body.length > 1024 * 1024, "Published APK download headers or body are invalid");

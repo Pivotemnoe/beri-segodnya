@@ -29,6 +29,8 @@ APK — это подписанная TWA-оболочка сайта `https://b
 - APK: `/downloads/beri-segodnya-android-0.1.0-pilot.apk`;
 - checksum: `/downloads/beri-segodnya-android-0.1.0-pilot.apk.sha256`;
 - сервер отдаёт APK как attachment с типом `application/vnd.android.package-archive`;
+- публичная страница загрузки показывает только QR-код и кнопку скачивания, без технических сведений о сборке;
+- ссылка на страницу видна на первом экране главной, в основной навигации, мобильном меню и подвале;
 - CI повторно проверяет хеш, подпись, fingerprint и манифест публичного APK.
 
 ## Открытый этап

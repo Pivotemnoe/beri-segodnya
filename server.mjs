@@ -174,7 +174,8 @@ function sendFile(response, filePath, contentType, cacheControl = "public, max-a
 
 const nav = [
   { href: "/#offers", path: "/", label: "Предложения сегодня" },
-  { href: "/how-it-works", path: "/how-it-works", label: "Как это работает" }
+  { href: "/how-it-works", path: "/how-it-works", label: "Как это работает" },
+  { href: "/android", path: "/android", label: "Приложение" }
 ];
 
 const icon = {
@@ -524,7 +525,7 @@ function homePage() {
       <p class="kicker">Еда на сегодня · Армавир</p>
       <h1>Заберите готовую еду дешевле — сегодня</h1>
       <p>Выберите предложение заведения, получите код и оплатите заказ в заведении при получении. Без регистрации и звонков.</p>
-      <div class="actions"><a class="button button-primary" href="#offers">Выбрать предложение</a><a class="button button-outline" href="/how-it-works">Как это работает</a></div>
+      <div class="actions"><a class="button button-primary" href="#offers">Выбрать предложение</a><a class="button button-outline" href="/how-it-works">Как это работает</a><a class="button button-outline home-app-button" href="/android">Скачать приложение</a></div>
       <ul class="customer-trust"><li>Бронь по коду</li><li>Самовывоз сегодня</li><li>Оплата в заведении</li></ul>
     </div>
     ${codePreview()}
@@ -570,7 +571,7 @@ function howItWorksPage() {
   return `<section class="hero split-hero">
     <div class="hero-copy">
       <h1>Как работает Бери сегодня</h1>
-      <p>Сервис помогает быстро забронировать выгодные предложения еды на сегодня. Сейчас он работает на сайте, а мобильное приложение для покупателей находится в разработке.</p>
+      <p>Сервис помогает быстро забронировать выгодные предложения еды на сегодня. Пользоваться им можно на сайте или в приложении для Android.</p>
       <div class="actions">
         <a class="button button-primary" href="/#offers">Смотреть предложения</a>
       </div>
@@ -590,7 +591,7 @@ function howItWorksPage() {
   <section class="section">
     ${sectionTitle("", "Для покупателя")}
     <div class="info-grid">
-      ${featureCard("Мобильное приложение в разработке", "Сейчас сервис доступен на сайте. Приложение для покупателей — следующий этап развития проекта.", "smartphone")}
+      ${featureCard("Приложение для Android", "Скачайте приложение с сайта «Бери сегодня» и пользуйтесь сервисом с телефона.", "smartphone")}
       ${featureCard("Только актуальные предложения", "Видите только то, что доступно сегодня здесь и сейчас.", "today")}
       ${featureCard("Оплата в заведении", "Оплачивайте заказ непосредственно в заведении при получении.", "wallet")}
       ${featureCard("Быстро и понятно", "Несколько шагов — и ваш заказ забронирован. Всё просто и прозрачно.", "bolt")}
@@ -599,7 +600,7 @@ function howItWorksPage() {
   <section class="section">
     ${sectionTitle("", "Частые вопросы")}
     ${faq([
-      { q: "Когда появится мобильное приложение?", a: "Сейчас сервис доступен на сайте. Мобильное приложение для покупателей находится в разработке и станет следующим этапом развития проекта." },
+      { q: "Где скачать приложение?", a: "Откройте страницу «Приложение» в меню сайта и нажмите кнопку скачивания." },
       { q: "Как происходит оплата?", a: "Оплата происходит в заведении при получении заказа. Сервис на старте не принимает онлайн-оплату." },
       { q: "Можно ли отменить бронь?", a: "Да. Откройте страницу своей брони и подтвердите отмену — набор снова станет доступен, если время выдачи ещё не закончилось." },
       { q: "Что если я не успел забрать заказ?", a: "Предложения действуют только в указанное время. Если клиент не приходит, бронь считается неиспользованной." },
@@ -811,54 +812,15 @@ function contactsPage() {
 
 function androidPage() {
   const apkPath = "/downloads/beri-segodnya-android-0.1.0-pilot.apk";
-  return `<section class="hero split-hero android-hero">
-    <div class="hero-copy">
-      <p class="kicker">Приложение для Android</p>
-      <h1>«Бери сегодня» для Android</h1>
-      <p>Тестовая версия для участников пилота в Армавире. Находите предложения, бронируйте наборы и показывайте код при получении.</p>
-      <div class="actions">
-        <a class="button button-primary" href="${apkPath}" download>${uiIcon("smartphone", "button-icon")} Скачать APK · 1,9 МБ</a>
-        <a class="button button-outline" href="/">Открыть сайт</a>
-      </div>
-      <div class="hero-badges">
-        ${badge("Версия 0.1.0-pilot", "success")}
-        ${badge("Android 6 и новее")}
-      </div>
-    </div>
-    <article class="android-download-card">
-      <img src="/icons/icon-192.png" alt="Значок приложения «Бери сегодня»" width="112" height="112" />
-      <p class="kicker">Официальная тестовая сборка</p>
-      <h2>Бери сегодня</h2>
-      <p>APK подписан ключом проекта и проверен перед публикацией.</p>
-      <dl>
-        <div><dt>Версия</dt><dd>0.1.0-pilot</dd></div>
-        <div><dt>Размер</dt><dd>1,9 МБ</dd></div>
-        <div><dt>Интернет</dt><dd>Требуется</dd></div>
-      </dl>
-      <a class="android-checksum-link" href="${apkPath}.sha256">Проверить SHA-256</a>
-    </article>
-  </section>
-  <section class="section">
-    ${sectionTitle("Установка", "Как установить приложение", "Регистрация в магазине приложений для этой тестовой APK-версии не требуется.")}
-    ${steps([
-      { title: "Скачайте APK", text: "Нажмите кнопку скачивания на этой странице и дождитесь загрузки файла.", icon: "smartphone" },
-      { title: "Разрешите установку", text: "Если Android спросит, разрешите установку приложений для браузера, из которого скачали файл.", icon: "checkBig" },
-      { title: "Откройте приложение", text: "Установите APK и запустите «Бери сегодня» с главного экрана телефона.", icon: "rocket" }
-    ])}
-  </section>
-  <section class="section android-notes">
-    <article class="panel-card">
-      <h2>Что важно знать</h2>
-      <ul class="check-list">
-        <li>Это тестовая версия для пилота, а не публикация в магазине приложений.</li>
-        <li>Приложению нужен интернет: предложения, брони и личные кабинеты работают через сайт «Бери сегодня».</li>
-        <li>После установки разрешение браузеру на установку APK можно снова отключить в настройках Android.</li>
-      </ul>
-    </article>
-    <article class="panel-card">
-      <h2>Если у вас iPhone</h2>
-      <p>APK устанавливается только на Android. На iPhone откройте сайт в Safari, нажмите «Поделиться» и выберите «На экран Домой».</p>
-      <a class="text-link" href="/">Открыть сайт</a>
+  return `<section class="android-simple">
+    <article class="android-simple-card">
+      <img class="android-simple-icon" src="/icons/icon-192.png" alt="" width="96" height="96" />
+      <h1>Приложение «Бери сегодня»</h1>
+      <p>Отсканируйте QR-код или нажмите кнопку.</p>
+      <a class="android-qr-link" href="${apkPath}" download aria-label="Скачать приложение по QR-коду">
+        <img src="/icons/android-download-qr.svg" alt="QR-код для скачивания приложения «Бери сегодня»" width="280" height="280" />
+      </a>
+      <a class="button button-primary android-download-button" href="${apkPath}" download>${uiIcon("smartphone", "button-icon")} Скачать приложение</a>
     </article>
   </section>`;
 }
@@ -4782,37 +4744,45 @@ body { background: var(--color-bg); }
 .customer-hero-copy h1 { max-width: 760px; margin: 10px 0 18px; color: #062f3d; font-size: 62px; line-height: 1.02; }
 .customer-hero-copy > p:not(.kicker) { max-width: 680px; margin: 0; color: #49636d; font-size: 17px; line-height: 1.55; }
 .customer-hero-copy .actions { margin-top: 24px; }
+.home-app-button { border-color: #0b646a; color: #0b646a; }
 .customer-trust { margin: 26px 0 0; padding: 0; display: flex; gap: 12px 24px; flex-wrap: wrap; list-style: none; }
 .customer-trust li { position: relative; padding-left: 20px; color: #31515b; font-size: 13px; font-weight: 850; }
 .customer-trust li::before { content: ""; position: absolute; left: 0; color: #0b646a; }
 .customer-hero .booking-preview { max-width: 440px; justify-self: end; }
 .customer-guide, .customer-faq { padding-top: 48px; padding-bottom: 48px; }
 .footer-app-status { color: #f4ce67; font-weight: 850; }
-.android-hero { grid-template-columns: minmax(0, 1fr) minmax(330px, 430px); }
-.android-download-card {
-  justify-self: end;
-  width: min(100%, 420px);
-  padding: 30px;
-  border: 1px solid #d8e2df;
-  border-top: 3px solid #0b646a;
-  border-radius: 8px;
+.android-simple {
+  min-height: calc(100dvh - 78px);
+  padding: 64px 24px 88px;
+  display: grid;
+  place-items: center;
+  background: #edf4f1;
+}
+.android-simple-card {
+  width: min(100%, 540px);
+  padding: 42px;
+  display: grid;
+  justify-items: center;
+  border: 1px solid #d2dfdc;
+  border-top: 4px solid #0b646a;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 22px 58px rgba(3, 47, 61, .12);
+  text-align: center;
+}
+.android-simple-icon { border-radius: 23px; }
+.android-simple h1 { margin: 20px 0 10px; color: #062f3d; font-size: 38px; line-height: 1.08; }
+.android-simple p { margin: 0 0 24px; color: #60757b; font-size: 17px; }
+.android-qr-link {
+  width: min(100%, 300px);
+  padding: 10px;
+  display: block;
+  border: 1px solid #d2dfdc;
+  border-radius: 10px;
   background: white;
 }
-.android-download-card > img { display: block; border-radius: 24px; }
-.android-download-card .kicker { margin: 20px 0 7px; }
-.android-download-card h2 { margin: 0; color: #062f3d; font-size: 34px; }
-.android-download-card > p:not(.kicker) { margin: 10px 0 20px; color: #60757b; line-height: 1.5; }
-.android-download-card dl { margin: 0; display: grid; gap: 1px; overflow: hidden; border: 1px solid #d8e2df; border-radius: 7px; background: #d8e2df; }
-.android-download-card dl div { padding: 11px 13px; display: flex; justify-content: space-between; gap: 18px; background: #f8faf9; }
-.android-download-card dt { color: #60757b; }
-.android-download-card dd { margin: 0; color: #173a45; font-weight: 850; text-align: right; }
-.android-checksum-link { display: inline-flex; margin-top: 17px; color: #0b646a; font-size: 13px; font-weight: 850; }
-.android-hero + .section .steps-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.android-notes { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; align-items: stretch; }
-.android-notes .panel-card { padding: 26px; }
-.android-notes .panel-card h2 { margin: 0 0 16px; }
-.android-notes .panel-card p { margin-bottom: 18px; }
-.android-notes .check-list { margin: 0; }
+.android-qr-link img { display: block; width: 100%; height: auto; }
+.android-download-button { width: min(100%, 300px); min-height: 58px; margin-top: 24px; font-size: 17px; }
 .password-gate { margin-top: 22px; }
 .settings-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(300px, 1.1fr); gap: 32px; }
 .settings-grid section { min-width: 0; }
@@ -4856,7 +4826,6 @@ body { background: var(--color-bg); }
   .page-inner .bottom-cta .cta-photo { display: none; }
   .customer-hero { width: min(100% - 36px, 1240px); grid-template-columns: 1fr minmax(320px, .72fr); gap: 30px; }
   .customer-hero-copy h1 { font-size: 50px; }
-  .android-hero { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 34px; }
 }
 
 @media (max-width: 640px) {
@@ -4891,8 +4860,10 @@ body { background: var(--color-bg); }
   .customer-hero-copy .button { width: 100%; }
   .customer-trust { display: grid; gap: 10px; }
   .customer-hero .booking-preview { width: 100%; max-width: none; justify-self: stretch; }
-  .android-hero, .android-notes, .android-hero + .section .steps-grid { grid-template-columns: 1fr; }
-  .android-download-card { justify-self: stretch; width: 100%; }
+  .android-simple { min-height: calc(100dvh - 66px); padding: 34px 14px 52px; }
+  .android-simple-card { padding: 30px 18px; }
+  .android-simple h1 { font-size: 32px; }
+  .android-simple p { font-size: 15px; }
   .settings-grid, .help-steps { grid-template-columns: 1fr; }
   .record-dialog { padding: 0; align-items: end; }
   .record-dialog-panel { width: 100%; max-height: 88dvh; padding: 28px 18px calc(22px + env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0; }
