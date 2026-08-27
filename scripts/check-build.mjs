@@ -40,6 +40,7 @@ const requiredContracts = [
   "/offline.css",
   "/offline.js",
   "/android",
+  "/icons/android-download-qr.svg",
   "/downloads/beri-segodnya-android-0.1.0-pilot.apk",
   "application/vnd.android.package-archive",
   "Content-Disposition",
