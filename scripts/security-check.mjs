@@ -104,6 +104,7 @@ for (const fragment of [
   "npm run test:api",
   "npm audit --omit=dev",
   "npm run test:android-config",
+  "npm run test:published-apk",
   "npm run test:android-vulnerabilities",
   "./gradlew --no-daemon --warning-mode fail --dependency-verification strict lintRelease assembleRelease"
 ]) {

@@ -281,7 +281,7 @@ function footer() {
     <div class="footer-contacts">
       <a href="mailto:${html(config.supportEmail)}">${html(config.supportEmail)}</a>
       <a href="/contacts">Написать команде</a>
-      <span class="footer-app-status">Приложение в разработке</span>
+      <a class="footer-app-status" href="/android">Приложение для Android</a>
     </div>
     <nav class="footer-legal" aria-label="Юридические документы">
       <a href="/privacy">Политика обработки ПДн</a>
@@ -809,6 +809,60 @@ function contactsPage() {
   ${bottomCta("Готовы обсудить запуск?", config.legal.ready ? "Оставьте контакты — мы свяжемся с вами и поможем запустить пилот для вашего заведения." : "Форма обращения откроется после публикации документов. Пока можно написать команде по email.", contactLabel, contactHref, config.supportPhone ? "Позвонить нам" : "Написать нам", config.supportPhone ? `tel:${config.supportPhone.replace(/[^+\d]/g, "")}` : `mailto:${config.supportEmail}`)}`;
 }
 
+function androidPage() {
+  const apkPath = "/downloads/beri-segodnya-android-0.1.0-pilot.apk";
+  return `<section class="hero split-hero android-hero">
+    <div class="hero-copy">
+      <p class="kicker">Приложение для Android</p>
+      <h1>«Бери сегодня» для Android</h1>
+      <p>Тестовая версия для участников пилота в Армавире. Находите предложения, бронируйте наборы и показывайте код при получении.</p>
+      <div class="actions">
+        <a class="button button-primary" href="${apkPath}" download>${uiIcon("smartphone", "button-icon")} Скачать APK · 1,9 МБ</a>
+        <a class="button button-outline" href="/">Открыть сайт</a>
+      </div>
+      <div class="hero-badges">
+        ${badge("Версия 0.1.0-pilot", "success")}
+        ${badge("Android 6 и новее")}
+      </div>
+    </div>
+    <article class="android-download-card">
+      <img src="/icons/icon-192.png" alt="Значок приложения «Бери сегодня»" width="112" height="112" />
+      <p class="kicker">Официальная тестовая сборка</p>
+      <h2>Бери сегодня</h2>
+      <p>APK подписан ключом проекта и проверен перед публикацией.</p>
+      <dl>
+        <div><dt>Версия</dt><dd>0.1.0-pilot</dd></div>
+        <div><dt>Размер</dt><dd>1,9 МБ</dd></div>
+        <div><dt>Интернет</dt><dd>Требуется</dd></div>
+      </dl>
+      <a class="android-checksum-link" href="${apkPath}.sha256">Проверить SHA-256</a>
+    </article>
+  </section>
+  <section class="section">
+    ${sectionTitle("Установка", "Как установить приложение", "Регистрация в магазине приложений для этой тестовой APK-версии не требуется.")}
+    ${steps([
+      { title: "Скачайте APK", text: "Нажмите кнопку скачивания на этой странице и дождитесь загрузки файла.", icon: "smartphone" },
+      { title: "Разрешите установку", text: "Если Android спросит, разрешите установку приложений для браузера, из которого скачали файл.", icon: "checkBig" },
+      { title: "Откройте приложение", text: "Установите APK и запустите «Бери сегодня» с главного экрана телефона.", icon: "rocket" }
+    ])}
+  </section>
+  <section class="section android-notes">
+    <article class="panel-card">
+      <h2>Что важно знать</h2>
+      <ul class="check-list">
+        <li>Это тестовая версия для пилота, а не публикация в магазине приложений.</li>
+        <li>Приложению нужен интернет: предложения, брони и личные кабинеты работают через сайт «Бери сегодня».</li>
+        <li>После установки разрешение браузеру на установку APK можно снова отключить в настройках Android.</li>
+      </ul>
+    </article>
+    <article class="panel-card">
+      <h2>Если у вас iPhone</h2>
+      <p>APK устанавливается только на Android. На iPhone откройте сайт в Safari, нажмите «Поделиться» и выберите «На экран Домой».</p>
+      <a class="text-link" href="/">Открыть сайт</a>
+    </article>
+  </section>`;
+}
+
 function bottomCta(title, text, primaryLabel, primaryHref, secondaryLabel, secondaryHref) {
   return `<section class="bottom-cta">
     <div class="cta-photo">${foodImage("")}</div>
@@ -1248,6 +1302,7 @@ function renderBody(pathname) {
   if (pathname === "/how-it-works") return howItWorksPage();
   if (pathname === "/partners") return partnersPage();
   if (pathname === "/contacts") return contactsPage();
+  if (pathname === "/android") return androidPage();
   if (pathname === "/privacy") return privacyPage();
   if (pathname === "/personal-data-consent") return personalDataConsentPage();
   if (pathname === "/terms") return termsPage();
@@ -1265,6 +1320,7 @@ function renderPage(pathname) {
     "/how-it-works": "Как это работает",
     "/partners": "Партнёрам",
     "/contacts": "Контакты",
+    "/android": "Приложение для Android",
     "/privacy": "Политика",
     "/personal-data-consent": "Согласие на обработку ПДн",
     "/terms": "Правила сервиса",
@@ -4732,6 +4788,31 @@ body { background: var(--color-bg); }
 .customer-hero .booking-preview { max-width: 440px; justify-self: end; }
 .customer-guide, .customer-faq { padding-top: 48px; padding-bottom: 48px; }
 .footer-app-status { color: #f4ce67; font-weight: 850; }
+.android-hero { grid-template-columns: minmax(0, 1fr) minmax(330px, 430px); }
+.android-download-card {
+  justify-self: end;
+  width: min(100%, 420px);
+  padding: 30px;
+  border: 1px solid #d8e2df;
+  border-top: 3px solid #0b646a;
+  border-radius: 8px;
+  background: white;
+}
+.android-download-card > img { display: block; border-radius: 24px; }
+.android-download-card .kicker { margin: 20px 0 7px; }
+.android-download-card h2 { margin: 0; color: #062f3d; font-size: 34px; }
+.android-download-card > p:not(.kicker) { margin: 10px 0 20px; color: #60757b; line-height: 1.5; }
+.android-download-card dl { margin: 0; display: grid; gap: 1px; overflow: hidden; border: 1px solid #d8e2df; border-radius: 7px; background: #d8e2df; }
+.android-download-card dl div { padding: 11px 13px; display: flex; justify-content: space-between; gap: 18px; background: #f8faf9; }
+.android-download-card dt { color: #60757b; }
+.android-download-card dd { margin: 0; color: #173a45; font-weight: 850; text-align: right; }
+.android-checksum-link { display: inline-flex; margin-top: 17px; color: #0b646a; font-size: 13px; font-weight: 850; }
+.android-hero + .section .steps-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.android-notes { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; align-items: stretch; }
+.android-notes .panel-card { padding: 26px; }
+.android-notes .panel-card h2 { margin: 0 0 16px; }
+.android-notes .panel-card p { margin-bottom: 18px; }
+.android-notes .check-list { margin: 0; }
 .password-gate { margin-top: 22px; }
 .settings-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(300px, 1.1fr); gap: 32px; }
 .settings-grid section { min-width: 0; }
@@ -4775,6 +4856,7 @@ body { background: var(--color-bg); }
   .page-inner .bottom-cta .cta-photo { display: none; }
   .customer-hero { width: min(100% - 36px, 1240px); grid-template-columns: 1fr minmax(320px, .72fr); gap: 30px; }
   .customer-hero-copy h1 { font-size: 50px; }
+  .android-hero { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 34px; }
 }
 
 @media (max-width: 640px) {
@@ -4809,6 +4891,8 @@ body { background: var(--color-bg); }
   .customer-hero-copy .button { width: 100%; }
   .customer-trust { display: grid; gap: 10px; }
   .customer-hero .booking-preview { width: 100%; max-width: none; justify-self: stretch; }
+  .android-hero, .android-notes, .android-hero + .section .steps-grid { grid-template-columns: 1fr; }
+  .android-download-card { justify-self: stretch; width: 100%; }
   .settings-grid, .help-steps { grid-template-columns: 1fr; }
   .record-dialog { padding: 0; align-items: end; }
   .record-dialog-panel { width: 100%; max-height: 88dvh; padding: 28px 18px calc(22px + env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0; }
@@ -5042,6 +5126,30 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  const androidDownload = {
+    "/downloads/beri-segodnya-android-0.1.0-pilot.apk": [
+      "beri-segodnya-android-0.1.0-pilot.apk",
+      "application/vnd.android.package-archive",
+      "public, max-age=31536000, immutable"
+    ],
+    "/downloads/beri-segodnya-android-0.1.0-pilot.apk.sha256": [
+      "beri-segodnya-android-0.1.0-pilot.apk.sha256",
+      "text/plain; charset=utf-8",
+      "public, max-age=31536000, immutable"
+    ]
+  }[url.pathname];
+  if (androidDownload) {
+    const [fileName, contentType, cacheControl] = androidDownload;
+    sendFile(
+      response,
+      path.join(ROOT, "public", "downloads", fileName),
+      contentType,
+      cacheControl,
+      { "Content-Disposition": `${fileName.endsWith(".apk") ? "attachment" : "inline"}; filename="${fileName}"` }
+    );
+    return;
+  }
+
   if (url.pathname === "/page-config.js") {
     const pageConfig = `window.DEFAULT_OFFERS=${json(listPublicOffers())};window.PUBLIC_CONFIG=${json({
       demoMode: config.demoMode,
@@ -5058,7 +5166,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  const knownRoutes = new Set(["/", "/how-it-works", "/partners", "/contacts", "/privacy", "/personal-data-consent", "/terms", "/partner-terms", "/admin", "/partner/login", "/partner/dashboard"]);
+  const knownRoutes = new Set(["/", "/how-it-works", "/partners", "/contacts", "/android", "/privacy", "/personal-data-consent", "/terms", "/partner-terms", "/admin", "/partner/login", "/partner/dashboard"]);
   const isBookingRoute = url.pathname.startsWith("/booking/") && url.pathname.length > "/booking/".length;
 
   if (!knownRoutes.has(url.pathname) && !isBookingRoute) {

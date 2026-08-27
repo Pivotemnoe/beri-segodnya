@@ -1,11 +1,11 @@
 # Готовность пилота
 
-## Текущее решение после интеграции 23.08.2026
+## Текущее решение после подготовки Android-релиза 27.08.2026
 
 - Внутренняя техническая репетиция на синтетических данных — **GO**.
 - Web/PWA/runtime release `1aee6d2` развернут и принят на live; backup/restore, role access, credential rotation, desktop/mobile, security negatives и app-specific Node `24.19.0` подтверждены.
 - PR #1 объединён с `main`; source release/tag `pilot-web-2026-08-23` указывает на `569b4da`. GitHub Actions run `32641699229` успешно завершил `pilot-gate` и `android-source-gate`, включая strict dependency verification, `lintRelease` и `assembleRelease`.
-- Android/TWA source hardening интегрирован: AGP `9.3.1`, Gradle `9.5.0`, 53 release dependencies, 633 SHA-256 verified artifacts, release OSV gate и signing preflight подтверждены. Подписанный APK пока не собран и не проверен на устройстве.
+- Android/TWA source hardening интегрирован: AGP `9.3.1`, Gradle `9.5.0`, 53 release dependencies, 634 SHA-256 verified artifacts, release OSV gate и signing preflight подтверждены. Подписанный APK `0.1.0-pilot` собран и независимо проверен; установка и приёмка на физическом Android-устройстве пока не выполнены.
 - Live-аудит 23.08.2026 показал: сайт отвечает без Basic Auth, `demoMode=false`, `legalReady=true`, формы открыты, а документы с реквизитами оператора опубликованы в редакции от 20.08.2026. Независимая legal/RKN/localization проверка этим фактом не заменяется.
 - Пилот с реальными клиентами и ПДн — **NO-GO**, пока текущая публичная граница не принята явно либо Basic Auth не восстановлен, а legal/RKN/localization gate не закрыт внешним подтверждением.
 - Публичный городской запуск — **NO-GO**.
@@ -32,7 +32,8 @@
 - опубликованные preview/admin/partner passwords заменены, старые сессии отозваны;
 - live backup script и четыре restore rehearsal прошли.
 - app-specific Node `24.19.0`, PM2 interpreter, cron и rollback проверены без замены системного Node.
-- Android wrapper закрепляет JDK 17, AGP `9.3.1`, Gradle `9.5.0`, 53 release dependencies и SHA-256 для 633 артефактов; release OSV gate не нашёл известных уязвимостей.
+- Android wrapper закрепляет JDK 17, AGP `9.3.1`, Gradle `9.5.0`, 53 release dependencies и SHA-256 для 634 артефактов; release OSV gate не нашёл известных уязвимостей.
+- подписанный APK `0.1.0-pilot` прошёл `apksigner`, `zipalign`, package/version/minSdk/targetSdk/launcher, certificate fingerprint и SHA-256 проверки; публичная копия дополнительно защищена CI-проверкой.
 - signing preflight сопоставляет закрытый ключ, alias, public fingerprint и Digital Asset Links без вывода секрета; CI source gate использует read-only permissions и immutable action SHAs.
 - GitHub source/Android gate подтверждён успешным run `32641699229` на объединённом `main`.
 - storage-backed readiness contract `/api/public/health` не раскрывает commit, версии, счётчики или внутренние пути и проверяется smoke-тестом.
@@ -55,7 +56,7 @@
 - JSON не рассчитан на несколько процессов и растущую конкурентную запись;
 - нет формализованной политики сроков хранения и удаления персональных данных;
 - нет подтвержденного процесса обработки жалоб и инцидентов.
-- не выполнены signed APK build/install/device acceptance.
+- не выполнены установка signed APK и device acceptance на физическом Android-телефоне.
 
 ## Перед приглашением первых пользователей
 
@@ -64,7 +65,7 @@
 3. Оставить `noindex` до отдельного решения о публичном запуске.
 4. Создать только согласованные реальные карточки партнеров и подтвердить права на фото/описания.
 5. Пройти реальный Android/iPhone PWA standalone flow, camera/background/resume.
-6. После явной фразы `Да, принимаю лицензию Android SDK` установить необходимые SDK packages, собрать, проверить и установить signed APK на доступный `adb` target.
+6. Установить уже подписанный APK на физический Android-телефон и проверить вход, бронь, код, ссылки, сворачивание/возврат и восстановление после потери сети.
 7. Назначить ответственных за поддержку, ПДн, incident response и ежедневный supply.
 8. Подтвердить 5–8 точек и не менее 12 наборов в обычный день до платного трафика.
 9. Добавить app-specific uptime/error/disk/backup alerts и проверить доставку.

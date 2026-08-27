@@ -36,9 +36,13 @@ PILOT_VERSION_NAME="0.1.0-pilot"
 UNSIGNED_APK="${SCRIPT_DIR}/app/build/outputs/apk/release/app-release-unsigned.apk"
 ALIGNED_APK="${SCRIPT_DIR}/app-release-aligned.apk"
 SIGNED_APK="${SCRIPT_DIR}/app-release-signed.apk"
+KEY_PASSWORD_FILE=""
 
 cleanup() {
   rm -f "${ALIGNED_APK}"
+  if [[ -n "${KEY_PASSWORD_FILE}" ]]; then
+    rm -f "${KEY_PASSWORD_FILE}"
+  fi
 }
 trap cleanup EXIT
 
@@ -99,11 +103,14 @@ cd "${SCRIPT_DIR}"
 [[ -f "${UNSIGNED_APK}" ]] || fail "Gradle did not produce the expected unsigned release APK"
 
 "${BUILD_TOOLS_DIR}/zipalign" -f 4 "${UNSIGNED_APK}" "${ALIGNED_APK}"
+KEY_PASSWORD_FILE="$(mktemp "${TMPDIR:-/tmp}/beri-segodnya-key-pass.XXXXXX")"
+cp "${PILOT_KEYSTORE_PASSWORD_FILE}" "${KEY_PASSWORD_FILE}"
+chmod 0600 "${KEY_PASSWORD_FILE}"
 "${BUILD_TOOLS_DIR}/apksigner" sign \
   --ks "${PILOT_KEYSTORE}" \
   --ks-key-alias "${PILOT_KEY_ALIAS}" \
   --ks-pass "file:${PILOT_KEYSTORE_PASSWORD_FILE}" \
-  --key-pass "file:${PILOT_KEYSTORE_PASSWORD_FILE}" \
+  --key-pass "file:${KEY_PASSWORD_FILE}" \
   --out "${SIGNED_APK}" \
   "${ALIGNED_APK}"
 
@@ -118,7 +125,7 @@ actual_fingerprint="$(printf '%s\n' "${signature_info}" | awk -F': ' '/certifica
 badging="$("${BUILD_TOOLS_DIR}/aapt2" dump badging "${SIGNED_APK}")" || fail "Unable to inspect the signed APK manifest"
 grep -Fq "package: name='${PILOT_PACKAGE_ID}' versionCode='${PILOT_VERSION_CODE}' versionName='${PILOT_VERSION_NAME}'" <<<"${badging}" \
   || fail "Signed APK package or version is incorrect"
-grep -Fq "sdkVersion:'23'" <<<"${badging}" || fail "Signed APK minSdk is incorrect"
+grep -Fq "minSdkVersion:'23'" <<<"${badging}" || fail "Signed APK minSdk is incorrect"
 grep -Fq "targetSdkVersion:'36'" <<<"${badging}" || fail "Signed APK targetSdk is incorrect"
 grep -Fq "launchable-activity: name='${PILOT_PACKAGE_ID}.LauncherActivity'" <<<"${badging}" \
   || fail "Signed APK launcher activity is incorrect"

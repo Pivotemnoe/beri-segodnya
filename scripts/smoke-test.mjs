@@ -69,14 +69,15 @@ function request(port, route, { method = "GET", body, auth = "preview", cookie, 
       const chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => {
-        const text = Buffer.concat(chunks).toString("utf8");
+        const responseBody = Buffer.concat(chunks);
+        const text = responseBody.toString("utf8");
         let json = {};
         try {
           json = text ? JSON.parse(text) : {};
         } catch {
           json = { ok: false, error: { code: "NON_JSON_RESPONSE", message: text.slice(0, 160) } };
         }
-        resolve({ status: res.statusCode, json, text, headers: res.headers });
+        resolve({ status: res.statusCode, json, text, body: responseBody, headers: res.headers });
       });
     });
     req.on("error", reject);
@@ -154,7 +155,7 @@ async function runScenario(port) {
   assertFormsUsePost(publicHome.text, "Public home");
   assert(publicHome.text.includes('role="dialog" aria-modal="true" aria-label="Карточка предложения"'), "Offer dialog semantics are missing");
   assert(publicHome.text.includes('aria-label="Закрыть форму бронирования"'), "Booking dialog close button has no accessible label");
-  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "PWA development status is inconsistent");
+  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes('class="footer-app-status" href="/android"') && publicHome.text.includes("Приложение для Android") && !publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "Android application link or PWA status is inconsistent");
   assert(publicHome.text.includes('class="offer-row-mobile-pickup"'), "Mobile pickup window is missing from offer rows");
   assert(publicHome.text.includes("Пример брони"), "Synthetic booking preview is not identified as an example");
   assert(!publicHome.text.includes("Фото сделано сегодня") && !publicHome.text.includes("Фото сегодня"), "Public home claims that a photo was made today without evidence");
@@ -164,6 +165,13 @@ async function runScenario(port) {
   assert(partnersPage.status === 200 && partnersPage.text.includes("Пример интерфейса"), "Synthetic partner dashboard is not identified as an example");
   assert(partnersPage.text.includes('placeholder="Шашлычная"') && partnersPage.text.includes('placeholder="ул. Ленина, 1"'), "Partner application still uses test-style examples");
   assert(!partnersPage.text.includes("Например: Заведение 1") && !partnersPage.text.includes("Например: ул. Тестовая, 1"), "Old partner application examples are still rendered");
+  const androidPage = await request(port, "/android");
+  assert(androidPage.status === 200 && androidPage.text.includes("«Бери сегодня» для Android") && androidPage.text.includes("Тестовая версия для участников пилота") && androidPage.text.includes('href="/downloads/beri-segodnya-android-0.1.0-pilot.apk"'), "Android download page is unavailable or incomplete");
+  const publishedApk = await request(port, "/downloads/beri-segodnya-android-0.1.0-pilot.apk");
+  assert(publishedApk.status === 200 && publishedApk.headers["content-type"] === "application/vnd.android.package-archive", "Published APK is unavailable or has the wrong content type");
+  assert(publishedApk.headers["content-disposition"] === 'attachment; filename="beri-segodnya-android-0.1.0-pilot.apk"' && publishedApk.body.length > 1024 * 1024, "Published APK download headers or body are invalid");
+  const publishedChecksum = await request(port, "/downloads/beri-segodnya-android-0.1.0-pilot.apk.sha256");
+  assert(publishedChecksum.status === 200 && publishedChecksum.text.trim() === `${sha256(publishedApk.body)}  beri-segodnya-android-0.1.0-pilot.apk`, "Published APK checksum endpoint is inconsistent");
   const injectionMarker = `<img src=x onerror=alert-${suffix}>`;
   const reflectedQuery = await request(port, `/contacts?type=${encodeURIComponent(injectionMarker)}`);
   assert(reflectedQuery.status === 200 && !reflectedQuery.text.includes(injectionMarker), "Query input was reflected into public HTML");

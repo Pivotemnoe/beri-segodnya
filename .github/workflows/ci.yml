@@ -56,3 +56,7 @@ jobs:
 
       - run: ./gradlew --no-daemon --warning-mode fail --dependency-verification strict lintRelease assembleRelease
         working-directory: android-twa
+
+      - run: npm run test:published-apk
+        env:
+          ANDROID_BUILD_TOOLS_VERSION: "36.0.0"

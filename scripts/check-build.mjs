@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -38,6 +39,10 @@ const requiredContracts = [
   "/page-config.js",
   "/offline.css",
   "/offline.js",
+  "/android",
+  "/downloads/beri-segodnya-android-0.1.0-pilot.apk",
+  "application/vnd.android.package-archive",
+  "Content-Disposition",
   "X-Robots-Tag",
   "Content-Security-Policy"
 ];
@@ -100,6 +105,24 @@ for (const asset of ["manifest.webmanifest", "sw.js", "pwa.js", "offline.html", 
     console.error(`PWA asset is missing: ${asset}`);
     process.exit(1);
   }
+}
+
+const publishedApkName = "beri-segodnya-android-0.1.0-pilot.apk";
+const publishedApkPath = path.join(root, "public", "downloads", publishedApkName);
+const publishedChecksumPath = `${publishedApkPath}.sha256`;
+if (!fs.existsSync(publishedApkPath) || !fs.existsSync(publishedChecksumPath)) {
+  console.error("Published Android APK or checksum file is missing");
+  process.exit(1);
+}
+const publishedApk = fs.readFileSync(publishedApkPath);
+if (publishedApk.length < 1024 * 1024) {
+  console.error("Published Android APK is unexpectedly small");
+  process.exit(1);
+}
+const publishedApkSha256 = createHash("sha256").update(publishedApk).digest("hex");
+if (fs.readFileSync(publishedChecksumPath, "utf8").trim() !== `${publishedApkSha256}  ${publishedApkName}`) {
+  console.error("Published Android APK checksum is inconsistent");
+  process.exit(1);
 }
 
 await import("./android-config-check.mjs");

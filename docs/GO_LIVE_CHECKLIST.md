@@ -27,7 +27,7 @@
 - [x] Rate limit and cleanup added for login and forms.
 - [x] Security headers verified on live HTTPS.
 - [x] `noindex` remains until public launch.
-- [x] 53 APK runtime dependencies are locked and OSV-clean; 633 Gradle artifacts require SHA-256 verification without trust bypasses.
+- [x] 53 APK runtime dependencies are locked and OSV-clean; 634 Gradle artifacts require SHA-256 verification without trust bypasses.
 - [x] GitHub workflow uses read-only contents permission, immutable action SHAs and no persisted checkout credential.
 
 ## Legal
@@ -65,4 +65,5 @@
 - [x] Android GitHub Actions run `32641699229` passed `pilot-gate` and `android-source-gate` after merge to `main`.
 - [x] Storage-backed `/api/public/health` readiness contract is covered by the isolated smoke test.
 - [ ] Real Android/iPhone PWA standalone and camera/background/resume.
-- [ ] Signed APK build, signature verification and install.
+- [x] Signed APK build, signature/fingerprint/alignment/manifest verification and SHA-256 publication check.
+- [ ] Signed APK install and acceptance on a physical Android device.

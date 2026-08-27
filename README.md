@@ -53,6 +53,7 @@ http://localhost:3010
 - `docs/GO_LIVE_CHECKLIST.md`
 - `docs/RUNBOOK.md`
 - `docs/PILOT_READINESS.md`
+- `docs/ANDROID_PILOT_APK_2026-08-27.md`
 - `docs/PRODUCT_STRATEGY_ARMAVIR.md`
 - `docs/PARTNER_QUICK_PUBLISH.md`
 - `docs/OWNER_GUIDE.md`
@@ -90,6 +91,8 @@ npm run db:seed
 npm run db:reset
 npm run test:api
 npm run test:smoke
+npm run test:android-config
+npm run test:published-apk
 npm run test:backup
 npm run backup:data
 npm run restore:data -- backups/db-YYYY-MM-DD-HH-mm-ss.json
