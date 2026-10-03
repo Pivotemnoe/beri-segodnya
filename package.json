@@ -17,6 +17,8 @@
     "db:seed": "node backend/db/seed.mjs",
     "db:reset": "node backend/db/reset.mjs",
     "test:api": "node scripts/smoke-test.mjs",
+    "test:request-boundaries": "node scripts/request-boundary-test.mjs",
+    "test:upload-quota": "node scripts/upload-quota-test.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:security": "node scripts/security-check.mjs",
     "test:android-config": "node scripts/android-config-check.mjs",

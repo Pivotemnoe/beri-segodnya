@@ -53,7 +53,15 @@ export function parseCookies(header = "") {
       .map((part) => {
         const index = part.indexOf("=");
         if (index <= 0) return [part, ""];
-        return [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+        let value;
+        try { value = decodeURIComponent(part.slice(index + 1)); }
+        catch {
+          const error = new Error("Некорректный cookie. Повторите вход в кабинет.");
+          error.status = 400;
+          error.code = "INVALID_COOKIE";
+          throw error;
+        }
+        return [part.slice(0, index), value];
       })
   );
 }
@@ -195,6 +203,8 @@ export function requireRole(request, role) {
 export function hasPartnerPermission(session, permission) {
   if (session?.role !== "partner") return false;
   if (session.user_role === "owner") return true;
+  if (session.user_role === "seller") return ["dashboard:read", "bookings:read", "bookings:issue"].includes(permission);
+  if (session.user_role !== "manager") return false;
   const managerPermissions = new Set([
     "dashboard:read",
     "profile:read",
@@ -203,6 +213,7 @@ export function hasPartnerPermission(session, permission) {
     "offers:write",
     "bookings:read",
     "bookings:write",
+    "bookings:issue",
     "templates:read",
     "templates:write",
     "uploads:write"

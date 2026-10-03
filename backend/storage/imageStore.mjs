@@ -35,18 +35,38 @@ function parseImageData(dataUrl) {
   return { buffer, mimeType: match[1], extension: TYPES[match[1]].extension };
 }
 
+function directoryBytes(directory) {
+  if (!fs.existsSync(directory)) return 0;
+  if (!fs.lstatSync(directory).isDirectory()) throw uploadError("Хранилище фото недоступно", "UPLOAD_STORAGE_UNSAFE", 503);
+  return fs.readdirSync(directory, { withFileTypes: true }).reduce((total, entry) => {
+    const file = path.join(directory, entry.name);
+    if (entry.isSymbolicLink() || (!entry.isFile() && !entry.isDirectory())) throw uploadError("Хранилище фото требует проверки", "UPLOAD_STORAGE_UNSAFE", 503);
+    return total + (entry.isDirectory() ? directoryBytes(file) : fs.statSync(file).size);
+  }, 0);
+}
+
+function quotaBytes(name, fallback) {
+  const value = Number(process.env[name] || fallback);
+  if (!Number.isSafeInteger(value) || value < 1) throw uploadError("Лимит хранилища фото настроен неверно", "UPLOAD_QUOTA_CONFIGURATION", 503);
+  return value;
+}
+
 export function savePartnerImages(partnerId, images) {
   if (!Array.isArray(images) || images.length < 1 || images.length > 3) {
     throw uploadError("Добавьте от одного до трёх фото");
   }
   const folder = partnerUploadFolder(partnerId);
   const directory = path.join(uploadRoot(), folder);
+  const parsedImages = images.map((image) => parseImageData(image?.dataUrl));
+  const incoming = parsedImages.reduce((total, image) => total + image.buffer.length, 0);
+  if (directoryBytes(directory) + incoming > quotaBytes("UPLOAD_PARTNER_MAX_BYTES", 100 * 1024 * 1024)) throw uploadError("Лимит фотографий заведения исчерпан. Обратитесь в поддержку.", "PARTNER_UPLOAD_QUOTA", 413);
+  if (directoryBytes(uploadRoot()) + incoming > quotaBytes("UPLOAD_TOTAL_MAX_BYTES", 2 * 1024 * 1024 * 1024)) throw uploadError("Загрузка фото временно закрыта. Обратитесь в поддержку.", "TOTAL_UPLOAD_QUOTA", 503);
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   const createdAt = new Date().toISOString();
   const saved = [];
   try {
-    for (const image of images) {
-      const parsed = parseImageData(image?.dataUrl);
+    for (const [index, image] of images.entries()) {
+      const parsed = parsedImages[index];
       const filename = `${crypto.randomUUID()}${parsed.extension}`;
       const filePath = path.join(directory, filename);
       fs.writeFileSync(filePath, parsed.buffer, { mode: 0o600, flag: "wx" });
@@ -78,5 +98,11 @@ export function resolveUploadedImage(pathname) {
   const root = path.resolve(uploadRoot());
   if (!path.resolve(filePath).startsWith(`${root}${path.sep}`) || !fs.existsSync(filePath)) return null;
   const contentType = { ".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" }[path.extname(filePath)];
-  return { filePath, contentType, size: fs.statSync(filePath).size };
+  try {
+    const stat = fs.statSync(filePath);
+    return stat.isFile() ? { filePath, contentType, size: stat.size } : null;
+  } catch (error) {
+    if (["ENOENT", "ENOTDIR"].includes(error.code)) return null;
+    throw error;
+  }
 }

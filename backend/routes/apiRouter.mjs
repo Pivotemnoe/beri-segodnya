@@ -4,7 +4,7 @@ import { allowed, cleanString, enumValue, validateEmail, validatePhone } from ".
 import { generateId } from "../utils/id.mjs";
 import { nowIso } from "../utils/dates.mjs";
 import { consentReceipt } from "../utils/legal.mjs";
-import { cancelPublicBooking, createContactRequest, createPartnerApplication, getPublicBooking, getPublicOffer, listAdminData, listPublicOffers } from "../repositories/databaseRepository.mjs";
+import { cancelPublicBooking, correctBookingStatus, createContactRequest, createPartnerApplication, getPublicBooking, getPublicOffer, listAdminData, listPublicOffers } from "../repositories/databaseRepository.mjs";
 import { createBooking } from "../services/bookingService.mjs";
 import {
   adminLogin,
@@ -238,7 +238,7 @@ async function handleAdmin(request, response, url) {
   if (request.method === "GET" && parts.join("/") === "auth/me") {
     const auth = requireAdmin(request);
     return ok(response, auth.ok
-      ? { authenticated: true, role: "admin", passwordChangeRequired: adminPasswordChangeRequired(auth.session) }
+      ? { authenticated: true, role: "admin", login: String(auth.session.user_id).replace(/^admin:/, ""), passwordChangeRequired: adminPasswordChangeRequired(auth.session) }
       : { authenticated: false });
   }
 
@@ -263,7 +263,7 @@ async function handleAdmin(request, response, url) {
 
   if (parts[0] === "partners") return handleAdminPartners(request, response, parts);
   if (parts[0] === "offers") return handleAdminOffers(request, response, parts);
-  if (parts[0] === "bookings") return handleAdminBookings(request, response, parts);
+  if (parts[0] === "bookings") return handleAdminBookings(request, response, parts, auth.session);
   if (parts[0] === "partner-applications") return handleAdminApplications(request, response, parts);
   if (parts[0] === "contact-requests") return handleAdminContacts(request, response, parts);
 
@@ -297,12 +297,22 @@ async function handleAdminOffers(request, response, parts) {
   return fail(response, 404, "NOT_FOUND", "Действие с предложением не найдено. Обновите страницу.");
 }
 
-async function handleAdminBookings(request, response, parts) {
+async function handleAdminBookings(request, response, parts, session) {
   const id = parts[1];
   if (request.method === "GET" && !id) return ok(response, listAdminData("bookings"));
   if (request.method === "PATCH" && id && parts[2] === "status") {
     const input = await readBody(request);
-    return ok(response, admin.setBookingStatusInput(id, input.status));
+    const booking = admin.setBookingStatusInput(id, input.status, "admin", session.user_id);
+    return booking ? ok(response, booking) : fail(response, 404, "BOOKING_NOT_FOUND", "Бронь не найдена");
+  }
+  if (request.method === "PATCH" && id && parts[2] === "correction") {
+    const input = await readBody(request);
+    const reason = cleanString(input.reason, 500, true, "Причина");
+    if (reason.length < 10) return fail(response, 400, "CORRECTION_REASON_REQUIRED", "Опишите причину корректировки: не менее 10 символов.");
+    const status = enumValue(input.status, ["issued", "no_show", "cancelled"], "Новый статус");
+    const expected = enumValue(input.expectedStatus, ["issued", "no_show", "cancelled"], "Текущий статус");
+    const booking = correctBookingStatus(id, status, expected, reason, session.user_id);
+    return booking ? ok(response, booking) : fail(response, 404, "BOOKING_NOT_FOUND", "Бронь не найдена");
   }
   return fail(response, 404, "NOT_FOUND", "Действие с бронью не найдено. Обновите страницу.");
 }
@@ -367,7 +377,8 @@ async function handlePartner(request, response, url) {
 
   if (request.method === "GET" && parts[0] === "dashboard") {
     if (!requirePartnerPermission(response, auth.session, "dashboard:read")) return;
-    return ok(response, partner.dashboard(partnerId));
+    const period = enumValue(url.searchParams.get("period") || "all", ["today", "week", "month", "all"], "Период");
+    return ok(response, partner.dashboard(partnerId, period, auth.session.user_role === "seller"));
   }
   if (request.method === "GET" && parts[0] === "profile") {
     if (!requirePartnerPermission(response, auth.session, "profile:read")) return;
@@ -423,12 +434,19 @@ async function handlePartnerOffers(request, response, parts, partnerId, session)
 }
 
 async function handlePartnerBookings(request, response, parts, partnerId, session) {
-  if (!requirePartnerPermission(response, session, request.method === "GET" ? "bookings:read" : "bookings:write")) return;
+  if (!requirePartnerPermission(response, session, request.method === "GET" ? "bookings:read" : "bookings:issue")) return;
   const id = parts[1];
-  if (request.method === "GET" && !id) return ok(response, partner.scoped(partnerId, "bookings"));
+  if (request.method === "GET" && !id) {
+    const bookings = partner.scoped(partnerId, "bookings");
+    return ok(response, session.user_role === "seller" ? bookings.map(partner.sellerBookingView) : bookings);
+  }
   if (request.method === "PATCH" && id && parts[2] === "status") {
     const input = await readBody(request);
-    return ok(response, partner.patchOwn("bookings", partnerId, id, { status: enumValue(input.status, allowed.bookingStatuses, "Статус") }));
+    const status = enumValue(input.status, allowed.bookingStatuses, "Статус");
+    if (session.user_role === "seller" && !["issued", "no_show"].includes(status)) return fail(response, 403, "FORBIDDEN", "Продавец может только отметить выдачу или неявку. Для отмены обратитесь к менеджеру.");
+    const booking = partner.patchOwn("bookings", partnerId, id, { status }, session.user_id);
+    if (!booking) return fail(response, 404, "BOOKING_NOT_FOUND", "Бронь не найдена");
+    return ok(response, session.user_role === "seller" ? { id: booking.id, code: booking.code, status: booking.status } : booking);
   }
   return fail(response, 404, "NOT_FOUND", "Действие с бронью не найдено. Обновите страницу.");
 }

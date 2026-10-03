@@ -9,6 +9,7 @@ import { listPublicOffers } from "./backend/repositories/databaseRepository.mjs"
 import { sessionFromRequest } from "./backend/services/authService.mjs";
 import { partnerUploadFolder, resolveUploadedImage } from "./backend/storage/imageStore.mjs";
 import { legalConfig } from "./backend/utils/legal.mjs";
+import { streamFile } from "./backend/utils/httpFile.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 loadEnvFile(".env.local");
@@ -161,15 +162,12 @@ function sendText(response, status, body, headers = {}) {
 }
 
 function sendFile(response, filePath, contentType, cacheControl = "public, max-age=3600", extraHeaders = {}) {
-  const stat = fs.statSync(filePath);
-  response.writeHead(200, {
+  streamFile(response, filePath, {
     ...securityHeaders,
     ...extraHeaders,
     "Content-Type": contentType,
-    "Cache-Control": cacheControl,
-    "Content-Length": stat.size
+    "Cache-Control": cacheControl
   });
-  fs.createReadStream(filePath).pipe(response);
 }
 
 const nav = [
@@ -650,7 +648,7 @@ function partnersPage() {
   return `<section class="hero split-hero">
     <div class="hero-copy">
       <h1>Партнёрам Бери сегодня</h1>
-      <p>Помогаем кафе, пекарням, буфетам и кулинариям продавать ограниченные предложения на сегодня. Клиенты бронируют по коду, оплачивают на месте, а вы получаете дополнительную выручку без лишних затрат.</p>
+      <p>Есть готовая еда, которую вы хотите продать сегодня? Разместите её на сайте. Покупатель забронирует заказ, придёт к вам с кодом и оплатит при получении.</p>
       <div class="actions">
         <a class="button button-primary" href="${html(applicationHref)}">${html(applicationLabel)}</a>
         <a class="button button-outline" href="/partner/login">Войти в кабинет</a>
@@ -662,10 +660,10 @@ function partnersPage() {
   <section class="section">
     ${sectionTitle("", "Почему это выгодно заведению")}
     <div class="info-grid">
-      ${featureCard("Дополнительная выручка", "Продавайте ограниченные предложения на сегодня и увеличивайте выручку без лишних процессов.", "chart")}
+      ${featureCard("Дополнительная выручка", "Продайте готовую еду, которая ещё осталась после основного потока покупателей.", "chart")}
       ${featureCard("Продажа предложений на сегодня", "Вы сами решаете, что предложить, по какой цене и в каком количестве.", "today")}
-      ${featureCard("Самовывоз без сложной логистики", "Клиенты забирают заказ в вашей точке в выбранное время.", "bag")}
-      ${featureCard("Личный кабинет и понятная отчётность", "Управляйте предложениями, бронями и выручкой в одном месте.", "dashboard")}
+      ${featureCard("Покупатель забирает сам", "Клиенты забирают заказ в вашей точке в выбранное время.", "bag")}
+      ${featureCard("Брони и выдачи под рукой", "В кабинете видно, что забронировали, что уже выдали и на какую сумму.", "dashboard")}
     </div>
   </section>
   <section class="section">
@@ -697,22 +695,22 @@ function partnersPage() {
         <li>14 дней теста</li><li>1 точка на старте</li><li>Ограниченные предложения на сегодня</li><li>Бронь по коду</li><li>Оплата при получении</li><li>Отчёт по выданным кодам</li><li>Поддержка при запуске</li>
       </ul>
     </article>
-    <article class="accent-card"><span class="calendar-mark">14</span><div><h2>Первые 14 дней — без комиссии</h2><p>Протестируйте сервис и оцените результат без рисков.</p></div></article>
+    <article class="accent-card"><span class="calendar-mark">14</span><div><h2>Первые 14 дней — без комиссии</h2><p>Попробуйте сервис на одной точке и посмотрите, сколько заказов вы получите.</p></div></article>
   </section>
   <section class="section form-section" id="partner-application">
-    ${sectionTitle("", "Оставить заявку на подключение", "Расскажите о заведении — мы свяжемся с вами и поможем запустить пилот.")}
+    ${sectionTitle("", "Оставить заявку на подключение", "Оставьте контакты и адрес точки. Мы свяжемся с вами и поможем разместить первое предложение.")}
       ${config.demoMode ? `<p class="demo-notice">Тестовый режим: не вводите реальные персональные данные.</p>` : ""}
     ${config.legal.ready ? `<form class="smart-form" method="post" data-form="partner">
-      <label>Название заведения<input name="venueName" required maxlength="120" placeholder="Шашлычная" /></label>
+      <label>Название заведения<input name="venueName" required maxlength="120" placeholder="Название заведения" /></label>
       <label>Тип заведения<select name="venueType" required><option value="">Выберите тип</option><option value="bakery">Пекарня</option><option value="coffee">Кофейня</option><option value="culinary">Кулинария</option><option value="buffet">Буфет</option><option value="ready_food_cafe">Кафе с готовой едой</option><option value="other">Другое</option></select></label>
       <label>Город<input name="city" required maxlength="80" value="Армавир" /></label>
-      <label>Адрес первой точки<input name="firstAddress" required maxlength="160" placeholder="ул. Ленина, 1" /></label>
+      <label>Адрес первой точки<input name="firstAddress" required maxlength="160" placeholder="Улица и номер дома" /></label>
       <label>Контактное лицо<input name="contactName" required maxlength="80" placeholder="Ваше имя" /></label>
       <label>Телефон<input name="phone" required type="tel" inputmode="tel" maxlength="19" placeholder="+7 (___) ___-__-__" data-russian-phone /></label>
       <label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.ru" /></label>
       <label>Сколько точек<select name="locationsCount"><option value="1">1</option><option value="2-3">2–3</option><option value="4+">4+</option><option value="unknown">пока не знаю</option></select></label>
       <label class="full">Что хотите размещать<input name="offerFormats" maxlength="240" placeholder="Готовые обеды, выпечка, вечерние наборы" /></label>
-      <label class="full">Комментарий<textarea name="comment" maxlength="1000" placeholder="Опишите формат предложений или вопросы по запуску"></textarea></label>
+      <label class="full">Комментарий<textarea name="comment" maxlength="1000" placeholder="Что хотите уточнить перед подключением?"></textarea></label>
       <label class="consent full"><input type="checkbox" name="personalDataConsent" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">Политику обработки персональных данных</a></span></label>
       <label class="consent full"><input type="checkbox" name="partnerTermsConsent" required /><span>Я принимаю <a href="/partner-terms" target="_blank" rel="noopener">Условия подключения партнёров</a></span></label>
       <p class="form-error" role="alert" aria-live="polite" hidden></p>
@@ -731,7 +729,7 @@ function partnersPage() {
       { q: "Можно ли не размещать предложения каждый день?", a: "Да. Партнёр сам решает, в какие дни и какие предложения размещать." }
     ])}
   </section>
-  ${bottomCta("Готовы подключить заведение?", config.legal.ready ? "Оставьте заявку — мы свяжемся с вами и поможем запустить пилот уже сегодня." : "Форма подключения откроется после публикации документов. Пока можно написать команде по email.", applicationLabel, applicationHref, "Связаться с нами", "/contacts")}`;
+  ${bottomCta("Готовы подключить заведение?", config.legal.ready ? "Оставьте заявку — обсудим вашу точку и поможем разместить первые предложения." : "Форма подключения откроется после публикации документов. Пока можно написать команде по email.", applicationLabel, applicationHref, "Связаться с нами", "/contacts")}`;
 }
 
 function contactCard() {
@@ -765,7 +763,7 @@ function contactsPage() {
     <div class="info-grid contact-options">
       ${featureCard("Подключить заведение", "Расскажите о заведении — мы поможем запустить пилот и разместить первые предложения.", "shop")}
       ${featureCard("Вопрос по заказу", "Поможем с кодом, бронью, временем выдачи или другим вопросом по предложению.", "contactQuestion")}
-      ${featureCard("Партнёрский пилот", "Обсудим тестовый запуск, формат предложений и критерии результата.", "rocket")}
+      ${featureCard("Партнёрский пилот", "Обсудим, с какой точки начать и что предложить покупателям в первые дни.", "rocket")}
       ${featureCard("Общий вопрос", "Любой другой вопрос о сервисе, условиях работы и возможностях платформы.", "help")}
     </div>
   </section>
@@ -1062,17 +1060,18 @@ function hiddenPage(title, text) {
 
 function adminPage() {
   return `<section class="section app-panel" data-admin-app>
-    ${sectionTitle("Админка", "Панель администратора", "Управляйте партнёрами, предложениями, бронями и обращениями в одном месте.")}
+    ${sectionTitle("Админка", "Панель администратора", "Подключайте заведения, помогайте с предложениями и проверяйте заказы.")}
+    <p class="permission-note" data-admin-load-error role="alert" hidden></p>
     <div class="access-layout" data-admin-login>
       <div class="access-intro">
         <p class="kicker">Закрытый раздел</p>
-        <h3>Управление сервисом</h3>
-        <p>Партнёры, предложения, брони и обращения собраны в одной рабочей панели.</p>
-        <ul class="access-points"><li>Данные всех партнёров</li><li>Контроль кодов и остатков</li><li>Заявки и обращения</li></ul>
+        <h3>С чего начать</h3>
+        <p>После входа откройте «Заявки партнёров». Если заведение уже готово к работе, добавьте его в разделе «Партнёры».</p>
+        <ul class="access-points"><li>Подключение заведений и сотрудников</li><li>Проверка предложений и броней</li><li>Ответы на заявки и обращения</li></ul>
       </div>
       <div class="auth-box">
         <h3>Вход администратора</h3>
-        <p>Используйте персональный логин администратора.</p>
+        <p>Введите свой логин и пароль. При первом входе сайт попросит заменить временный пароль.</p>
         <form class="smart-form auth-form" method="post" data-admin-login-form>
           <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
           <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
@@ -1086,7 +1085,7 @@ function adminPage() {
       <div class="auth-box"><h3>Сменить пароль</h3><form class="smart-form auth-form" method="post" data-admin-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сохранить новый пароль</button></form></div>
     </div>
     <div data-admin-dashboard hidden>
-      <div class="admin-actions"><button class="button button-outline" data-admin-refresh>Обновить</button><button class="button button-outline" data-admin-logout>Выйти</button></div>
+      <div class="admin-actions"><span class="admin-session" data-admin-session></span><span class="refresh-status" data-admin-updated role="status"></span><button class="button button-outline" data-admin-refresh>Обновить данные</button><button class="button button-outline" data-admin-logout>Выйти</button></div>
       <nav class="tab-nav" data-tabs="admin" aria-label="Разделы админки">
         <a data-tab-link="overview" href="/admin?tab=overview">Обзор</a>
         <a data-tab-link="partners" href="/admin?tab=partners">Партнёры</a>
@@ -1098,28 +1097,28 @@ function adminPage() {
         <a data-tab-link="settings" href="/admin?tab=settings">Настройки</a>
       </nav>
       <label class="mobile-tab-select">Раздел админки<select data-tab-select="admin"><option value="overview">Обзор</option><option value="partners">Партнёры</option><option value="offers">Предложения</option><option value="bookings">Брони и коды</option><option value="partner-applications">Заявки партнёров</option><option value="contact-requests">Обращения</option><option value="audit">Журнал действий</option><option value="settings">Настройки</option></select></label>
-      <div class="stats-row admin-stats" data-admin-stats></div>
+      <p class="admin-period-note">Брони, выдачи и сумма — за всё время. Предложения и новые сообщения — на момент обновления.</p><div class="stats-row admin-stats" data-admin-stats></div>
       <div class="admin-grid">
-        <article class="panel-card tab-panel" data-tab-panel="overview"><h3>Рабочий порядок</h3><div class="admin-workflow"><button type="button" data-admin-go-tab="partner-applications"><b>1</b><span>Проверить заявки</span></button><button type="button" data-admin-go-tab="partners"><b>2</b><span>Подключить партнёра</span></button><button type="button" data-admin-go-tab="bookings"><b>3</b><span>Контролировать коды</span></button></div><div class="table-wrap" data-admin-service></div></article>
+        <article class="panel-card tab-panel" data-tab-panel="overview"><h3>Основные задачи</h3><div class="admin-workflow"><button type="button" data-admin-go-tab="partner-applications"><b>1</b><span>Проверить заявки</span></button><button type="button" data-admin-go-tab="partners"><b>2</b><span>Подключить партнёра</span></button><button type="button" data-admin-go-tab="bookings"><b>3</b><span>Проверить брони и выдачу</span></button></div><div class="table-wrap" data-admin-service></div></article>
         <article class="panel-card tab-panel onboarding-panel" data-tab-panel="partners">
-          <div class="panel-heading"><div><h3>Подключить нового партнёра</h3><p>Одна кнопка создаёт организацию, первую точку и вход владельца.</p></div></div>
+          <div class="panel-heading"><div><h3>Подключить нового партнёра</h3><p>Заполните данные заведения и первой точки. После создания передайте владельцу ссылку на кабинет, логин и временный пароль. При первом входе он задаст свой пароль.</p></div></div>
           <form class="onboarding-form" method="post" data-admin-onboard-partner>
             <input type="hidden" name="applicationId" />
             <div class="onboarding-source" data-admin-onboarding-source hidden><span>Поля заполнены из заявки партнёра</span><button type="button" data-clear-application>Очистить</button></div>
-            <fieldset><legend><b>1</b> Организация</legend><div class="onboarding-fields"><label>Название<input name="partnerName" required maxlength="120" placeholder="Тестовая кулинария" /></label><label>Тип<select name="partnerType"><option value="culinary">Кулинария</option><option value="bakery">Пекарня</option><option value="coffee">Кофейня</option><option value="cafe">Кафе</option><option value="ready_food_cafe">Кафе с готовой едой</option><option value="buffet">Буфет</option><option value="other">Другое</option></select></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Имя представителя" /></label><label>Телефон<input name="phone" type="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="partner@example.test" /></label></div></fieldset>
-            <fieldset><legend><b>2</b> Первая точка</legend><div class="onboarding-fields"><label>Название точки<input name="addressTitle" required maxlength="120" value="Основная точка" /></label><label>Город<input name="city" required maxlength="80" value="Армавир" /></label><label class="field-wide">Адрес<input name="address" required maxlength="160" placeholder="Армавир, тестовый адрес" /></label></div></fieldset>
-            <fieldset><legend><b>3</b> Вход владельца</legend><div class="onboarding-fields"><label>Имя пользователя<input name="userName" required maxlength="120" placeholder="Владелец точки" /></label><label>Логин<input name="login" required maxlength="80" autocomplete="off" placeholder="partner-new" /></label><label>Временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 12 символов" /></label></div></fieldset>
+            <fieldset><legend><b>1</b> Заведение</legend><div class="onboarding-fields"><label>Название<input name="partnerName" required maxlength="120" placeholder="Название заведения" /></label><label>Тип<select name="partnerType"><option value="culinary">Кулинария</option><option value="bakery">Пекарня</option><option value="coffee">Кофейня</option><option value="cafe">Кафе</option><option value="ready_food_cafe">Кафе с готовой едой</option><option value="buffet">Буфет</option><option value="other">Другое</option></select></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Имя представителя" /></label><label>Телефон<input name="phone" type="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="Почта представителя" /></label></div></fieldset>
+            <fieldset><legend><b>2</b> Первая точка</legend><div class="onboarding-fields"><label>Название точки<input name="addressTitle" required maxlength="120" value="Основная точка" /></label><label>Город<input name="city" required maxlength="80" value="Армавир" /></label><label class="field-wide">Адрес<input name="address" required maxlength="160" placeholder="Улица и номер дома" /></label></div></fieldset>
+            <fieldset><legend><b>3</b> Вход владельца</legend><div class="onboarding-fields"><label>Имя пользователя<input name="userName" required maxlength="120" placeholder="Владелец точки" /></label><label>Логин<input name="login" required maxlength="80" autocomplete="off" placeholder="Логин для входа" /></label><label>Временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 12 символов" /></label></div></fieldset>
             <button class="button button-primary onboarding-submit" type="submit">Создать партнёра и кабинет</button>
           </form>
-          <div class="panel-heading list-heading"><div><h3>Подключённые партнёры</h3><p>«В архив» закрывает доступ и сохраняет историю. «Удалить» доступно только партнёру без предложений и броней.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-partners]"><input type="search" placeholder="Найти партнёра" data-filter-query /><select data-filter-status aria-label="Статус партнёра"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Отключён">Отключённые</option><option value="В архиве">В архиве</option></select></div></div><div class="table-wrap" data-admin-partners></div>
+          <div class="panel-heading list-heading"><div><h3>Подключённые партнёры</h3><p>«В архив» закрывает доступ и сохраняет историю. «Удалить» доступно только заведению без предложений, сохранённых шаблонов и броней.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-partners]"><input type="search" placeholder="Найти партнёра" data-filter-query /><select data-filter-status aria-label="Статус партнёра"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Отключён">Отключённые</option><option value="В архиве">В архиве</option></select></div></div><div class="table-wrap" data-admin-partners></div>
         </article>
-        <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form" method="post" data-admin-create-address><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="title" required placeholder="Название точки" /><input name="city" required value="Армавир" /><input name="address" required placeholder="Армавир, тестовый адрес" /><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form" method="post" data-admin-create-user><select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select><input name="name" required placeholder="Имя сотрудника" /><input name="login" required placeholder="Логин" /><input name="password" required minlength="12" type="password" placeholder="Временный пароль от 12 символов" /><select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option></select><button class="button button-primary" type="submit">Добавить пользователя</button></form><h3 class="maintenance-subheading">Сбросить пароль сотрудника</h3><p class="maintenance-note">Старые сеансы закроются. При следующем входе сотрудник задаст собственный пароль.</p><form class="mini-form" method="post" data-admin-reset-user-password><select name="userId" required data-admin-user-reset-select><option value="">Выберите сотрудника</option></select><label>Новый временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 12 символов" /></label><button class="button button-primary" type="submit">Сбросить пароль</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
-        <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Обычно предложение публикует партнёр из своего кабинета. Эта форма нужна для первого запуска или помощи партнёру.</p></div></div><form class="mini-form offer-editor" method="post" data-admin-create-offer><select name="partnerId" required data-admin-offer-partner><option value="">Выберите партнёра</option></select><select name="addressId" required data-admin-offer-address disabled><option value="">Сначала выберите партнёра</option></select><input name="title" required maxlength="120" placeholder="Название предложения" /><select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select><input name="description" maxlength="240" placeholder="Короткое описание" /><input name="contents" maxlength="500" placeholder="Что входит в набор" /><input name="weight" maxlength="80" placeholder="Вес или количество изделий" /><input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /><input name="price" required type="number" min="1" placeholder="Цена" /><input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /><input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /><input name="date" required type="date" data-today-date /><input name="totalQuantity" required type="number" min="1" placeholder="Количество" /><select name="status"><option value="active">Активно</option><option value="paused">Черновик</option></select><button class="button button-primary" type="submit">Опубликовать предложение</button></form><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-offers]"><input type="search" placeholder="Найти предложение или партнёра" data-filter-query /><select data-filter-status aria-label="Статус предложения"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Черновик">Черновики</option><option value="Распродано">Распроданные</option><option value="Истекло">Истёкшие</option></select></div><div class="table-wrap" data-admin-offers></div></article>
-        <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Брони и коды</h3><p>Найдите код, покупателя или заведение и подтвердите результат выдачи.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-bookings]"><input type="search" placeholder="Найти код или покупателя" data-filter-query /><select data-filter-status aria-label="Статус брони"><option value="">Все статусы</option><option value="Забронировано">Текущие</option><option value="Выдано">Выданные</option><option value="Не пришёл">Не полученные</option><option value="Отменено">Отменённые</option></select></div></div><div class="table-wrap" data-admin-bookings></div></article>
+        <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form labelled-form" method="post" data-admin-create-address><label>Заведение<select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select></label><label>Название точки<input name="title" required placeholder="Название точки" /></label><label>Город<input name="city" required value="Армавир" /></label><label>Адрес<input name="address" required placeholder="Улица и номер дома" /></label><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form labelled-form" method="post" data-admin-create-user><label>Заведение<select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select></label><label>Имя сотрудника<input name="name" required placeholder="Имя сотрудника" /></label><label>Логин<input name="login" required placeholder="Логин" /></label><label>Временный пароль<input name="password" required minlength="12" type="password" placeholder="Временный пароль от 12 символов" /></label><label>Роль сотрудника<select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option><option value="seller">Продавец — только выдача</option></select></label><button class="button button-primary" type="submit">Добавить пользователя</button></form><h3 class="maintenance-subheading">Сбросить пароль сотрудника</h3><p class="maintenance-note">Старые сеансы закроются. При следующем входе сотрудник задаст собственный пароль.</p><form class="mini-form labelled-form" method="post" data-admin-reset-user-password><label>Сотрудник<select name="userId" required data-admin-user-reset-select><option value="">Выберите сотрудника</option></select></label><label>Новый временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 12 символов" /></label><button class="button button-primary" type="submit">Сбросить пароль</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
+        <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Обычно предложение публикует партнёр из своего кабинета. Эта форма нужна для первого запуска или помощи партнёру.</p></div></div><form class="mini-form offer-editor labelled-form" method="post" data-admin-create-offer><label>Заведение<select name="partnerId" required data-admin-offer-partner><option value="">Выберите партнёра</option></select></label><label>Точка получения<select name="addressId" required data-admin-offer-address disabled><option value="">Сначала выберите партнёра</option></select></label><label>Название предложения<input name="title" required maxlength="120" placeholder="Название предложения" /></label><label>Категория<select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select></label><label>Короткое описание<input name="description" maxlength="240" placeholder="Короткое описание" /></label><label>Что входит в набор<input name="contents" maxlength="500" placeholder="Что входит в набор" /></label><label>Вес или количество изделий<input name="weight" maxlength="80" placeholder="Вес или количество изделий" /></label><label>Аллергены<input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /></label><label>Цена, ₽<input name="price" required type="number" min="1" placeholder="Цена" /></label><label>Обычная цена, ₽<input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /></label><label>Время получения<input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /></label><label>Дата получения<input name="date" required type="date" data-today-date /></label><label>Количество наборов<input name="totalQuantity" required type="number" min="1" placeholder="Количество" /></label><label>Что сделать с предложением<select name="status"><option value="active">Опубликовать на сайте</option><option value="paused">Сохранить черновик</option></select></label><button class="button button-primary" type="submit">Сохранить предложение</button></form><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-offers]"><input type="search" placeholder="Найти предложение или партнёра" data-filter-query /><select data-filter-status aria-label="Статус предложения"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Черновик">Черновики</option><option value="Распродано">Распроданные</option><option value="Истекло">Истёкшие</option></select></div><div class="table-wrap" data-admin-offers></div></article>
+        <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Брони и коды</h3><p>Найдите код покупателя. Проверьте заведение, время получения и цену. Отмечайте «Выдан» только после передачи заказа.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-bookings]"><input type="search" placeholder="Найти код или покупателя" data-filter-query /><select data-filter-status aria-label="Статус брони"><option value="">Все статусы</option><option value="Забронировано">Текущие</option><option value="Выдано">Выданные</option><option value="Не пришёл">Не полученные</option><option value="Отменено">Отменённые</option></select></div></div><div class="staff-booking-list" data-admin-bookings></div><details class="advanced-offer-editor"><summary>Исправить ошибочную отметку</summary><p>Только для завершённой брони. Укажите причину. Отмена здесь не возвращает продукты в остаток автоматически; сначала проверьте фактическую выдачу.</p><form class="mini-form labelled-form" method="post" data-admin-correct-booking><label>Бронь<select name="bookingId" required data-admin-correction-select><option value="">Выберите код</option></select></label><label>Правильный результат<select name="status"><option value="issued">Выдано</option><option value="no_show">Не пришёл</option><option value="cancelled">Отменено</option></select></label><label>Причина<textarea name="reason" required minlength="10" maxlength="500" rows="3" placeholder="Что произошло и что проверили"></textarea></label><button class="button button-outline" type="submit">Сохранить корректировку</button></form></details></article>
         <article class="panel-card tab-panel" data-tab-panel="partner-applications"><div class="panel-heading"><div><h3>Заявки партнёров</h3><p>Здесь появляются заявки со страницы «Для заведений». Откройте заявку, свяжитесь с представителем, затем подключите или отклоните.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-applications]"><input type="search" placeholder="Найти заведение или контакт" data-filter-query /><select data-filter-status aria-label="Статус заявки"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="Связались">Связались</option><option value="Подключён">Подключённые</option><option value="Отклонено">Отклонённые</option></select></div></div><div class="table-wrap" data-admin-applications></div></article>
-        <article class="panel-card tab-panel" data-tab-panel="contact-requests"><div class="panel-heading"><div><h3>Обращения</h3><p>Сообщения с контактной страницы. Откройте обращение, возьмите его в работу и закройте после ответа.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-contacts]"><input type="search" placeholder="Найти обращение" data-filter-query /><select data-filter-status aria-label="Статус обращения"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="В работе">В работе</option><option value="Закрыто">Закрытые</option></select></div></div><div class="table-wrap" data-admin-contacts></div></article>
-        <article class="panel-card tab-panel" data-tab-panel="audit"><div class="panel-heading"><div><h3>Журнал действий</h3><p>Показываются время, роль, действие и тип объекта — без паролей, токенов и содержимого персональных данных.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-audit]"><input type="search" placeholder="Найти действие" data-filter-query /><select data-filter-status aria-label="Роль в журнале"><option value="">Все роли</option><option value="Администратор">Администратор</option><option value="Партнёр">Партнёр</option><option value="Сервис">Сервис</option></select></div></div><div class="table-wrap" data-admin-audit></div></article>
-        <article class="panel-card tab-panel" data-tab-panel="settings"><div class="settings-grid"><section><h3>Сменить пароль администратора</h3><form class="mini-form labelled-form" method="post" data-admin-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сменить пароль</button></form></section><section><h3>Рабочая проверка</h3><ul class="check-list"><li>Перед обновлением создайте резервную копию данных и фотографий.</li><li>После обновления проверьте входы, бронирование и выдачу кода.</li><li>Проверяйте журнал действий и уведомления мониторинга.</li></ul></section></div></article>
+        <article class="panel-card tab-panel" data-tab-panel="contact-requests"><div class="panel-heading"><div><h3>Обращения</h3><p>Сообщения со страницы «Контакты». Свяжитесь с человеком по указанному телефону или почте. «В работу» и «Закрыть» меняют только отметку в кабинете — ответ автоматически не отправляется.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-contacts]"><input type="search" placeholder="Найти обращение" data-filter-query /><select data-filter-status aria-label="Статус обращения"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="В работе">В работе</option><option value="Закрыто">Закрытые</option></select></div></div><div class="table-wrap" data-admin-contacts></div></article>
+        <article class="panel-card tab-panel" data-tab-panel="audit"><div class="panel-heading"><div><h3>Журнал действий</h3><p>Здесь видно, когда менялись предложения, брони и доступы. Можно найти нужное действие или отобрать записи по роли. Пароли в журнал не попадают.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-audit]"><input type="search" placeholder="Найти действие" data-filter-query /><select data-filter-status aria-label="Роль в журнале"><option value="">Все роли</option><option value="Администратор">Администратор</option><option value="Партнёр">Партнёр</option><option value="Сервис">Сервис</option></select></div></div><div class="table-wrap" data-admin-audit></div></article>
+        <article class="panel-card tab-panel" data-tab-panel="settings"><div class="settings-grid"><section><h3>Сменить пароль администратора</h3><form class="mini-form labelled-form" method="post" data-admin-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сменить пароль</button></form></section><section><h3>Что проверять каждый день</h3><ul class="check-list"><li>Откройте новые заявки и свяжитесь с представителями заведений.</li><li>Проверьте адреса, цены, количество и время получения в предложениях.</li><li>Посмотрите брони. Ошибочную отметку выдачи исправляйте с объяснением причины.</li><li>После ответа закрывайте обращения, чтобы было видно, кому ещё нужна помощь.</li></ul><p>Для нового пароля нужно не менее 12 символов. Сохраните его в надёжном месте. После смены пароля остальные входы в этот кабинет закроются.</p></section></div></article>
       </div>
     </div>
     <div class="record-dialog" data-record-dialog hidden><div class="record-dialog-backdrop" data-close-record-dialog></div><section class="record-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="record-dialog-title" tabindex="-1"><button class="modal-close" type="button" data-close-record-dialog aria-label="Закрыть">${uiIcon("close", "button-icon")}</button><p class="kicker" data-record-kind></p><h2 id="record-dialog-title" data-record-title></h2><dl class="record-details" data-record-details></dl><div class="record-message" data-record-message hidden></div></section></div>
@@ -1128,7 +1127,7 @@ function adminPage() {
 
 function partnerLoginPage() {
   return `<section class="section app-panel" data-partner-login-app>
-    ${sectionTitle("Кабинет партнёра", "Вход партнёра", "Введите выданные логин и пароль. Изменения в кабинете сохраняются автоматически.")}
+    ${sectionTitle("Кабинет партнёра", "Вход партнёра", "Введите логин и пароль, которые вам передали при подключении.")}
     <div class="access-layout">
       <div class="access-intro">
         <p class="kicker">Для заведения</p>
@@ -1153,8 +1152,8 @@ function partnerLoginPage() {
 function partnerDashboardPage() {
   return `<section class="section app-panel" data-partner-dashboard-app>
     <div class="partner-dashboard-heading">
-      ${sectionTitle("Кабинет партнёра", "Панель партнёра", "Сфотографируйте текущую партию и опубликуйте предложение за несколько шагов.")}
-      <div class="partner-dashboard-actions"><span class="role-badge" data-partner-role></span><button class="button button-primary" type="button" data-open-offer-wizard>Разместить сегодня</button><button class="button button-outline" data-partner-logout>Выйти</button></div>
+      ${sectionTitle("Кабинет партнёра", "Панель партнёра", "Здесь вы размещаете еду на сегодня и отмечаете выданные заказы. Продавцу доступны только брони, помощь и смена пароля.")}
+      <div class="partner-dashboard-actions"><label class="period-label">Период<select data-partner-period><option value="today">Сегодня</option><option value="week">7 дней</option><option value="month">30 дней</option><option value="all">Всё время</option></select></label><span class="role-badge" data-partner-role></span><button class="button button-primary" type="button" data-open-offer-wizard>Разместить сегодня</button><button class="button button-outline" data-partner-logout>Выйти</button></div>
     </div>
     <nav class="tab-nav" data-tabs="partner" aria-label="Разделы кабинета партнёра">
       <a data-tab-link="overview" href="/partner/dashboard?tab=overview">Обзор</a>
@@ -1170,12 +1169,12 @@ function partnerDashboardPage() {
     <div class="stats-row admin-stats" data-partner-stats></div>
     <div class="admin-grid">
       <article class="panel-card tab-panel" data-tab-panel="overview"><h3>Сегодня в точках</h3><div data-partner-overview></div></article>
-      <article class="panel-card tab-panel" data-tab-panel="addresses"><h3>Адреса</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать точки, а добавлять и изменять их может владелец.</p><form class="mini-form labelled-form" method="post" data-partner-create-address data-owner-only><label>Название точки<input name="title" required placeholder="Основная точка" /></label><label>Город<input name="city" required value="Армавир" /></label><label>Адрес<input name="address" required placeholder="Армавир, ул. Тестовая, 1" /></label><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-partner-addresses></div></article>
-      <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Для новой текущей партии используйте быстрый мастер. Расширенная форма ниже остаётся для ручной настройки.</p></div><button class="button button-primary" type="button" data-open-offer-wizard>Разместить сегодня</button></div><details class="advanced-offer-editor"><summary>Расширенная форма</summary><form class="mini-form offer-editor" method="post" data-partner-create-offer><select name="addressId" required data-partner-address-select><option value="">Выберите точку</option></select><input name="title" required maxlength="120" placeholder="Название предложения" /><select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select><input name="description" maxlength="240" placeholder="Короткое описание" /><input name="contents" maxlength="500" placeholder="Что входит в набор" /><input name="weight" maxlength="80" placeholder="Вес или количество изделий" /><input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /><input name="price" required type="number" min="1" placeholder="Цена" /><input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /><input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /><input name="date" required type="date" data-today-date /><input name="totalQuantity" required type="number" min="1" placeholder="Количество" /><select name="status"><option value="active">Опубликовать</option><option value="paused">Сохранить черновик</option></select><button class="button button-primary" type="submit">Сохранить предложение</button></form></details><div class="table-wrap" data-partner-offers></div></article>
-      <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Коды и брони</h3><p>Сначала найдите код, затем подтвердите результат выдачи.</p></div><div class="table-filters"><input type="search" placeholder="Найти код или предложение" data-partner-booking-search /><select data-partner-booking-status aria-label="Статус брони"><option value="">Все статусы</option><option value="created">Текущие</option><option value="issued">Выданные</option><option value="no_show">Не полученные</option><option value="cancelled">Отменённые</option></select></div></div><div class="table-wrap" data-partner-bookings></div></article>
-      <article class="panel-card tab-panel" data-tab-panel="profile"><h3>Профиль</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать профиль. Изменять реквизиты может владелец.</p><form class="mini-form labelled-form" method="post" data-partner-profile-form data-owner-only><label>Название заведения<input name="name" maxlength="120" placeholder="Название партнёра" /></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Контактное лицо" /></label><label>Телефон<input name="phone" type="tel" inputmode="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="email@example.test" /></label><button class="button button-primary" type="submit">Сохранить профиль</button></form><div class="table-wrap" data-partner-profile></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="addresses"><h3>Адреса</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать точки, а добавлять и изменять их может владелец.</p><form class="mini-form labelled-form" method="post" data-partner-create-address data-owner-only><label>Название точки<input name="title" required placeholder="Основная точка" /></label><label>Город<input name="city" required value="Армавир" /></label><label>Адрес<input name="address" required placeholder="Улица и номер дома" /></label><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-partner-addresses></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Нажмите «Разместить сегодня»: добавьте фото, цену и количество. Если удобнее заполнить всё сразу, откройте форму ниже.</p></div><button class="button button-primary" type="button" data-open-offer-wizard>Разместить сегодня</button></div><details class="advanced-offer-editor"><summary>Расширенная форма</summary><form class="mini-form offer-editor labelled-form" method="post" data-partner-create-offer><label>Точка получения<select name="addressId" required data-partner-address-select><option value="">Выберите точку</option></select></label><label>Название предложения<input name="title" required maxlength="120" placeholder="Название предложения" /></label><label>Категория<select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select></label><label>Короткое описание<input name="description" maxlength="240" placeholder="Короткое описание" /></label><label>Что входит в набор<input name="contents" maxlength="500" placeholder="Что входит в набор" /></label><label>Вес или количество изделий<input name="weight" maxlength="80" placeholder="Вес или количество изделий" /></label><label>Аллергены<input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /></label><label>Цена, ₽<input name="price" required type="number" min="1" placeholder="Цена" /></label><label>Обычная цена, ₽<input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /></label><label>Время получения<input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /></label><label>Дата получения<input name="date" required type="date" data-today-date /></label><label>Количество наборов<input name="totalQuantity" required type="number" min="1" placeholder="Количество" /></label><label>Что сделать с предложением<select name="status"><option value="active">Опубликовать</option><option value="paused">Сохранить черновик</option></select></label><button class="button button-primary" type="submit">Сохранить предложение</button></form></details><div class="table-wrap" data-partner-offers></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Коды и брони</h3><p>Сначала найдите код, затем подтвердите результат выдачи.</p><p class="refresh-status" data-partner-refresh-status>Загружаем список…</p><p data-partner-new-bookings role="status" aria-live="polite" hidden></p><button class="table-action" type="button" data-partner-refresh>Обновить</button></div><div class="table-filters"><input type="search" placeholder="Найти код или предложение" data-partner-booking-search /><select data-partner-booking-status aria-label="Статус брони"><option value="">Все статусы</option><option value="created">Текущие</option><option value="issued">Выданные</option><option value="no_show">Не полученные</option><option value="cancelled">Отменённые</option></select></div></div><div class="staff-booking-list" data-partner-bookings></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="profile"><h3>Профиль</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать профиль. Изменять реквизиты может владелец.</p><form class="mini-form labelled-form" method="post" data-partner-profile-form data-owner-only><label>Название заведения<input name="name" maxlength="120" placeholder="Название партнёра" /></label><label>Контактное лицо<input name="contactName" maxlength="80" placeholder="Контактное лицо" /></label><label>Телефон<input name="phone" type="tel" inputmode="tel" maxlength="30" placeholder="+7 900 000-00-00" /></label><label>Email<input name="email" type="email" maxlength="120" placeholder="Ваша почта" /></label><button class="button button-primary" type="submit">Сохранить профиль</button></form><div class="table-wrap" data-partner-profile></div></article>
       <article class="panel-card tab-panel" data-tab-panel="security"><h3>Пароль кабинета</h3><p>Партнёр меняет пароль самостоятельно. После смены другие активные входы будут закрыты.</p><form class="mini-form labelled-form password-form" method="post" data-partner-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сохранить новый пароль</button></form></article>
-      <article class="panel-card tab-panel" data-tab-panel="help"><h3>Помощь</h3><div class="help-steps"><p><strong>Где появляются брони?</strong><span>Во вкладке «Коды и брони». Новая бронь появляется там сразу после получения кода покупателем.</span></p><p><strong>Как выдать заказ?</strong><span>Найдите код покупателя и нажмите «Выдан» после оплаты в заведении.</span></p><p><strong>Как сменить пароль?</strong><span>Откройте вкладку «Пароль». Временный пароль, выданный администратором, нужно заменить при первом входе.</span></p></div></article>
+      <article class="panel-card tab-panel" data-tab-panel="help"><h3>Помощь</h3><div class="help-steps"><p><strong>Где появляются брони?</strong><span>Во вкладке «Коды и брони». Пока кабинет открыт, список проверяется каждые 15 секунд. При ошибке соединения нажмите «Обновить».</span></p><p><strong>Как выдать заказ?</strong><span>Найдите код покупателя и нажмите «Выдан» после оплаты в заведении.</span></p><p><strong>Как сменить пароль?</strong><span>Откройте вкладку «Пароль». Временный пароль, выданный администратором, нужно заменить при первом входе.</span></p></div></article>
     </div>
   </section>
   <div class="offer-wizard" data-offer-wizard hidden>
@@ -1235,7 +1234,9 @@ function partnerDashboardPage() {
 }
 
 function bookingPage(pathname) {
-  const publicToken = decodeURIComponent(pathname.slice("/booking/".length));
+  let publicToken;
+  try { publicToken = decodeURIComponent(pathname.slice("/booking/".length)); }
+  catch { throw Object.assign(new Error("Некорректная ссылка на бронь"), { status: 400 }); }
   return `<section class="booking-page section" data-public-booking="${html(publicToken)}">
     <a class="back-link" href="/#offers">← Вернуться к предложениям</a>
     <div class="booking-page-shell">
@@ -1729,6 +1730,16 @@ const PUBLIC_JS = `
     }
   });
 
+function bookingRequestId(form, offerId, data) {
+  const fingerprint = JSON.stringify([offerId, data.customerName, data.customerPhone, data.personalDataConsent]);
+  if (form.bookingAttempt?.fingerprint === fingerprint) return form.bookingAttempt.id;
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+  const value = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const id = value.slice(0,8) + '-' + value.slice(8,12) + '-' + value.slice(12,16) + '-' + value.slice(16,20) + '-' + value.slice(20);
+  form.bookingAttempt = { fingerprint, id };
+  return id;
+}
   var bookingForm = document.getElementById("booking-form");
   if (bookingForm) {
     bookingForm.addEventListener("submit", function (event) {
@@ -1743,9 +1754,10 @@ const PUBLIC_JS = `
       var data = formObject(bookingForm);
       api("/api/public/bookings", {
         method: "POST",
-        body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone, personalDataConsent: data.personalDataConsent }
+        body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone, personalDataConsent: data.personalDataConsent, requestId: bookingRequestId(bookingForm, selectedOffer.id, data) }
       }).then(function (result) {
         document.getElementById("booking-code").textContent = result.code;
+        delete bookingForm.bookingAttempt;
         var bookingLink = document.getElementById("booking-page-link");
         if (bookingLink) bookingLink.href = result.bookingUrl;
         saveLatestBooking(result.bookingUrl);
@@ -1756,7 +1768,7 @@ const PUBLIC_JS = `
         document.querySelector("[data-booking-success-title]")?.focus({ preventScroll: true });
       }).catch(function (err) {
         if (error) {
-          error.textContent = err.status === 409 ? "Предложение уже закончилось. Выберите другой набор." : humanError(err, "Не удалось создать бронь.");
+          error.textContent = ["OFFER_NOT_ACTIVE", "OFFER_SOLD_OUT"].includes(err.code) ? "Предложение уже закончилось. Выберите другой набор." : humanError(err, "Не удалось создать бронь.");
           error.hidden = false;
         }
       });
@@ -1802,14 +1814,17 @@ const PUBLIC_JS = `
       if (!canCancel) clearLatestBooking(bookingUrl);
       if (booking.status === "cancelled") {
         content.innerHTML = '<div class="booking-status-row"><span class="booking-status status-cancelled">Отменено</span></div>' +
-          '<div class="booking-cancelled"><h2>Бронь отменена</h2><p>Код больше не действует, а набор снова доступен другим покупателям.</p><a class="button button-primary" href="/#offers">Выбрать другое предложение</a></div>';
+          '<div class="booking-cancelled"><h2>Бронь отменена</h2><p>Код больше не действует. Вы можете выбрать другое предложение.</p><a class="button button-primary" href="/#offers">Выбрать другое предложение</a></div>';
         if (bookingHelp) bookingHelp.innerHTML = '<h2>Что теперь</h2><p>Ничего оплачивать и показывать сотруднику не нужно.</p><p><a href="/#offers">Вернитесь к предложениям</a>, если хотите выбрать другой набор.</p>';
         return;
       }
       if (bookingHelp) bookingHelp.innerHTML = '<h2>Что делать дальше</h2><ol><li>Приходите в указанное время.</li><li>Покажите код сотруднику.</li><li>Оплатите набор при получении.</li></ol>' + (canCancel ? '<p>Не успеваете? Отмените бронь, чтобы набор снова стал доступен.</p>' : '');
       content.innerHTML = '<div class="booking-status-row"><span class="booking-status status-' + escapeHtml(booking.status) + '">' + escapeHtml(statusLabels[booking.status] || booking.status) + '</span><small>Оплата при получении</small></div>' +
         '<div class="public-code"><small>Код бронирования</small><strong>' + escapeHtml(booking.code) + '</strong></div>' +
-        '<dl class="booking-details"><div><dt>Предложение</dt><dd>' + escapeHtml(booking.offerTitle) + '</dd></div><div><dt>Заведение</dt><dd>' + escapeHtml(booking.partnerName) + '</dd></div><div><dt>Адрес</dt><dd>' + escapeHtml(booking.address) + '</dd></div><div><dt>Забрать</dt><dd>Сегодня, ' + escapeHtml(booking.pickupWindow) + '</dd></div><div><dt>К оплате</dt><dd>' + Number(booking.price) + ' ₽ при получении</dd></div></dl>' +
+        '<dl class="booking-details"><div><dt>Предложение</dt><dd>' + escapeHtml(booking.offerTitle) + '</dd></div><div><dt>Заведение</dt><dd>' + escapeHtml(booking.partnerName) + '</dd></div><div><dt>Адрес</dt><dd>' + escapeHtml(booking.address) + '</dd></div><div><dt>Забрать</dt><dd>' + escapeHtml(booking.date || 'Дата не сохранена') + ', ' + escapeHtml(booking.pickupWindow) + '</dd></div><div><dt>К оплате</dt><dd>' + (booking.price === null ? 'Уточните у менеджера' : Number(booking.price) + ' ₽ при получении') + '</dd></div></dl>' +
+        (booking.contents ? '<p><strong>Состав:</strong> ' + escapeHtml(booking.contents) + '</p>' : '') +
+        (booking.allergens ? '<p><strong>Аллергены:</strong> ' + escapeHtml(booking.allergens) + '</p>' : '') +
+        (!booking.termsVerified ? '<p class="permission-note">Старая бронь: первоначальные условия не сохранены. Уточните их у менеджера.</p>' : '') +
         '<div class="booking-page-actions"><button class="button button-outline" type="button" data-page-copy>Копировать код</button>' + (canCancel ? '<button class="text-danger" type="button" data-cancel-booking>Отменить бронь</button>' : '') + '</div>';
       content.querySelector("[data-page-copy]")?.addEventListener("click", function (event) {
         if (navigator.clipboard) navigator.clipboard.writeText(booking.code).then(function () { event.currentTarget.textContent = "Код скопирован"; });
@@ -1924,7 +1939,7 @@ const STATUS_LABELS = {
   active: "Активен", paused: "Черновик", disabled: "Отключён", archived: "В архиве", sold_out: "Распродано", expired: "Истекло",
   created: "Забронировано", issued: "Выдано", no_show: "Не пришёл", cancelled: "Отменено",
   new: "Новое", contacted: "Связались", approved: "Подключён", rejected: "Отклонено",
-  in_progress: "В работе", closed: "Закрыто", owner: "Владелец", manager: "Менеджер"
+  in_progress: "В работе", closed: "Закрыто", owner: "Владелец", manager: "Менеджер", seller: "Продавец"
 };
 
 const TYPE_LABELS = {
@@ -1935,7 +1950,7 @@ const TYPE_LABELS = {
 const AUDIT_ACTION_LABELS = {
   seed_database: "Подготовлена база", admin_login: "Вход администратора", partner_login: "Вход партнёра", create_booking: "Создана бронь",
   set_booking_status: "Изменён статус брони", create_partner_application: "Создана заявка партнёра", create_contact_request: "Создано обращение",
-  create_partner: "Создан партнёр", onboard_partner: "Подключён партнёр", create_partner_from_application: "Партнёр создан из заявки",
+  create_partner: "Создан партнёр", onboard_partner: "Подключён партнёр", correct_booking_status: "Исправлен результат выдачи", create_partner_from_application: "Партнёр создан из заявки",
   create_address: "Добавлена точка", create_offer: "Создано предложение", create_offer_template: "Создан шаблон", create_partner_user: "Добавлен сотрудник",
   revoke_user_sessions: "Закрыты сеансы сотрудника", revoke_partner_sessions: "Закрыты сеансы партнёра", revoke_role_sessions: "Закрыты активные входы", rehash_partner_password: "Обновлена защита пароля",
   change_partner_password: "Партнёр сменил пароль", change_admin_password: "Администратор сменил пароль", archive_partner: "Партнёр перенесён в архив", delete_partner: "Партнёр удалён"
@@ -1986,6 +2001,8 @@ function notify(message, type = "success") {
   if (!toast) {
     toast = document.createElement("div");
     toast.dataset.appToast = "true";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
     toast.className = "app-toast";
     document.body.appendChild(toast);
   }
@@ -2040,6 +2057,16 @@ function setupFilters() {
   });
 }
 
+function bookingRequestId(form, offerId, data) {
+  const fingerprint = JSON.stringify([offerId, data.customerName, data.customerPhone, data.personalDataConsent]);
+  if (form.bookingAttempt?.fingerprint === fingerprint) return form.bookingAttempt.id;
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+  const value = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const id = value.slice(0,8) + '-' + value.slice(8,12) + '-' + value.slice(12,16) + '-' + value.slice(16,20) + '-' + value.slice(20);
+  form.bookingAttempt = { fingerprint, id };
+  return id;
+}
 function setupBooking() {
   const modal = document.getElementById("booking-modal");
   const form = document.getElementById("booking-form");
@@ -2091,13 +2118,14 @@ function setupBooking() {
     error.hidden = true;
     try {
       const data = formObject(form);
-      const result = await api("/api/public/bookings", { method: "POST", body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone, personalDataConsent: data.personalDataConsent } });
+      const result = await api("/api/public/bookings", { method: "POST", body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone, personalDataConsent: data.personalDataConsent, requestId: bookingRequestId(form, selectedOffer.id, data) } });
       document.getElementById("booking-code").textContent = result.code;
+        delete form.bookingAttempt;
       document.querySelector('[data-booking-step="form"]').hidden = true;
       document.querySelector('[data-booking-step="success"]').hidden = false;
       await loadOffers(document.querySelector(".filter.active")?.dataset.filter || "all");
     } catch (err) {
-      error.textContent = err.status === 409 ? "Предложение уже закончилось." : err.message;
+      error.textContent = ["OFFER_NOT_ACTIVE", "OFFER_SOLD_OUT"].includes(err.code) ? "Предложение уже закончилось." : err.message;
       error.hidden = false;
     }
   });
@@ -2154,11 +2182,12 @@ function applyTableFilter(group) {
   if (!target) return;
   const query = (group.querySelector("[data-filter-query]")?.value || "").trim().toLowerCase();
   const status = (group.querySelector("[data-filter-status]")?.value || "").trim().toLowerCase();
-  const rows = Array.from(target.querySelectorAll("tbody tr"));
+  const rows = Array.from(target.querySelectorAll("tbody tr, [data-filter-card]"));
   let visible = 0;
   rows.forEach((row) => {
     const text = row.textContent.toLowerCase();
-    const matches = (!query || text.includes(query)) && (!status || text.includes(status));
+    const rowStatus = (row.dataset.filterStatus || text).toLowerCase();
+    const matches = (!query || text.includes(query)) && (!status || rowStatus.includes(status));
     row.hidden = !matches;
     if (matches) visible += 1;
   });
@@ -2184,8 +2213,8 @@ function setupTableFilters(root = document) {
   });
 }
 
-function confirmRiskyAction(button) {
-  if (!button?.hasAttribute("data-confirm-action")) return true;
+function confirmRiskyAction(button, forceConfirmation = false) {
+  if (!button || (!forceConfirmation && !button.hasAttribute("data-confirm-action"))) return true;
   if (button.dataset.confirmed === "true") {
     button.textContent = button.dataset.originalText || button.textContent;
     delete button.dataset.confirmed;
@@ -2195,9 +2224,9 @@ function confirmRiskyAction(button) {
   }
   button.dataset.confirmed = "true";
   button.dataset.originalText = button.textContent;
-  button.textContent = "Подтвердить";
+  button.textContent = button.dataset.confirmLabel || "Подтвердить";
   button.classList.add("confirming");
-  notify("Нажмите «Подтвердить» ещё раз, чтобы выполнить действие");
+  notify(button.dataset.confirmLabel ? "Проверьте код и нажмите эту же кнопку ещё раз." : "Нажмите «Подтвердить» ещё раз, чтобы выполнить действие");
   window.setTimeout(() => {
     if (!button.isConnected || button.dataset.confirmed !== "true") return;
     button.textContent = button.dataset.originalText || "Повторить";
@@ -2255,6 +2284,8 @@ async function setupAdmin() {
   let contactCache = [];
   let partnerCache = [];
   let userCache = [];
+  let bookingCache = [];
+  let recordOpener;
 
   const showRecord = (kind, row) => {
     const dialog = document.querySelector("[data-record-dialog]");
@@ -2278,27 +2309,37 @@ async function setupAdmin() {
     const message = dialog.querySelector("[data-record-message]");
     message.textContent = application ? (row.comment || "Комментарий не оставлен") : row.message;
     message.hidden = false;
+    recordOpener = document.activeElement;
     dialog.hidden = false;
     document.body.classList.add("dialog-open");
-    dialog.querySelector("[data-close-record-dialog]")?.focus({ preventScroll: true });
+    dialog.querySelector("button[data-close-record-dialog]")?.focus({ preventScroll: true });
   };
 
   const closeRecord = () => {
     const dialog = document.querySelector("[data-record-dialog]");
     if (dialog) dialog.hidden = true;
     document.body.classList.remove("dialog-open");
+    if (recordOpener?.isConnected) recordOpener.focus({ preventScroll: true });
   };
+  const recordDialog = document.querySelector("[data-record-dialog]");
+  recordDialog.querySelectorAll("[data-close-record-dialog]").forEach((node) => node.addEventListener("click", (event) => { event.stopPropagation(); closeRecord(); }));
+  recordDialog.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { event.preventDefault(); closeRecord(); }
+    else trapAppFocus(event, recordDialog);
+  });
 
   const render = async () => {
     const data = await api("/api/admin/dashboard");
     loginBox.hidden = true; passwordGate.hidden = true; dashboard.hidden = false;
     document.querySelector("[data-admin-stats]").innerHTML = [
-      ["Активные предложения", data.activeOffersCount], ["Получено кодов", data.bookingsCount], ["Выдано заказов", data.issuedBookingsCount], ["Новые заявки", data.newPartnerApplicationsCount], ["Новые обращения", data.newContactRequestsCount], ["Выручка", data.estimatedPartnerRevenue + " ₽"]
-    ].map(([label, value]) => '<span><small>' + label + '</small><b>' + value + '</b></span>').join('');
+      ["Активные предложения", data.activeOffersCount], ["Броней за всё время", data.bookingsCount], ["Выдано заказов", data.issuedBookingsCount], ["Новые заявки", data.newPartnerApplicationsCount], ["Новые обращения", data.newContactRequestsCount], ["Выдано на сумму", data.estimatedPartnerRevenue + " ₽"]
+    ].map(([label, value]) => '<span><small>' + label + '</small><b>' + value + '</b></span>').join('') + (data.unknownIssuedAmountsCount ? '<p class="permission-note">У ' + Number(data.unknownIssuedAmountsCount) + ' старых выдач цена не сохранена. Они не включены в сумму.</p>' : '');
     const [partners, offers, bookings, applications, contacts, auditLog] = await Promise.all([
       api("/api/admin/partners"), api("/api/admin/offers"), api("/api/admin/bookings"), api("/api/admin/partner-applications"), api("/api/admin/contact-requests"), api("/api/admin/audit-log")
     ]);
     applicationCache = applications;
+    bookingCache = bookings;
+    setSelectOptions(document.querySelector("[data-admin-correction-select]"), bookings.filter((row) => row.status !== "created"), "Выберите код", "id", (row) => row.code + " · " + row.offerTitle + " · " + statusLabel(row.status));
     contactCache = contacts;
     partnerCache = partners;
     const addresses = (await Promise.all(partners.map(async (partner) => (await api("/api/admin/partners/" + partner.id + "/addresses")).map((item) => ({ ...item, partnerName: partner.name }))))).flat();
@@ -2313,32 +2354,47 @@ async function setupAdmin() {
     setSelectOptions(offerPartnerSelect, partners, "Выберите партнёра", "id", (item) => item.name);
     const refreshOfferAddresses = () => {
       const ownAddresses = addresses.filter((item) => item.partner_id === offerPartnerSelect.value && item.is_active !== false);
-      setSelectOptions(offerAddressSelect, ownAddresses, ownAddresses.length ? "Выберите точку" : "У партнёра нет активных точек", "id", (item) => item.title + " · " + item.address);
+      setSelectOptions(offerAddressSelect, ownAddresses, !offerPartnerSelect.value ? "Сначала выберите заведение" : ownAddresses.length ? "Выберите точку" : "У заведения нет активных точек", "id", (item) => item.title + " · " + item.address);
       offerAddressSelect.disabled = ownAddresses.length === 0;
     };
     offerPartnerSelect.onchange = refreshOfferAddresses;
     refreshOfferAddresses();
     document.querySelectorAll("[data-today-date]").forEach((input) => { if (!input.value) input.value = localDateValue(); });
-    document.querySelector("[data-admin-service]").innerHTML = table([{ name: "Кабинеты сотрудников", value: "Доступны" }, { name: "Защита входа", value: "Включена" }, { name: "Резервное копирование", value: "По регламенту" }], [{ label: "Проверка", value: "name" }, { label: "Статус", value: "value" }]);
-    document.querySelector("[data-admin-partners]").innerHTML = table(partners, [{ label: "Название", value: "name" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Контакт", value: (row) => row.contact_name || "—" }, { label: "Телефон", value: (row) => row.phone || "—" }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-admin-partner-status="' + row.id + '" data-status="' + (row.status === "active" ? "disabled" : "active") + '">' + (row.status === "active" ? "Отключить" : "Включить") + '</button> ' + (row.status === "archived" ? '' : '<button class="table-action" data-confirm-action data-admin-partner-archive="' + row.id + '">В архив</button> ') + '<button class="table-action danger" data-confirm-action data-admin-partner-delete="' + row.id + '">Удалить</button>');
+    document.querySelector("[data-admin-service]").innerHTML = '<div class="help-steps"><p><strong>Заявка → подключение</strong><span>Сначала свяжитесь с представителем. Затем нажмите «Подключить» в заявке: данные перенесутся в форму, но заведение ещё не будет создано.</span></p><p><strong>Выдача заказа</strong><span>В разделе «Брони и коды» найдите код покупателя. Проверьте условия и отметьте выдачу после передачи заказа.</span></p><p><strong>Обновление списков</strong><span>Нажмите «Обновить данные», чтобы увидеть последние изменения. Незаполненные и несохранённые формы при обновлении не очищаются.</span></p></div>';
+    document.querySelector("[data-admin-partners]").innerHTML = table(partners, [{ label: "Название", value: "name" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Контакт", value: (row) => row.contact_name || "—" }, { label: "Телефон", value: (row) => row.phone || "—" }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-admin-partner-status="' + row.id + '" data-status="' + (row.status === "active" ? "disabled" : "active") + '">' + (row.status === "active" ? "Отключить" : "Включить") + '</button> ' + (row.status === "archived" ? '' : '<button class="table-action" data-confirm-action data-admin-partner-archive="' + row.id + '">В архив</button> ') + (row.canDelete ? '<button class="table-action danger" data-confirm-action data-admin-partner-delete="' + row.id + '">Удалить</button>' : '<span class="maintenance-note">Есть история — можно в архив</span>'));
     document.querySelector("[data-admin-addresses]").innerHTML = table(addresses, [{ label: "Партнёр", value: "partnerName" }, { label: "Точка", value: "title" }, { label: "Адрес", value: "address" }, { label: "Статус", value: (row) => row.is_active === false ? "Отключена" : "Активна" }], (row) => '<button class="table-action" data-confirm-action data-admin-address-status="' + row.id + '" data-partner-id="' + row.partner_id + '" data-status="' + (row.is_active === false ? "true" : "false") + '">' + (row.is_active === false ? "Включить" : "Отключить") + '</button>');
     document.querySelector("[data-admin-users]").innerHTML = table(users, [{ label: "Партнёр", value: "partnerName" }, { label: "Логин", value: "login" }, { label: "Роль", value: (row) => statusLabel(row.role) }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-admin-user-status="' + row.id + '" data-partner-id="' + row.partner_id + '" data-status="' + (row.status === "active" ? "disabled" : "active") + '">' + (row.status === "active" ? "Отключить" : "Включить") + '</button>');
     document.querySelector("[data-admin-offers]").innerHTML = table(offers, [{ label: "Название", value: "title" }, { label: "Партнёр", value: (row) => partnerById[row.partner_id]?.name || "—" }, { label: "Точка", value: (row) => addressById[row.address_id]?.title || "—" }, { label: "Дата", value: "date" }, { label: "Остаток", value: (row) => row.remaining_quantity + " / " + row.total_quantity }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-admin-offer-status="' + row.id + '" data-status="' + (row.status === "active" ? "paused" : "active") + '">' + (row.status === "active" ? "На паузу" : "Опубликовать") + '</button>');
-    document.querySelector("[data-admin-bookings]").innerHTML = table(bookings.slice().reverse(), [{ label: "Код", value: "code" }, { label: "Предложение", value: "offerTitle" }, { label: "Партнёр", value: "partnerName" }, { label: "Клиент", value: "customer_name" }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => row.status === "created" ? '<button class="table-action primary" data-confirm-action data-booking-status="' + row.id + '" data-status="issued">Выдан</button> <button class="table-action" data-confirm-action data-booking-status="' + row.id + '" data-status="no_show">Не пришёл</button> <button class="table-action" data-confirm-action data-booking-status="' + row.id + '" data-status="cancelled">Отменить</button>' : '—');
+    document.querySelector("[data-admin-bookings]").innerHTML = bookings.length ? bookings.slice().reverse().map((row) => {
+      const action = (status, label) => '<button type="button" class="table-action' + (status === "issued" ? ' primary' : '') + '" data-confirm-action data-booking-status="' + escapeHtml(row.id) + '" data-status="' + status + '" data-confirm-label="' + escapeHtml(row.code + ': ' + label + '?') + '">' + label + '</button>';
+      const details = [["Заведение", row.partnerName], ["Покупатель", row.customer_name], ["Телефон", row.customer_phone || row.phone], ["Получение", (row.date || "Дата не сохранена") + " · " + (row.pickupWindow || "Уточните время")], ["Адрес", row.address], ["Цена брони", row.price === null ? "Не сохранена — уточните у заведения" : Number(row.price) + " ₽"], ["Состав", row.contents || "Не указан"], ["Аллергены", row.allergens || "Уточните у заведения"]];
+      return '<article class="staff-booking-card" data-filter-card data-filter-status="' + escapeHtml(statusLabel(row.status)) + '"><header><strong class="staff-booking-code">' + escapeHtml(row.code) + '</strong><span class="booking-status status-' + escapeHtml(row.status) + '">' + escapeHtml(statusLabel(row.status)) + '</span></header><h4>' + escapeHtml(row.offerTitle) + '</h4><dl>' + details.map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + escapeHtml(value || "—") + '</dd></div>').join('') + '</dl>' + (!row.termsVerified ? '<p class="permission-note">Старая бронь: первоначальные условия не сохранены. Текущие адрес и время могут отличаться.</p>' : '') + '<footer>' + (row.status === "created" ? action("issued", "Выдан") + action("no_show", "Не пришёл") + action("cancelled", "Отменить") : '<span>Бронь завершена. Если отметка ошибочна, откройте «Исправить ошибочную отметку» ниже.</span>') + '</footer></article>';
+    }).join('') : '<p class="empty-state">Броней пока нет. Заказы покупателей появятся здесь.</p>';
     document.querySelector("[data-admin-applications]").innerHTML = table(applications.slice().reverse(), [{ label: "Заведение", value: "venue_name" }, { label: "Контакт", value: "contact_name" }, { label: "Телефон", value: "phone" }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-view-application="' + row.id + '">Открыть</button> ' + (row.status === "new" ? '<button class="table-action" data-application-status="' + row.id + '" data-status="contacted">Связались</button> ' : '') + (row.status === "approved" ? '' : '<button class="table-action primary" data-use-application="' + row.id + '">Подключить</button> <button class="table-action" data-confirm-action data-application-status="' + row.id + '" data-status="rejected">Отклонить</button> ') + '<button class="table-action danger" data-confirm-action data-delete-application="' + row.id + '">Удалить</button>');
     document.querySelector("[data-admin-contacts]").innerHTML = table(contacts.slice().reverse(), [{ label: "Имя", value: "name" }, { label: "Телефон", value: "phone" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-view-contact="' + row.id + '">Открыть</button> ' + (row.status === "closed" ? '' : '<button class="table-action" data-contact-status="' + row.id + '" data-status="in_progress">В работу</button> <button class="table-action" data-confirm-action data-contact-status="' + row.id + '" data-status="closed">Закрыть</button> ') + '<button class="table-action danger" data-confirm-action data-delete-contact="' + row.id + '">Удалить</button>');
-    document.querySelector("[data-admin-audit]").innerHTML = table(auditLog.slice().reverse(), [{ label: "Время", value: (row) => dateTimeLabel(row.createdAt) }, { label: "Кем", value: (row) => auditActorLabel(row.actorRole) }, { label: "Действие", value: (row) => auditActionLabel(row.action) }, { label: "Объект", value: (row) => auditEntityLabel(row.entityType) }]);
+    document.querySelector("[data-admin-audit]").innerHTML = table(auditLog.slice().reverse(), [{ label: "Время", value: (row) => dateTimeLabel(row.createdAt) }, { label: "Роль", value: (row) => auditActorLabel(row.actorRole) }, { label: "Действие", value: (row) => auditActionLabel(row.action) }, { label: "Объект", value: (row) => auditEntityLabel(row.entityType) }]);
     setupTableFilters(document.querySelector("[data-admin-app]"));
     activateTabs(null, true);
+    document.querySelector("[data-admin-updated]").textContent = "Обновлено в " + new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date());
+    document.querySelector("[data-admin-load-error]").hidden = true;
   };
+  let mutationInFlight = false;
   const mutate = async (task, successMessage) => {
+    if (mutationInFlight) return;
+    mutationInFlight = true;
+    let completed = false;
     try {
       await task();
-      notify(successMessage);
+      completed = true;
       await render();
+      notify(successMessage);
     } catch (error) {
-      notify(error.message || "Операцию не удалось выполнить", "error");
-    }
+      if (completed) {
+        const notice = document.querySelector("[data-admin-load-error]");
+        notice.textContent = "Действие выполнено, но список не обновился. Нажмите «Обновить данные» и проверьте результат. Повторять действие не нужно.";
+        notice.hidden = false;
+      } else notify(error.message || "Операцию не удалось выполнить", "error");
+    } finally { mutationInFlight = false; }
   };
 
   const start = async () => {
@@ -2348,6 +2404,7 @@ async function setupAdmin() {
       return;
     }
     loginBox.hidden = true;
+    document.querySelector("[data-admin-session]").textContent = "Вы вошли как: " + session.login;
     if (session.passwordChangeRequired) {
       passwordGate.hidden = false; dashboard.hidden = true;
       passwordGate.querySelector('input[name="currentPassword"]')?.focus({ preventScroll: true });
@@ -2370,7 +2427,7 @@ async function setupAdmin() {
       await api("/api/admin/auth/change-password", { method: "POST", body: formObject(form) });
       form.reset();
       notify("Новый пароль сохранён");
-      await render();
+      await start();
     } catch (err) { error.textContent = err.message; error.hidden = false; }
   }));
   document.querySelector("[data-admin-refresh]")?.addEventListener("click", () => mutate(async () => {}, "Данные обновлены"));
@@ -2389,6 +2446,28 @@ async function setupAdmin() {
   document.querySelector("[data-admin-create-address]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); await api("/api/admin/partners/" + data.partnerId + "/addresses", { method: "POST", body: data }); form.reset(); }, "Точка добавлена"); });
   document.querySelector("[data-admin-create-user]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); await api("/api/admin/partners/" + data.partnerId + "/users", { method: "POST", body: data }); form.reset(); }, "Пользователь партнёра создан"); });
   document.querySelector("[data-admin-reset-user-password]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); const user = userCache.find((item) => item.id === data.userId); if (!user) throw new Error("Выберите сотрудника"); await api("/api/admin/partners/" + user.partner_id + "/users/" + user.id, { method: "PATCH", body: { password: data.password } }); form.reset(); }, "Временный пароль сохранён, старые входы закрыты"); });
+  const correctionForm = document.querySelector("[data-admin-correct-booking]");
+  correctionForm?.addEventListener("input", () => {
+    const button = correctionForm.querySelector('button[type="submit"]');
+    delete button.dataset.confirmed; delete button.dataset.originalText; delete correctionForm.dataset.expectedStatus;
+    button.classList.remove("confirming"); button.textContent = "Сохранить корректировку";
+  });
+  correctionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = formObject(correctionForm);
+    const row = bookingCache.find((item) => item.id === data.bookingId);
+    if (!row) { notify("Выберите завершённую бронь", "error"); return; }
+    const button = correctionForm.querySelector('button[type="submit"]');
+    if (button.disabled) return;
+    if (button.dataset.confirmed !== "true") correctionForm.dataset.expectedStatus = row.status;
+    button.dataset.confirmLabel = row.code + ": " + statusLabel(data.status) + "?";
+    if (!confirmRiskyAction(button, true)) return;
+    button.disabled = true;
+    try { await mutate(async () => {
+      await api("/api/admin/bookings/" + row.id + "/correction", { method: "PATCH", body: { status: data.status, expectedStatus: correctionForm.dataset.expectedStatus, reason: data.reason } });
+      correctionForm.reset(); delete correctionForm.dataset.expectedStatus;
+    }, "Корректировка сохранена в журнале"); } finally { button.disabled = false; }
+  });
   document.querySelector("[data-admin-create-offer]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); await api("/api/admin/offers", { method: "POST", body: { ...data, totalQuantity: Number(data.totalQuantity), remainingQuantity: Number(data.totalQuantity), price: Number(data.price), oldPrice: data.oldPrice ? Number(data.oldPrice) : undefined, ctaLabel: "Получить код" } }); form.reset(); }, "Предложение сохранено"); });
   document.addEventListener("click", async (event) => {
     const confirmation = event.target.closest("[data-confirm-action]");
@@ -2458,7 +2537,12 @@ async function setupAdmin() {
   });
   try {
     await start();
-  } catch {}
+  } catch (err) {
+    const error = document.querySelector("[data-admin-load-error]");
+    error.textContent = err.message || "Кабинет не загрузился. Обновите страницу и попробуйте снова.";
+    error.hidden = false;
+    notify(error.textContent, "error");
+  }
 }
 
 async function setupPartnerLogin() {
@@ -2490,33 +2574,84 @@ async function setupPartnerDashboard() {
     return;
   }
   const isOwner = partnerSession.userRole === "owner";
+  const isSeller = partnerSession.userRole === "seller";
+  const allowedTabs = isSeller ? ["bookings", "security", "help"] : ["overview", "addresses", "offers", "bookings", "profile", "security", "help"];
   const roleNode = document.querySelector("[data-partner-role]");
   if (roleNode) roleNode.textContent = "Роль: " + statusLabel(partnerSession.userRole);
   document.querySelectorAll("[data-owner-only]").forEach((node) => { node.hidden = !isOwner; });
-  document.querySelectorAll("[data-manager-only]").forEach((node) => { node.hidden = isOwner; });
-  const activateTabs = setupTabs("[data-partner-dashboard-app]", ["overview", "addresses", "offers", "bookings", "profile", "security", "help"]);
+  document.querySelectorAll("[data-manager-only]").forEach((node) => { node.hidden = isOwner || isSeller; });
+  document.querySelectorAll("[data-open-offer-wizard]").forEach((node) => { node.hidden = isSeller; });
+  const activateTabs = setupTabs("[data-partner-dashboard-app]", allowedTabs);
   let bookingRows = [];
   let partnerAddresses = [];
   let offerTemplates = [];
   let wizardInitialized = false;
+  let refreshInFlight = false;
+  let operationInFlight = false;
+  let lastBookingSignature = "";
+  let initialBookingsLoaded = false;
+  let pollingTimer;
+  const dashboardPath = () => "/api/partner/dashboard?period=" + (document.querySelector("[data-partner-period]")?.value || "today");
+  const refreshNotice = (text, failed = false) => {
+    const node = document.querySelector("[data-partner-refresh-status]");
+    if (node) { node.textContent = text; node.classList.toggle("is-error", failed); }
+  };
   const setPasswordRequired = (required) => {
     const root = document.querySelector("[data-partner-dashboard-app]");
     const notice = document.querySelector("[data-partner-password-required]");
     if (notice) notice.hidden = !required;
     root.querySelector("[data-partner-stats]").hidden = required;
-    root.querySelectorAll("[data-tab-link]").forEach((link) => { link.hidden = required && link.dataset.tabLink !== "security"; });
-    root.querySelectorAll("[data-tab-select] option").forEach((option) => { option.disabled = required && option.value !== "security"; });
-    document.querySelectorAll("[data-open-offer-wizard]").forEach((button) => { button.hidden = required; });
+    root.querySelectorAll("[data-tab-link]").forEach((link) => { link.hidden = !allowedTabs.includes(link.dataset.tabLink) || (required && link.dataset.tabLink !== "security"); });
+    root.querySelectorAll("[data-tab-select] option").forEach((option) => { option.disabled = !allowedTabs.includes(option.value) || (required && option.value !== "security"); option.hidden = !allowedTabs.includes(option.value); });
+    document.querySelectorAll("[data-open-offer-wizard]").forEach((button) => { button.hidden = required || isSeller; });
     if (required) activateTabs("security", true);
   };
   const renderBookingRows = (query = "", status = "") => {
     const normalized = query.trim().toLowerCase();
     const rows = bookingRows.filter((row) => (!normalized || row.code.toLowerCase().includes(normalized) || row.offerTitle.toLowerCase().includes(normalized)) && (!status || row.status === status));
-    document.querySelector("[data-partner-bookings]").innerHTML = table(rows, [{ label: "Код", value: "code" }, { label: "Предложение", value: "offerTitle" }, { label: "Клиент", value: "customer_name" }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => row.status === "created" ? '<button class="table-action primary" data-confirm-action data-partner-booking="' + row.id + '" data-status="issued">Выдан</button> <button class="table-action" data-confirm-action data-partner-booking="' + row.id + '" data-status="no_show">Не пришёл</button> <button class="table-action" data-confirm-action data-partner-booking="' + row.id + '" data-status="cancelled">Отменить</button>' : '—');
+    document.querySelector("[data-partner-bookings]").innerHTML = rows.length ? rows.map((row) => {
+      const action = (status, label) => '<button class="table-action' + (status === "issued" ? ' primary' : '') + '" data-confirm-action data-partner-booking="' + escapeHtml(row.id) + '" data-status="' + status + '" data-confirm-label="' + escapeHtml(row.code + ': ' + label + '?') + '">' + label + '</button>';
+      return '<article class="staff-booking-card"><header><strong class="staff-booking-code">' + escapeHtml(row.code) + '</strong><span class="booking-status status-' + escapeHtml(row.status) + '">' + escapeHtml(statusLabel(row.status)) + '</span></header><h4>' + escapeHtml(row.offerTitle) + '</h4><dl><div><dt>Забрать</dt><dd>' + escapeHtml(row.date || "Дата не сохранена") + ' · ' + escapeHtml(row.pickupWindow) + '</dd></div><div><dt>Точка</dt><dd>' + escapeHtml(row.address) + '</dd></div><div><dt>Цена брони</dt><dd>' + (row.price === null ? 'Уточните у менеджера' : Number(row.price) + ' ₽') + '</dd></div></dl>' + (!row.termsVerified ? '<p class="permission-note">Старая бронь: первоначальные условия не сохранены.</p>' : '') + '<footer>' + (row.status === "created" ? action("issued", "Выдан") + action("no_show", "Не пришёл") + (!isSeller ? action("cancelled", "Отменить") : '') : '<span>Действие завершено. При ошибке обратитесь к администратору.</span>') + '</footer></article>';
+    }).join('') : '<p class="empty-state">Подходящих броней пока нет.</p>';
+  };
+  const updateOperationalData = (data, bookings) => {
+    const newIds = new Set(bookings.map((row) => row.id));
+    const previousIds = new Set(bookingRows.map((row) => row.id));
+    const newCount = initialBookingsLoaded ? [...newIds].filter((id) => !previousIds.has(id)).length : 0;
+    bookingRows = bookings.slice().reverse();
+    const signature = JSON.stringify(bookingRows);
+    document.querySelector("[data-partner-stats]").innerHTML = [
+      ["Активные предложения сейчас", data.activeOffersCount], ["Брони за период", data.bookingsCount], ["Выдано за период", data.issuedBookingsCount], ["Не пришли", data.noShowBookingsCount], ["Выдано на сумму", data.estimatedRevenue + " ₽"]
+    ].map(([label, value]) => '<span><small>' + label + '</small><b>' + value + '</b></span>').join('') + (data.unknownIssuedAmountsCount ? '<p>Цена не сохранена у ' + Number(data.unknownIssuedAmountsCount) + ' старых выдач; они не включены в сумму.</p>' : '');
+    document.querySelector("[data-partner-overview]").innerHTML = bookingRows.length ? '<div class="today-codes"><p>Последние коды</p>' + bookingRows.slice(0, 5).map((row) => '<a href="?tab=bookings"><strong>' + escapeHtml(row.code) + '</strong><span>' + escapeHtml(row.offerTitle) + '</span><b>' + escapeHtml(statusLabel(row.status)) + '</b></a>').join('') + '</div>' : '<p class="empty-state">Кодов пока нет. Новые брони появятся здесь при обновлении списка.</p>';
+    if (signature !== lastBookingSignature) {
+      renderBookingRows(document.querySelector("[data-partner-booking-search]")?.value || "", document.querySelector("[data-partner-booking-status]")?.value || "");
+      lastBookingSignature = signature;
+    }
+    initialBookingsLoaded = true;
+    refreshNotice("Обновлено в " + new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()) + ". Проверяем каждые 15 секунд, пока кабинет открыт.");
+    if (newCount) {
+      const notice = document.querySelector("[data-partner-new-bookings]");
+      if (notice) { notice.hidden = false; notice.textContent = "Новые брони: " + newCount + ". Последний код: " + bookingRows[0].code; }
+      notify("Новые брони: " + newCount + ". Откройте «Коды и брони».");
+    }
+  };
+  const refreshOperationalData = async () => {
+    if (refreshInFlight || operationInFlight || document.hidden || partnerSession.passwordChangeRequired || document.querySelector('[data-partner-booking][data-confirmed="true"]')) return;
+    refreshInFlight = true;
+    const button = document.querySelector("[data-partner-refresh]");
+    if (button) button.disabled = true;
+    try {
+      const [data, bookings] = await Promise.all([api(dashboardPath()), api("/api/partner/bookings")]);
+      if (!operationInFlight && !document.querySelector('[data-partner-booking][data-confirmed="true"]')) updateOperationalData(data, bookings);
+    } catch (error) {
+      refreshNotice("Список не обновился. Проверьте соединение и нажмите «Обновить».", true);
+      if (error.status === 401 || error.status === 403) { clearInterval(pollingTimer); notify("Доступ изменён. Войдите в кабинет снова.", "error"); }
+    } finally { refreshInFlight = false; if (button) button.disabled = false; }
   };
   const render = async () => {
     const [data, profile, addresses, offers, bookings, templates] = await Promise.all([
-      api("/api/partner/dashboard"), api("/api/partner/profile"), api("/api/partner/addresses"), api("/api/partner/offers"), api("/api/partner/bookings"), api("/api/partner/offer-templates")
+      api(dashboardPath()), isSeller ? Promise.resolve(null) : api("/api/partner/profile"), isSeller ? Promise.resolve([]) : api("/api/partner/addresses"), isSeller ? Promise.resolve([]) : api("/api/partner/offers"), api("/api/partner/bookings"), isSeller ? Promise.resolve([]) : api("/api/partner/offer-templates")
     ]);
     partnerAddresses = addresses.filter((item) => item.is_active !== false);
     offerTemplates = templates.length ? templates : offers.slice(-3).reverse().map((offer, index) => ({
@@ -2532,20 +2667,16 @@ async function setupPartnerDashboard() {
       total_quantity: offer.total_quantity,
       image_urls: offer.image_urls || (offer.image_url ? [offer.image_url] : [])
     }));
-    bookingRows = bookings.slice().reverse();
-    document.querySelector("[data-partner-stats]").innerHTML = [
-      ["Активные предложения", data.activeOffersCount], ["Коды", data.bookingsCount], ["Выдано", data.issuedBookingsCount], ["Не пришли", data.noShowBookingsCount], ["Выручка", data.estimatedRevenue + " ₽"]
-    ].map(([label, value]) => '<span><small>' + label + '</small><b>' + value + '</b></span>').join('');
-    document.querySelector("[data-partner-overview]").innerHTML = bookingRows.length ? '<div class="today-codes"><p>Последние коды</p>' + bookingRows.slice(0, 5).map((row) => '<a href="?tab=bookings"><strong>' + escapeHtml(row.code) + '</strong><span>' + escapeHtml(row.offerTitle) + '</span><b>' + escapeHtml(statusLabel(row.status)) + '</b></a>').join('') + '</div>' : '<p class="empty-state">Сегодня кодов пока нет. Новые брони появятся здесь автоматически.</p>';
+    updateOperationalData(data, bookings);
     document.querySelector("[data-partner-addresses]").innerHTML = table(addresses, [{ label: "Точка", value: "title" }, { label: "Адрес", value: "address" }, { label: "Статус", value: (row) => row.is_active === false ? "Отключена" : "Активна" }]);
     document.querySelector("[data-partner-offers]").innerHTML = table(offers.slice().reverse(), [{ label: "Название", value: "title" }, { label: "Дата", value: "date" }, { label: "Выдача", value: "pickup_window" }, { label: "Остаток", value: (row) => row.remaining_quantity + " / " + row.total_quantity }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-partner-offer-status="' + row.id + '" data-status="' + (row.status === "active" ? "paused" : "active") + '">' + (row.status === "active" ? "На паузу" : "Опубликовать") + '</button> <button class="table-action" data-partner-offer-duplicate="' + row.id + '">Повторить</button>');
     renderBookingRows(document.querySelector("[data-partner-booking-search]")?.value || "", document.querySelector("[data-partner-booking-status]")?.value || "");
-    document.querySelector("[data-partner-profile]").innerHTML = table([profile], [{ label: "Название", value: "name" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Контакт", value: (row) => row.contact_name || "—" }, { label: "Статус", value: (row) => statusLabel(row.status) }]);
+    if (profile) document.querySelector("[data-partner-profile]").innerHTML = table([profile], [{ label: "Название", value: "name" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Контакт", value: (row) => row.contact_name || "—" }, { label: "Статус", value: (row) => statusLabel(row.status) }]);
     setSelectOptions(document.querySelector("[data-partner-address-select]"), addresses.filter((item) => item.is_active !== false), "Выберите точку", "id", (item) => item.title + " · " + item.address);
     setSelectOptions(document.querySelector("[data-wizard-address]"), partnerAddresses, partnerAddresses.length ? "Выберите точку" : "Сначала добавьте активную точку", "id", (item) => item.title + " · " + item.address);
     document.querySelectorAll("[data-today-date]").forEach((input) => { if (!input.value) input.value = localDateValue(); });
     const profileForm = document.querySelector("[data-partner-profile-form]");
-    if (profileForm && !profileForm.dataset.loaded) {
+    if (profile && profileForm && !profileForm.dataset.loaded) {
       profileForm.name.value = profile.name || "";
       profileForm.contactName.value = profile.contact_name || "";
       profileForm.phone.value = profile.phone || "";
@@ -2553,14 +2684,14 @@ async function setupPartnerDashboard() {
       profileForm.dataset.loaded = "true";
     }
     renderWizardTemplates();
-    if (!wizardInitialized) {
+    if (!isSeller && !wizardInitialized) {
       setupOfferWizard();
       wizardInitialized = true;
     }
     activateTabs(null, true);
   };
 
-  const WIZARD_DRAFT_KEY = "bs_partner_offer_draft_v1";
+  const WIZARD_DRAFT_KEY = "bs_partner_offer_draft_v2:" + partnerSession.partnerId + ":" + partnerSession.userId;
   const WIZARD_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
   let wizardStep = 1;
   let wizardMode = "quick";
@@ -2864,7 +2995,13 @@ async function setupPartnerDashboard() {
       } finally { publish.disabled = false; publish.textContent = "Опубликовать сегодня"; }
     });
   }
-  const mutate = async (task, message) => { try { await task(); notify(message); await render(); } catch (error) { notify(error.message || "Операцию не удалось выполнить", "error"); } };
+  const mutate = async (task, message) => {
+    if (operationInFlight) return;
+    operationInFlight = true;
+    try { await task(); notify(message); await render(); }
+    catch (error) { notify(error.message || "Операцию не удалось выполнить", "error"); }
+    finally { operationInFlight = false; }
+  };
   document.querySelector("[data-partner-create-address]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { await api("/api/partner/addresses", { method: "POST", body: formObject(form) }); form.reset(); }, "Точка добавлена"); });
   document.querySelector("[data-partner-create-offer]")?.addEventListener("submit", async (event) => { event.preventDefault(); const form = event.currentTarget; await mutate(async () => { const data = formObject(form); await api("/api/partner/offers", { method: "POST", body: { ...data, totalQuantity: Number(data.totalQuantity), remainingQuantity: Number(data.totalQuantity), price: Number(data.price), oldPrice: data.oldPrice ? Number(data.oldPrice) : undefined, ctaLabel: "Получить код" } }); form.reset(); }, "Предложение сохранено"); });
   document.querySelector("[data-partner-profile-form]")?.addEventListener("submit", async (event) => { event.preventDefault(); await mutate(() => api("/api/partner/profile", { method: "PATCH", body: formObject(event.currentTarget) }), "Профиль обновлён"); });
@@ -2887,6 +3024,13 @@ async function setupPartnerDashboard() {
   const refreshPartnerBookingRows = () => renderBookingRows(document.querySelector("[data-partner-booking-search]")?.value || "", document.querySelector("[data-partner-booking-status]")?.value || "");
   document.querySelector("[data-partner-booking-search]")?.addEventListener("input", refreshPartnerBookingRows);
   document.querySelector("[data-partner-booking-status]")?.addEventListener("change", refreshPartnerBookingRows);
+  document.querySelector("[data-partner-refresh]")?.addEventListener("click", refreshOperationalData);
+  document.querySelector("[data-partner-period]")?.addEventListener("change", refreshOperationalData);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshOperationalData(); });
+  window.addEventListener("online", refreshOperationalData);
+  window.addEventListener("pagehide", () => clearInterval(pollingTimer));
+  window.addEventListener("pageshow", (event) => { if (event.persisted) { pollingTimer = setInterval(refreshOperationalData, 15000); refreshOperationalData(); } });
+  pollingTimer = setInterval(refreshOperationalData, 15000);
   document.addEventListener("click", async (event) => {
     const confirmation = event.target.closest("[data-confirm-action]");
     if (confirmation && !confirmRiskyAction(confirmation)) return;
@@ -2901,6 +3045,7 @@ async function setupPartnerDashboard() {
     setPasswordRequired(true);
     document.querySelector('[data-partner-change-password] input[name="currentPassword"]')?.focus({ preventScroll: true });
   } else {
+    setPasswordRequired(false);
     try { await render(); } catch (error) { notify(error.message || "Не удалось загрузить кабинет", "error"); }
   }
 }
@@ -2937,6 +3082,22 @@ const STYLES = `
   --shadow: 0 18px 50px rgba(64, 33, 20, .12);
 }
 * { box-sizing: border-box; }
+.staff-booking-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.staff-booking-card { min-width: 0; padding: 20px; border: 1px solid var(--color-border); border-radius: 14px; background: white; }
+.staff-booking-card header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.staff-booking-code { font-size: 28px; letter-spacing: .04em; overflow-wrap: anywhere; }
+.staff-booking-card h4 { font-size: 19px; margin: 18px 0 12px; overflow-wrap: anywhere; }
+.staff-booking-card dl { margin: 0; }
+.staff-booking-card dl > div { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 12px; margin: 10px 0; }
+.staff-booking-card dt { color: var(--color-muted); }
+.staff-booking-card dd { margin: 0; overflow-wrap: anywhere; }
+.staff-booking-card footer { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.staff-booking-card footer .table-action { min-height: 44px; white-space: normal; }
+.refresh-status { font-size: 13px; color: var(--color-muted); max-width: 460px; }
+.refresh-status.is-error { color: #a02d20; }
+.period-label { display: grid; gap: 4px; font-size: 12px; color: var(--color-muted); }
+.period-label select { min-height: 40px; border: 1px solid var(--color-border); border-radius: 8px; padding: 7px; background: white; color: var(--color-text); }
+@media (max-width: 760px) { .staff-booking-list { grid-template-columns: minmax(0, 1fr); } .staff-booking-card { padding: 16px; } }
 [hidden] { display: none !important; }
 html { scroll-behavior: smooth; }
 body {
@@ -4042,6 +4203,11 @@ body { background: var(--color-bg); }
 .app-panel select { min-width: 0; background: white; }
 .app-panel .admin-actions { justify-content: flex-end; }
 .app-panel .admin-actions .button { min-height: 40px; padding-inline: 15px; }
+.admin-session { margin-right: auto; color: #31515b; font-weight: 800; }
+.admin-period-note { color: #60767e; font-size: 13px; }
+[data-admin-app] .table-action { min-height: 44px; }
+[data-admin-app] .staff-booking-card[hidden] { display: none; }
+[data-admin-app] .staff-booking-card dd { overflow-wrap: anywhere; }
 .mobile-tab-select { display: none; }
 .table-filters { display: flex; align-items: center; gap: 8px; }
 .table-filters input { width: min(100%, 300px); }
@@ -4704,6 +4870,8 @@ body { background: var(--color-bg); }
 .page-app .tab-nav a.active { border-color: #073b4c; background: #073b4c; }
 .page-app .stats-row small { color: #0b646a; }
 .page-app .data-table button { color: #0b646a; }
+.page-app .data-table .table-action.primary { color: white; background: #b84a2b; border-color: #b84a2b; }
+.page-app .data-table .table-action.confirming { color: #8f321f; background: #fff2ee; border-color: #b84a2b; }
 .workspace-header {
   width: 100%;
   min-height: 68px;
@@ -4810,7 +4978,9 @@ body { background: var(--color-bg); }
 .record-dialog-panel { position: relative; width: min(620px, 100%); max-height: calc(100dvh - 36px); overflow: auto; padding: 30px; border-radius: 9px; background: white; box-shadow: 0 28px 90px rgba(3, 31, 40, .3); }
 .record-dialog-panel h2 { margin: 8px 0 20px; color: #062f3d; }
 .record-dialog-panel .modal-close { position: absolute; top: 12px; right: 12px; }
-.record-details { margin: 0; display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 1px; overflow: hidden; border: 1px solid #d4e0dd; border-radius: 7px; background: #d4e0dd; }
+.record-details { margin: 0; overflow: hidden; border: 1px solid #d4e0dd; border-radius: 7px; background: #d4e0dd; }
+.record-details > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 1px; border-bottom: 1px solid #d4e0dd; }
+.record-details > div:last-child { border-bottom: 0; }
 .record-details dt, .record-details dd { margin: 0; padding: 11px 13px; background: white; }
 .record-details dt { color: #60767e; font-size: 12px; font-weight: 850; }
 .record-details dd { color: #173a45; line-height: 1.45; overflow-wrap: anywhere; }
@@ -4867,7 +5037,7 @@ body { background: var(--color-bg); }
   .settings-grid, .help-steps { grid-template-columns: 1fr; }
   .record-dialog { padding: 0; align-items: end; }
   .record-dialog-panel { width: 100%; max-height: 88dvh; padding: 28px 18px calc(22px + env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0; }
-  .record-details { grid-template-columns: 1fr; }
+  .record-details > div { grid-template-columns: 100px minmax(0, 1fr); }
   .record-details dt { padding-bottom: 4px; }
   .record-details dd { padding-top: 4px; }
 }
@@ -4996,7 +5166,7 @@ body { background: var(--color-bg); }
 }
 `;
 
-const server = http.createServer(async (request, response) => {
+async function handleRequest(request, response) {
   let url;
   try {
     url = new URL(request.url ?? "/", `http://localhost:${PORT}`);
@@ -5070,8 +5240,7 @@ const server = http.createServer(async (request, response) => {
     const filePath = path.normalize(path.join(ROOT, "public", url.pathname));
     if (filePath.startsWith(imageRoot + path.sep) && fs.existsSync(filePath)) {
       const contentType = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" }[path.extname(filePath).toLowerCase()] || "application/octet-stream";
-      response.writeHead(200, { ...securityHeaders, "Content-Type": contentType, "Cache-Control": "public, max-age=3600", "Content-Length": fs.statSync(filePath).size });
-      fs.createReadStream(filePath).pipe(response);
+      sendFile(response, filePath, contentType);
       return;
     }
   }
@@ -5083,8 +5252,7 @@ const server = http.createServer(async (request, response) => {
     }
     const uploaded = resolveUploadedImage(url.pathname);
     if (uploaded) {
-      response.writeHead(200, { ...securityHeaders, "Content-Type": uploaded.contentType, "Cache-Control": "private, max-age=3600", "Content-Length": uploaded.size });
-      fs.createReadStream(uploaded.filePath).pipe(response);
+      sendFile(response, uploaded.filePath, uploaded.contentType, "private, max-age=3600");
       return;
     }
     sendText(response, 404, "Изображение не найдено", { ...securityHeaders, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
@@ -5146,6 +5314,18 @@ const server = http.createServer(async (request, response) => {
   }
 
   sendText(response, 200, renderPage(url.pathname), { ...securityHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+}
+
+const server = http.createServer((request, response) => {
+  handleRequest(request, response).catch((error) => {
+    if (response.destroyed || response.writableEnded) return;
+    if (response.headersSent) { response.destroy(); return; }
+    const badRequest = error?.status === 400;
+    if (!badRequest) console.error("HTTP request failed", String(error?.code || "INTERNAL_ERROR"));
+    sendText(response, badRequest ? 400 : 500, badRequest ? "Некорректный запрос" : "Не удалось обработать запрос", {
+      ...securityHeaders, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store"
+    });
+  });
 });
 
 server.listen(PORT, HOST, () => {

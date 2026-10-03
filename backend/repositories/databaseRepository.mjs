@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import { updateDb, readDb } from "../storage/jsonStore.mjs";
 import { generateCode, generateId } from "../utils/id.mjs";
-import { isOfferAvailableNow, nowIso, pickupEndIso } from "../utils/dates.mjs";
+import { isOfferAvailableNow, nowIso, pickupEndIso, todayDate } from "../utils/dates.mjs";
+import { bookingTerms, snapshotBookingTerms } from "../utils/bookingTerms.mjs";
 
 const categoryImages = {
   lunch: "/images/offer-lunch-v2.png",
@@ -227,8 +228,15 @@ export function isPartnerActive(partnerId) {
   return readDb().partners.some((partner) => partner.id === partnerId && partner.status === "active");
 }
 
-export function createBookingAtomic(offerId, customerName, customerPhone, code, receipt = {}) {
+export function createBookingAtomic(offerId, customerName, customerPhone, code, receipt = {}, retry = {}) {
   return updateDb((db) => {
+    if (retry.keyHash) {
+      const previous = db.bookings.find((item) => item.request_key_hash === retry.keyHash);
+      if (previous) {
+        if (previous.request_fingerprint !== retry.fingerprint) throw Object.assign(new Error("Данные повторного запроса изменились. Начните новую бронь."), { status: 409, code: "BOOKING_REQUEST_CONFLICT" });
+        return { booking: previous, offer: db.offers.find((item) => item.id === previous.offer_id) };
+      }
+    }
     const offer = db.offers.find((item) => item.id === offerId);
     const partner = db.partners.find((item) => item.id === offer?.partner_id);
     const address = db.partnerAddresses.find((item) => item.id === offer?.address_id && item.partner_id === offer?.partner_id);
@@ -238,7 +246,7 @@ export function createBookingAtomic(offerId, customerName, customerPhone, code, 
       error.code = "OFFER_NOT_FOUND";
       throw error;
     }
-    if (partner?.status !== "active" || address?.is_active === false || offer.status !== "active" || !isOfferAvailableNow(offer)) {
+    if (partner?.status !== "active" || !address || address.is_active === false || offer.status !== "active" || !isOfferAvailableNow(offer)) {
       const error = new Error("Предложение недоступно");
       error.status = 409;
       error.code = "OFFER_NOT_ACTIVE";
@@ -267,6 +275,8 @@ export function createBookingAtomic(offerId, customerName, customerPhone, code, 
       customer_name: customerName,
       customer_phone: customerPhone,
       ...receipt,
+      terms_snapshot: snapshotBookingTerms(offer, partner, address, time),
+      ...(retry.keyHash ? { request_key_hash: retry.keyHash, request_fingerprint: retry.fingerprint } : {}),
       status: "created",
       public_token: generateId("booking-view"),
       expires_at: pickupEndIso(offer.date, offer.pickup_window),
@@ -284,20 +294,13 @@ export function getPublicBooking(publicToken) {
   const db = readDb();
   const booking = db.bookings.find((item) => item.public_token === publicToken);
   if (!booking) return null;
-  const offer = db.offers.find((item) => item.id === booking.offer_id);
-  const partner = db.partners.find((item) => item.id === booking.partner_id);
-  const address = db.partnerAddresses.find((item) => item.id === booking.address_id);
   return {
     publicToken: booking.public_token,
     code: booking.code,
     status: booking.status,
     createdAt: booking.created_at,
     expiresAt: booking.expires_at,
-    offerTitle: offer?.title || "Предложение",
-    pickupWindow: offer?.pickup_window || "",
-    price: offer?.price || 0,
-    partnerName: partner?.name || "Заведение",
-    address: address?.address || ""
+    ...bookingTerms(booking, db)
   };
 }
 
@@ -320,12 +323,16 @@ export function setBookingStatus(id, nextStatus, actorRole = "admin", actorId = 
     const previousStatus = booking.status;
     booking.status = nextStatus;
     booking.updated_at = nowIso();
+    if (previousStatus !== nextStatus) booking.status_changed_at = booking.updated_at;
+    if (nextStatus === "issued" && previousStatus !== nextStatus) booking.issued_at = booking.updated_at;
     if (previousStatus === "created" && nextStatus === "cancelled") {
+      booking.stock_returned_on_cancel = false;
       const offer = db.offers.find((item) => item.id === booking.offer_id);
       if (offer && isOfferAvailableNow(offer)) {
         offer.remaining_quantity = Math.min(offer.total_quantity, offer.remaining_quantity + 1);
         if (offer.status === "sold_out" && isOfferAvailableNow(offer)) offer.status = "active";
         offer.updated_at = booking.updated_at;
+        booking.stock_returned_on_cancel = true;
       }
     }
     addAudit(db, actorRole, actorId, "set_booking_status", "booking", booking.id, { from: previousStatus, to: nextStatus });
@@ -338,6 +345,39 @@ export function cancelPublicBooking(publicToken) {
   const booking = db.bookings.find((item) => item.public_token === publicToken);
   if (!booking) return null;
   return setBookingStatus(booking.id, "cancelled", "customer", null);
+}
+
+export function correctBookingStatus(id, nextStatus, expectedStatus, reason, actorId) {
+  return updateDb((db) => {
+    const booking = db.bookings.find((item) => item.id === id);
+    if (!booking) return null;
+    if (booking.status !== expectedStatus || !["issued", "no_show", "cancelled"].includes(booking.status) || !["issued", "no_show", "cancelled"].includes(nextStatus) || booking.status === nextStatus) {
+      throw Object.assign(new Error("Статус изменился или не подлежит этой корректировке. Обновите список."), { status: 409, code: "BOOKING_CORRECTION_CONFLICT" });
+    }
+    const previousStatus = booking.status;
+    let stockDelta = 0;
+    if (previousStatus === "cancelled") {
+      if (typeof booking.stock_returned_on_cancel !== "boolean") throw Object.assign(new Error("У старой отмены неизвестен возврат остатка. Нужна ручная сверка, корректировка запрещена."), { status: 409, code: "LEGACY_STOCK_UNKNOWN" });
+      if (booking.stock_returned_on_cancel) {
+        const offer = db.offers.find((item) => item.id === booking.offer_id);
+        if (!offer || offer.remaining_quantity <= 0) throw Object.assign(new Error("Свободного набора нет. Нельзя вернуть отменённую бронь в выдачу."), { status: 409, code: "CORRECTION_NO_STOCK" });
+        offer.remaining_quantity -= 1;
+        offer.updated_at = nowIso();
+        if (!offer.remaining_quantity && offer.status === "active") offer.status = "sold_out";
+        stockDelta = -1;
+      }
+    }
+    // Correcting a completed handover is not evidence that food was physically returned.
+    if (nextStatus === "cancelled") booking.stock_returned_on_cancel = false;
+    booking.status = nextStatus;
+    booking.updated_at = nowIso();
+    booking.status_changed_at = booking.updated_at;
+    if (nextStatus === "issued") booking.issued_at = booking.updated_at;
+    const correction = { from: previousStatus, to: nextStatus, reason, actor_id: actorId, created_at: booking.updated_at, stock_delta: stockDelta };
+    booking.corrections = [...(booking.corrections || []), correction];
+    addAudit(db, "admin", actorId, "correct_booking_status", "booking", booking.id, { from: previousStatus, to: nextStatus, reason, stockDelta });
+    return booking;
+  });
 }
 
 export function createPartnerApplication(application) {
@@ -360,10 +400,7 @@ export function adminDashboard() {
   const db = readDb();
   const activeOffersCount = db.offers.filter((offer) => activeOfferRecord(offer, db)).length;
   const issued = db.bookings.filter((booking) => booking.status === "issued");
-  const estimatedPartnerRevenue = issued.reduce((sum, booking) => {
-    const offer = db.offers.find((item) => item.id === booking.offer_id);
-    return sum + (offer?.price || 0);
-  }, 0);
+  const estimatedPartnerRevenue = issued.reduce((sum, booking) => sum + (bookingTerms(booking, db).price ?? 0), 0);
   return {
     activeOffersCount,
     bookingsCount: db.bookings.length,
@@ -371,6 +408,7 @@ export function adminDashboard() {
     newPartnerApplicationsCount: db.partnerApplications.filter((item) => item.status === "new").length,
     newContactRequestsCount: db.contactRequests.filter((item) => item.status === "new").length,
     estimatedPartnerRevenue,
+    unknownIssuedAmountsCount: issued.filter((booking) => !booking.terms_snapshot).length,
     latestBookings: enrichBookings(db.bookings.slice(-5).reverse(), db),
     latestPartnerApplications: db.partnerApplications.slice(-5).reverse()
   };
@@ -378,12 +416,10 @@ export function adminDashboard() {
 
 export function enrichBookings(bookings, db = readDb()) {
   return bookings.map((booking) => {
-    const offer = db.offers.find((item) => item.id === booking.offer_id);
-    const partner = db.partners.find((item) => item.id === booking.partner_id);
+    const { request_key_hash, request_fingerprint, ...safeBooking } = booking;
     return {
-      ...booking,
-      offerTitle: offer?.title || "Предложение удалено",
-      partnerName: partner?.name || "Партнёр удалён"
+      ...safeBooking,
+      ...bookingTerms(booking, db)
     };
   });
 }
@@ -391,6 +427,7 @@ export function enrichBookings(bookings, db = readDb()) {
 export function listAdminData(name) {
   const db = readDb();
   if (name === "bookings") return enrichBookings(db.bookings, db);
+  if (name === "partners") return db.partners.map((partner) => ({ ...partner, canDelete: ![...db.offers, ...db.bookings, ...db.offerTemplates].some((item) => item.partner_id === partner.id) }));
   return db[name] || [];
 }
 
@@ -675,15 +712,23 @@ export function partnerScopedData(partnerId) {
   };
 }
 
-export function partnerDashboard(partnerId) {
+export function partnerDashboard(partnerId, period = "all") {
   const data = partnerScopedData(partnerId);
-  const issued = data.bookings.filter((booking) => booking.status === "issued");
+  const start = new Date();
+  if (period === "week") start.setUTCDate(start.getUTCDate() - 6);
+  if (period === "month") start.setUTCDate(start.getUTCDate() - 29);
+  const from = todayDate(start);
+  const inPeriod = (date) => period === "all" || (date && Number.isFinite(new Date(date).getTime()) && todayDate(new Date(date)) >= from && todayDate(new Date(date)) <= todayDate());
+  const bookings = data.bookings.filter((booking) => inPeriod(booking.created_at));
+  const issued = data.bookings.filter((booking) => booking.status === "issued" && inPeriod(booking.issued_at || booking.status_changed_at || booking.updated_at));
   return {
+    period,
     activeOffersCount: data.offers.filter((offer) => offer.status === "active" && offer.remaining_quantity > 0 && isOfferAvailableNow(offer)).length,
-    bookingsCount: data.bookings.length,
+    bookingsCount: bookings.length,
     issuedBookingsCount: issued.length,
-    noShowBookingsCount: data.bookings.filter((booking) => booking.status === "no_show").length,
-    estimatedRevenue: issued.reduce((sum, booking) => sum + (data.offers.find((offer) => offer.id === booking.offer_id)?.price || 0), 0),
+    noShowBookingsCount: bookings.filter((booking) => booking.status === "no_show").length,
+    estimatedRevenue: issued.reduce((sum, booking) => sum + (booking.price ?? 0), 0),
+    unknownIssuedAmountsCount: issued.filter((booking) => !booking.termsVerified).length,
     recentOffers: data.offers.slice(-5).reverse(),
     recentBookings: data.bookings.slice(-5).reverse()
   };

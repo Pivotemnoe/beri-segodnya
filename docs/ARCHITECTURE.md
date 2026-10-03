@@ -36,6 +36,12 @@ Public pages are rendered by `server.mjs` from the backend repository/storage la
 
 localStorage is no longer the source of truth. Old browser demo data is ignored.
 
+## Request and booking hardening (2026-10-03)
+
+The complete async HTTP callback has a rejection boundary. Static assets share `backend/utils/httpFile.mjs`: ordinary-file checks before 200, handled open/read failures and stream cleanup on disconnect. API exceptions retain their JSON envelope, while non-API decoder failures are controlled 400s.
+
+Booking creation atomically stores an immutable terms snapshot, unique code and optional retry-key hashes with the stock decrement. Legacy contracts are not reconstructed from current prices. Sellers use a limited server-enforced permission set and sanitized DTOs. The visible partner dashboard polls only operational data every 15 seconds; it does not repopulate profile/wizard drafts, overwrite an armed confirmation or promise background push.
+
 ## Storage choice
 
 JSON storage is an intentional dependency-free choice for a closed single-process pilot. Writes use a temporary file plus atomic rename. It is isolated behind repositories and must be replaced by PostgreSQL before multi-process operation or material growth.

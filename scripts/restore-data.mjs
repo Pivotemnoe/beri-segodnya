@@ -50,30 +50,59 @@ async function verifyManifest(source) {
   if (!sourceName.startsWith("db-")) return;
   const stamp = sourceName.slice(3);
   const manifestPath = path.join(path.dirname(source), `manifest-${stamp}.json`);
-  try {
-    const manifest = await validateJson(manifestPath);
-    if (manifest.database?.sha256 !== await hashFile(source)) throw new Error("Database backup checksum does not match manifest");
-  } catch (error) {
+  let manifest;
+  try { manifest = await validateJson(manifestPath); }
+  catch (error) {
     if (error.code !== "ENOENT") throw error;
-    console.log("Integrity manifest not found; JSON structure was validated.");
+    console.log("Legacy backup: integrity manifest is absent; only JSON structure can be verified.");
+    return null;
   }
+  if (manifest.version !== 1 || manifest.database?.file !== path.basename(source) || manifest.database?.sha256 !== await hashFile(source)) throw new Error("Database backup checksum or identity does not match manifest");
+  const expectedDirectory = `uploads-${stamp}`;
+  if (manifest.uploads?.directory !== null && manifest.uploads?.directory !== expectedDirectory) throw new Error("Invalid photo backup directory in manifest");
+  if (!Array.isArray(manifest.uploads?.files)) throw new Error("Photo manifest is incomplete");
+  if (manifest.uploads.directory === null && manifest.uploads.files.length) throw new Error("Photo manifest has files without a directory");
+  if (manifest.uploads.directory) await verifyPhotos(path.join(path.dirname(source), expectedDirectory), manifest.uploads.files);
+  return manifest;
+}
+
+async function photoManifest(directory, root = directory) {
+  const result = [];
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name);
+    if (entry.isSymbolicLink() || (!entry.isDirectory() && !entry.isFile())) throw new Error("Backup photos must contain only regular files and directories");
+    if (entry.isDirectory()) result.push(...await photoManifest(file, root));
+    else result.push({ path: path.relative(root, file), sha256: await hashFile(file) });
+  }
+  return result;
+}
+
+async function verifyPhotos(directory, expected) {
+  if (!(await fs.lstat(directory)).isDirectory()) throw new Error("Photo backup is not a regular directory");
+  const actual = await photoManifest(directory);
+  const normalize = (entries) => entries.map((entry) => {
+    if (typeof entry.path !== "string" || !/^[a-f0-9]{64}$/.test(entry.sha256 || "")) throw new Error("Invalid photo checksum entry");
+    return [entry.path, entry.sha256];
+  }).sort(([left], [right]) => left.localeCompare(right));
+  if (JSON.stringify(normalize(actual)) !== JSON.stringify(normalize(expected))) throw new Error("Photo backup file list or checksum does not match manifest");
 }
 
 async function main() {
   if (!restoreSource) {
     throw new Error("Usage: node scripts/restore-data.mjs backups/db-YYYY-MM-DD-HH-mm-ss.json");
   }
+  if (process.env.RESTORE_SERVER_STOPPED !== "true") throw new Error("Stop the application before restore, then set RESTORE_SERVER_STOPPED=true. Never restore under live writes.");
 
   await fs.access(restoreSource);
   await fs.access(targetPath);
   await validateJson(restoreSource);
-  await verifyManifest(restoreSource);
+  const manifest = await verifyManifest(restoreSource);
   await validateJson(targetPath);
   await fs.mkdir(backupDir, { recursive: true, mode: 0o700 });
   await fs.chmod(backupDir, 0o700);
 
   const ext = path.extname(targetPath) || ".json";
-  const stamp = timestamp();
+  const stamp = `${timestamp()}-${crypto.randomUUID()}`;
   const currentBackup = path.join(backupDir, `db-before-restore-${stamp}${ext}`);
   const currentUploadsBackup = path.join(backupDir, `uploads-before-restore-${stamp}`);
   await fs.copyFile(targetPath, currentBackup);
@@ -89,19 +118,30 @@ async function main() {
   await fs.copyFile(restoreSource, stagedDatabase);
   await validateJson(stagedDatabase);
   await fs.chmod(stagedDatabase, 0o600);
-  await fs.rename(stagedDatabase, targetPath);
-  await fs.chmod(targetPath, 0o600);
+  if (manifest && manifest.database.sha256 !== await hashFile(stagedDatabase)) throw new Error("Staged database checksum does not match manifest");
 
   const sourceName = path.basename(restoreSource, path.extname(restoreSource));
   const photoStamp = sourceName.startsWith("db-") ? sourceName.slice(3) : "";
-  const restoreUploads = photoStamp ? path.join(path.dirname(restoreSource), `uploads-${photoStamp}`) : "";
+  const restoreUploads = photoStamp && (!manifest || manifest.uploads.directory) ? path.join(path.dirname(restoreSource), `uploads-${photoStamp}`) : "";
+  const stagedUploads = `${uploadsPath}.restore-${stamp}`;
+  const displacedUploads = `${uploadsPath}.previous-${stamp}`;
+  let photosReady = false;
   if (restoreUploads) {
     try {
       await fs.access(restoreUploads);
-      const stagedUploads = `${uploadsPath}.restore-${stamp}`;
-      const displacedUploads = `${uploadsPath}.previous-${stamp}`;
       await fs.cp(restoreUploads, stagedUploads, { recursive: true, force: false });
       await secureTree(stagedUploads);
+      if (manifest?.uploads.directory) await verifyPhotos(stagedUploads, manifest.uploads.files);
+      photosReady = true;
+    } catch (error) {
+      if (error.code !== "ENOENT" || manifest?.uploads.directory) throw error;
+      console.log("Matching legacy photo backup not found; current photo directory was preserved.");
+    }
+  }
+  // Stage and verify the whole pair before the first live data replacement.
+  await fs.rename(stagedDatabase, targetPath);
+  try {
+    if (photosReady) {
       let displaced = false;
       try {
         await fs.rename(uploadsPath, displacedUploads);
@@ -115,12 +155,15 @@ async function main() {
         if (displaced) await fs.rename(displacedUploads, uploadsPath);
         throw error;
       }
-      if (displaced) await fs.rm(displacedUploads, { recursive: true, force: true });
+      if (displaced) await fs.rm(displacedUploads, { recursive: true, force: true }).catch((error) => console.warn(`Restored pair is active; previous photo staging was retained: ${error.code || "CLEANUP_FAILED"}`));
       console.log(`Restored photos from: ${restoreUploads}`);
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-      console.log("Matching photo backup not found; current photo directory was preserved.");
     }
+  } catch (error) {
+    // A failed photo switch must not leave the database on the other snapshot.
+    await fs.copyFile(currentBackup, stagedDatabase);
+    await fs.chmod(stagedDatabase, 0o600);
+    await fs.rename(stagedDatabase, targetPath);
+    throw error;
   }
 
   console.log(`Current data backed up: ${currentBackup}`);
