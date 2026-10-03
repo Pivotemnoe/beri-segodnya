@@ -1,5 +1,7 @@
 # Access
 
+Приложение использует собственную сессию. При первом входе рабочие разделы закрыты до смены временного пароля. Секреты не размещаются в Git. Порядок работы: [Инструкция администратора](ADMIN_WORKFLOW.md).
+
 Local URL:
 
 ```text
@@ -14,6 +16,7 @@ Public:
 - `/how-it-works`
 - `/partners`
 - `/contacts`
+- `/android`
 - `/privacy`
 - `/personal-data-consent`
 - `/terms`
@@ -33,6 +36,7 @@ Admin direct tabs:
 - `/admin?tab=bookings`
 - `/admin?tab=partner-applications`
 - `/admin?tab=contact-requests`
+- `/admin?tab=audit`
 - `/admin?tab=settings`
 
 Partner direct tabs:
@@ -42,6 +46,7 @@ Partner direct tabs:
 - `/partner/dashboard?tab=offers`
 - `/partner/dashboard?tab=bookings`
 - `/partner/dashboard?tab=profile`
+- `/partner/dashboard?tab=security`
 - `/partner/dashboard?tab=help`
 
 ## Preview Basic Auth
@@ -79,7 +84,9 @@ Environment variables:
 - `ADMIN_APP_PASSWORD_SALT`
 - `ADMIN_APP_PASSWORD_ITERATIONS`
 
-Admin app credentials are read from env and are not published in the repository. There is no admin password stored in `data/db.json`.
+These variables configure the initial administrator login only. After the required password change, the permanent administrator record is stored in `data/db.json` under `adminUsers`, as PBKDF2 hash, salt and iteration count, never as plain text. Protect the database, backups and environment file with private permissions. Existing permanent credentials take precedence over bootstrap environment credentials.
+
+`GET /api/admin/auth/me` returns only authentication state, own login, role and password-change requirement, not hashes or session tokens. Administrator partner lists include derived `canDelete`; this is a UI hint, not authorization. The deletion endpoint independently rechecks history and exact-name confirmation.
 
 ## Partner Cabinet
 
@@ -109,7 +116,7 @@ Partner applications from `/partners` can prefill the same onboarding form. The 
 
 - Check `.env.local` exists and has the expected variables.
 - Do not print or publish `.env.local` contents.
-- Check seed data: `node backend/db/seed.mjs`.
+- Check seed data only in an isolated local test database. Never reset or reseed live storage to troubleshoot a login.
 - Check storage exists: `data/db.json`.
 - Check server logs from `node server.mjs`.
 - Check cookies, especially `__Host-bs_session` on HTTPS or `bs_session` locally.

@@ -427,6 +427,7 @@ export function enrichBookings(bookings, db = readDb()) {
 export function listAdminData(name) {
   const db = readDb();
   if (name === "bookings") return enrichBookings(db.bookings, db);
+  if (name === "partners") return db.partners.map((partner) => ({ ...partner, canDelete: ![...db.offers, ...db.bookings, ...db.offerTemplates].some((item) => item.partner_id === partner.id) }));
   return db[name] || [];
 }
 

@@ -161,6 +161,21 @@ async function runScenario(port) {
   confirmationTimers.at(-1)();
   assert(!confirmationButton.dataset.confirmed, "Expired confirmation remained armed");
   assert(appScript.text.includes("confirmRiskyAction(button, true)"), "Correction form bypasses forced confirmation");
+  const filterSource = appScript.text.match(/function applyTableFilter\([\s\S]*?(?=\nfunction setupTableFilters)/)?.[0];
+  const filterRows = [
+    { dataset: {filterStatus:"Забронировано"}, textContent:"BS-1234 Выдан Не пришёл Отменить", hidden:false },
+    { dataset: {filterStatus:"Выдано"}, textContent:"BS-5678 Выдано", hidden:false }
+  ];
+  const filterEmpty = {hidden:true};
+  const applyFilter = new Script(filterSource + "; applyTableFilter;").runInNewContext({document:{querySelector:()=>({querySelectorAll:()=>filterRows,querySelector:()=>filterEmpty})}});
+  const group={dataset:{filterTarget:"bookings"},querySelector:(selector)=>({value:selector.includes("query")?"":"Выдано"})};
+  applyFilter(group);
+  assert(filterRows[0].hidden && !filterRows[1].hidden, "Booking filter matches action buttons instead of actual status");
+  group.querySelector=(selector)=>({value:selector.includes("query")?"BS-1234":""});
+  applyFilter(group);
+  assert(!filterRows[0].hidden && filterRows[1].hidden, "Booking card code search failed");
+  assert(appScript.text.includes('button[data-close-record-dialog]') && appScript.text.includes('recordOpener.focus') && appScript.text.includes('event.key === "Escape"'), "Record dialog close/focus behavior regressed");
+  assert(appScript.text.includes('if (mutationInFlight) return;') && appScript.text.includes('Действие выполнено, но список не обновился'), "Admin retry feedback or duplicate-save protection missing");
   const pwaIcon = await request(port, "/icons/icon-192.png", { auth: null });
   assert(pwaIcon.status === 200 && pwaIcon.headers["content-type"] === "image/png", "PWA icon is unavailable");
   const assetLinks = await request(port, "/.well-known/assetlinks.json", { auth: null });
@@ -189,7 +204,7 @@ async function runScenario(port) {
   assert(publicStyles.status === 200 && publicStyles.text.includes("scroll-margin-top: 92px"), "Sticky-header anchor offset is missing");
   const partnersPage = await request(port, "/partners");
   assert(partnersPage.status === 200 && partnersPage.text.includes("Пример интерфейса"), "Synthetic partner dashboard is not identified as an example");
-  assert(partnersPage.text.includes('placeholder="Шашлычная"') && partnersPage.text.includes('placeholder="ул. Ленина, 1"'), "Partner application still uses test-style examples");
+  assert(partnersPage.text.includes('placeholder="Название заведения"') && partnersPage.text.includes('placeholder="Улица и номер дома"'), "Partner application is missing neutral field hints");
   assert(!partnersPage.text.includes("Например: Заведение 1") && !partnersPage.text.includes("Например: ул. Тестовая, 1"), "Old partner application examples are still rendered");
   const androidPage = await request(port, "/android");
   assert(androidPage.status === 200 && androidPage.text.includes("Приложение «Бери сегодня»") && androidPage.text.includes('src="/icons/android-download-qr.svg"') && androidPage.text.includes('href="/downloads/beri-segodnya-android-0.1.0-pilot.apk"') && androidPage.text.includes("Скачать приложение"), "Android download page is unavailable or incomplete");
@@ -218,6 +233,11 @@ async function runScenario(port) {
   const adminPage = await request(port, "/admin", { auth: null });
   assert(adminPage.status === 200, "Admin login page must open without a second Basic Auth prompt");
   assertFormsUsePost(adminPage.text, "Admin page");
+  assert(!adminPage.text.includes("Тестовая кулинария") && !adminPage.text.includes("По регламенту"), "Admin still exposes test copy or unverified backup status");
+  for (const attr of ["data-admin-create-offer", "data-admin-create-address", "data-admin-create-user", "data-admin-reset-user-password"]) {
+    const body = adminPage.text.match(new RegExp("<form[^>]*" + attr + ">([\\s\\S]*?)</form>"))?.[1];
+    assert(body && !body.replace(/<label\b[^>]*>[\s\S]*?<\/label>/g, "").match(/<(?:input|select)\b[^>]*name=/), attr + " has an unlabelled field");
+  }
   const partnerLoginPage = await request(port, "/partner/login", { auth: null });
   assert(partnerLoginPage.status === 200, "Partner login page must open without a second Basic Auth prompt");
   assertFormsUsePost(partnerLoginPage.text, "Partner page");
@@ -242,6 +262,7 @@ async function runScenario(port) {
   let adminCookie = cookieFrom(adminLogin);
   const adminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic", cookie: adminCookie });
   assert(adminMe.status === 200 && adminMe.json.data.authenticated === true && adminMe.json.data.passwordChangeRequired === true, "Admin session probe failed");
+  assert(adminMe.json.data.login === adminApp.login && Object.keys(adminMe.json.data).sort().join(",") === "authenticated,login,passwordChangeRequired,role", "Admin session identity missing or unsafe fields exposed");
   const gatedAdminDashboard = await request(port, "/api/admin/dashboard", { auth: "adminBasic", cookie: adminCookie });
   assert(gatedAdminDashboard.status === 403 && gatedAdminDashboard.json.error.code === "PASSWORD_CHANGE_REQUIRED", "Admin bypassed required password change");
   const changedAdminPassword = "smoke-admin-permanent-password";
@@ -253,6 +274,8 @@ async function runScenario(port) {
   });
   assert(adminPasswordChange.status === 200 && cookieFrom(adminPasswordChange), "Admin password change failed");
   adminCookie = cookieFrom(adminPasswordChange);
+  const partnersForDeletion = await request(port, "/api/admin/partners", { auth: "adminBasic", cookie: adminCookie });
+  assert(partnersForDeletion.json.data.every((row) => row.canDelete === false), "Partners with offer history must not have deletion enabled");
   const safeAuditLog = await request(port, "/api/admin/audit-log", { auth: "adminBasic", cookie: adminCookie });
   assert(safeAuditLog.status === 200 && safeAuditLog.json.data.length > 0, "Admin audit log is unavailable");
   assert(safeAuditLog.json.data.every((row) => row.actorRole && row.action && row.entityType && row.createdAt && !row.metadata_json && !row.entity_id && !row.actor_id), "Admin audit log exposes unsafe internal fields");

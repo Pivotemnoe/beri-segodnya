@@ -238,7 +238,7 @@ async function handleAdmin(request, response, url) {
   if (request.method === "GET" && parts.join("/") === "auth/me") {
     const auth = requireAdmin(request);
     return ok(response, auth.ok
-      ? { authenticated: true, role: "admin", passwordChangeRequired: adminPasswordChangeRequired(auth.session) }
+      ? { authenticated: true, role: "admin", login: String(auth.session.user_id).replace(/^admin:/, ""), passwordChangeRequired: adminPasswordChangeRequired(auth.session) }
       : { authenticated: false });
   }
 
