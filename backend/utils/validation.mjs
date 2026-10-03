@@ -59,7 +59,7 @@ export const allowed = {
   contactStatuses: ["new", "in_progress", "closed", "archived"],
   requestTypes: ["venue_connection", "service_question", "partner_pilot", "order_question", "other"],
   locationsCount: ["1", "2-3", "4+", "unknown"],
-  userRoles: ["owner", "manager"],
+  userRoles: ["owner", "manager", "seller"],
   userStatuses: ["active", "disabled"],
   ctaLabels: ["Получить код", "Забронировать"]
 };

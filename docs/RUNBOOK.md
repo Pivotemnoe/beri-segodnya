@@ -54,13 +54,13 @@ Do not commit backups with real data.
 Restore from a backup:
 
 ```bash
-npm run restore:data -- backups/db-YYYY-MM-DD-HH-mm-ss.json
+RESTORE_SERVER_STOPPED=true npm run restore:data -- backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```
 
 Direct Node:
 
 ```bash
-node scripts/restore-data.mjs backups/db-YYYY-MM-DD-HH-mm-ss.json
+RESTORE_SERVER_STOPPED=true node scripts/restore-data.mjs backups/db-YYYY-MM-DD-HH-mm-ss.json
 ```
 
 ## Служебный сброс пароля партнёра
@@ -73,7 +73,7 @@ RESET_PARTNER_LOGIN='<login>' RESET_PARTNER_PASSWORD='<temporary-password>' node
 
 Команда требует точного единственного совпадения логина, отзывает старые сессии и включает обязательную смену временного пароля при следующем входе. Сам пароль в консоль и журнал аудита не выводится.
 
-The restore script creates backups of the current `data/db.json` and `data/uploads/` before replacing them. If a matching uploads backup is absent, the current photo directory is preserved.
+Перед восстановлением остановите приложение и исключите все другие записи в JSON. Переменная `RESTORE_SERVER_STOPPED=true` является подтверждением оператора, а не автоматической проверкой PM2. Храните тройку `db-...json`, `uploads-.../`, `manifest-...json` вместе. Скрипт проверяет хеш базы, полный список и хеш каждого фото до замены данных, повторно проверяет подготовленную копию и сохраняет текущие данные для возврата. Если манифест ожидает фото, их отсутствие запрещает восстановление. Старые копии без манифеста поддерживаются с явным предупреждением об ограниченной проверке. Когда копия не содержит каталога фото, текущие фото сохраняются.
 
 ## Manual pre-deploy scenarios
 

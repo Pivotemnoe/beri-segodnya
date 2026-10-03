@@ -44,6 +44,16 @@ node backend/db/seed.mjs
 node backend/db/reset.mjs
 ```
 
+## Booking contract (2026-10-03)
+
+New `bookings` include `terms_snapshot` version 1: immutable price/title/contents/allergens/weight/description, partner name, address/title, date/window, and capture time. Public/staff projections and issued amounts use that snapshot. No bulk rewrite of legacy records occurs: absent snapshots are marked unverified with `price=null`, excluded from amount totals, and counted separately.
+
+Optional `request_key_hash` and `request_fingerprint` deduplicate a UUID-labelled creation retry inside the same atomic JSON mutation; projections exclude these internal values. Codes are generated with cryptographic randomness, checked against every stored code, and expand after four-digit exhaustion. This still assumes exactly one writer/process.
+
+`status_changed_at`, `issued_at` support reporting. Cancellation stores whether it actually returned stock. `corrections` records administrator-only terminal corrections with reason, identity, time and stock delta; `auditLog` keeps an additional trace. Ordinary terminal transitions remain prohibited.
+
+Backups contain a matching database, photo tree and SHA-256 manifest. Restore validates the full pair and its staged copy before replacement, requires the operator's explicit stopped-server declaration and preserves pre-restore data. A legacy manifest-less restore remains possible with a warning. Off-server replication is not configured by these code changes.
+
 ## SQLite/PostgreSQL migration
 
 Replace `backend/storage/jsonStore.mjs` and repository internals. Keep service and API contracts stable. Use `backend/db/schema.sql` as the future schema entry point.

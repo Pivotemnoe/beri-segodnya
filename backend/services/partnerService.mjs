@@ -3,8 +3,14 @@ import { createAddress, createOfferTemplate, deleteCollectionItem, partnerDashbo
 import { createOfferInput, patchAddressInput, patchOfferInput, setBookingStatusInput } from "./adminService.mjs";
 import { partnerUploadFolder } from "../storage/imageStore.mjs";
 
-export function dashboard(partnerId) {
-  return partnerDashboard(partnerId);
+export function sellerBookingView(booking) {
+  const { id, code, status, offerTitle, pickupWindow, date, price, address, partnerName, termsVerified, created_at, updated_at, expires_at } = booking;
+  return { id, code, status, offerTitle, pickupWindow, date, price, address, partnerName, termsVerified, created_at, updated_at, expires_at };
+}
+
+export function dashboard(partnerId, period = "all", seller = false) {
+  const data = partnerDashboard(partnerId, period);
+  return seller ? { ...data, recentOffers: [], recentBookings: data.recentBookings.map(sellerBookingView) } : data;
 }
 
 export function profile(partnerId) {
@@ -167,13 +173,13 @@ export function deleteOwnTemplate(partnerId, id) {
   return template ? Boolean(patchCollectionItem("offerTemplates", id, { is_active: false }, "partner")) : false;
 }
 
-export function patchOwn(collection, partnerId, id, patch) {
+export function patchOwn(collection, partnerId, id, patch, actorId = partnerId) {
   const data = partnerScopedData(partnerId);
   const list = collection === "partnerAddresses" ? data.addresses : collection === "offers" ? data.offers : data.bookings;
   if (!list.some((item) => item.id === id)) return null;
   if (collection === "partnerAddresses") return patchAddressInput(partnerId, id, patch, "partner");
   if (collection === "offers") return patchOfferInput(id, patch, "partner");
-  if (collection === "bookings") return setBookingStatusInput(id, patch.status, "partner", partnerId);
+  if (collection === "bookings") return setBookingStatusInput(id, patch.status, "partner", actorId);
   return null;
 }
 

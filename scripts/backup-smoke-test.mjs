@@ -9,7 +9,7 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "beri-backup-smoke-"));
 const dbFile = path.join(tempDir, "data", "db.json");
 const uploadDir = path.join(tempDir, "data", "uploads");
 const backupDir = path.join(tempDir, "backups");
-const testEnv = { ...process.env, DB_FILE: dbFile, UPLOAD_DIR: uploadDir, BACKUP_DIR: backupDir };
+const testEnv = { ...process.env, DB_FILE: dbFile, UPLOAD_DIR: uploadDir, BACKUP_DIR: backupDir, RESTORE_SERVER_STOPPED: "true" };
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -51,6 +51,23 @@ try {
 
   fs.writeFileSync(dbFile, `${JSON.stringify({ version: "changed", bookings: [] }, null, 2)}\n`, { mode: 0o600 });
   fs.writeFileSync(path.join(uploadDir, "fixture.webp"), "changed-image", { mode: 0o600 });
+  const sourcePhotos = path.join(backupDir, uploadsName, "fixture.webp");
+  const originalPhoto = fs.readFileSync(sourcePhotos);
+  for (const failure of ["corrupt", "missing", "extra", "symlink", "running"]) {
+    if (failure === "corrupt") fs.writeFileSync(sourcePhotos, "corrupted-backup-photo");
+    if (failure === "missing") fs.unlinkSync(sourcePhotos);
+    if (failure === "extra") fs.writeFileSync(path.join(backupDir, uploadsName, "extra.webp"), "extra");
+    if (failure === "symlink") { fs.unlinkSync(sourcePhotos); fs.symlinkSync(path.join(uploadDir, "fixture.webp"), sourcePhotos); }
+    const result = spawnSync(process.execPath, [path.join(ROOT, "scripts/restore-data.mjs"), path.join(backupDir, dbName)], {
+      cwd: ROOT, env: { ...testEnv, RESTORE_SERVER_STOPPED: failure === "running" ? "false" : "true" }, encoding: "utf8"
+    });
+    assert(result.status !== 0, `Unsafe restore was accepted: ${failure}`);
+    assert(JSON.parse(fs.readFileSync(dbFile, "utf8")).version === "changed", `Failed restore changed database: ${failure}`);
+    assert(fs.readFileSync(path.join(uploadDir, "fixture.webp"), "utf8") === "changed-image", `Failed restore changed current photos: ${failure}`);
+    if (failure === "symlink") fs.unlinkSync(sourcePhotos);
+    fs.writeFileSync(sourcePhotos, originalPhoto);
+    if (failure === "extra") fs.unlinkSync(path.join(backupDir, uploadsName, "extra.webp"));
+  }
   run("restore-data.mjs", [path.join(backupDir, dbName)]);
   assert(JSON.parse(fs.readFileSync(dbFile, "utf8")).version === "original", "Database was not restored from verified backup");
   assert(fs.readFileSync(path.join(uploadDir, "fixture.webp"), "utf8") === "fixture-image", "Paired upload directory was not restored");

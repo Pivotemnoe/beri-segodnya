@@ -4,11 +4,13 @@ import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { Script } from "node:vm";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createPasswordHash, LEGACY_PASSWORD_ITERATIONS } from "../backend/utils/password.mjs";
 import { todayDate } from "../backend/utils/dates.mjs";
 import { validatePhone } from "../backend/utils/validation.mjs";
+import { runPilotHardeningScenario } from "./pilot-hardening-scenario.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
@@ -67,6 +69,8 @@ function request(port, route, { method = "GET", body, auth = "preview", cookie, 
     if (cookie) headers.Cookie = cookie;
     const req = http.request({ hostname: "127.0.0.1", port, path: route, method, headers }, (res) => {
       const chunks = [];
+      res.on("error", reject);
+      res.on("aborted", () => reject(new Error("Response aborted")));
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => {
         const responseBody = Buffer.concat(chunks);
@@ -81,6 +85,7 @@ function request(port, route, { method = "GET", body, auth = "preview", cookie, 
       });
     });
     req.on("error", reject);
+    req.setTimeout(5000, () => req.destroy(new Error("Request timed out")));
     if (body !== undefined) req.write(typeof body === "string" ? body : JSON.stringify(body));
     req.end();
   });
@@ -135,6 +140,27 @@ async function runScenario(port) {
   assert(publicScript.text.includes("setupRussianPhoneInputs") && publicScript.text.includes("data-russian-phone"), "Russian phone mask is missing from the public browser script");
   const appScript = await request(port, "/app.js", { auth: null });
   assert(appScript.status === 200 && appScript.text.includes("setupPasswordVisibility") && appScript.text.includes("data-password-toggle"), "Password visibility controls are missing from the application script");
+  new Script(publicScript.text, { filename: "served-public.js" });
+  new Script(appScript.text, { filename: "served-app.js" });
+  const confirmationSource = appScript.text.match(/function confirmRiskyAction\([\s\S]*?(?=\nfunction trapAppFocus)/)?.[0];
+  assert(confirmationSource, "Two-step confirmation helper is missing");
+  const confirmationTimers = [];
+  const confirmAction = new Script(confirmationSource + "; confirmRiskyAction;").runInNewContext({
+    notify: () => {}, window: { setTimeout: (callback) => confirmationTimers.push(callback) }
+  });
+  const confirmationButton = {
+    dataset: { confirmLabel: "BS-1234: Не пришёл?" }, textContent: "Сохранить корректировку", isConnected: true,
+    hasAttribute: () => false, classList: { add: () => {}, remove: () => {} }
+  };
+  assert(confirmAction(confirmationButton) === true, "Unmarked ordinary buttons changed behavior");
+  assert(confirmAction(confirmationButton, true) === false, "First correction click executed immediately");
+  assert(confirmationButton.textContent === "BS-1234: Не пришёл?", "Confirmation lost the specific booking code");
+  assert(confirmAction(confirmationButton, true) === true, "Second correction click did not execute");
+  assert(!confirmationButton.dataset.confirmed && confirmationButton.textContent === "Сохранить корректировку", "Confirmation state was not cleared");
+  assert(confirmAction(confirmationButton, true) === false, "Next correction did not require a new confirmation");
+  confirmationTimers.at(-1)();
+  assert(!confirmationButton.dataset.confirmed, "Expired confirmation remained armed");
+  assert(appScript.text.includes("confirmRiskyAction(button, true)"), "Correction form bypasses forced confirmation");
   const pwaIcon = await request(port, "/icons/icon-192.png", { auth: null });
   assert(pwaIcon.status === 200 && pwaIcon.headers["content-type"] === "image/png", "PWA icon is unavailable");
   const assetLinks = await request(port, "/.well-known/assetlinks.json", { auth: null });
@@ -613,6 +639,7 @@ async function runScenario(port) {
   assert(largeBody.status === 413 && largeBody.json.error.code === "BODY_TOO_LARGE", "Request body limit is not enforced");
 
   const persisted = JSON.parse(fs.readFileSync(dbFile, "utf8"));
+  await runPilotHardeningScenario(port, request, { adminCookie, partnerCookie, dbFile, suffix });
   assert(persisted.sessions.length >= 2, "Server sessions were not persisted");
   assert(persisted.sessions.every((session) => session.id_hash && !session.id), "Raw session token was persisted");
   const storedBooking = persisted.bookings.find((item) => item.id === booking.json.data.bookingId);

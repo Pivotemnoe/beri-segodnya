@@ -23,7 +23,9 @@ The environment credential is a bootstrap credential only. On the first successf
 
 ## Partner
 
-Partner uses one login from `partnerUsers`. A successful login creates an HttpOnly session bound to `partner_id`, `user_id` and the current owner/manager role. Every protected request reloads the user and partner status; disabling the user, changing the role/password, or disabling the partner revokes existing sessions.
+Partner uses individual logins from `partnerUsers`. A successful login creates an HttpOnly session bound to `partner_id`, `user_id` and the current owner/manager/seller role. Every protected request reloads the user and partner status; disabling the user, changing the role/password, or disabling the partner revokes existing sessions.
+
+Owner retains full own-organization access. Manager keeps operational offer/template/upload/booking access and read-only profile/addresses. Seller is limited to dashboard/bookings and `issued`/`no_show`, without contact/capability data. Unknown roles receive no permissions. A browser wizard draft is scoped by partner and user IDs; shared legacy draft data is not loaded.
 
 New partner users and users whose password was reset by an administrator have `must_change_password=true`. They may call only the session probe, logout and password-change endpoints until they replace the temporary password. Transparent PBKDF2 rehashing does not clear this flag.
 
@@ -47,6 +49,8 @@ Flags:
 - Secure in production
 
 Changing an administrator or partner password revokes the role/user's other active sessions and issues one fresh session to the browser that completed the change.
+
+Cookie parsing preserves one decoding pass, duplicate-name last-wins behavior and `__Host-bs_session` precedence. Any malformed encoded value is rejected with 400, not silently dropped to authenticate using a lower-priority cookie.
 
 ## Rate limit
 
