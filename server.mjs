@@ -4870,6 +4870,8 @@ body { background: var(--color-bg); }
 .page-app .tab-nav a.active { border-color: #073b4c; background: #073b4c; }
 .page-app .stats-row small { color: #0b646a; }
 .page-app .data-table button { color: #0b646a; }
+.page-app .data-table .table-action.primary { color: white; background: #b84a2b; border-color: #b84a2b; }
+.page-app .data-table .table-action.confirming { color: #8f321f; background: #fff2ee; border-color: #b84a2b; }
 .workspace-header {
   width: 100%;
   min-height: 68px;
