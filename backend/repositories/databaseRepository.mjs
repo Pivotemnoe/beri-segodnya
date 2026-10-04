@@ -431,6 +431,39 @@ export function listAdminData(name) {
   return db[name] || [];
 }
 
+export function listAdminAuditLog() {
+  const db = readDb();
+  const references = new Map();
+  const referenceFields = { bookings: ["booking", "code"], partners: ["partner", "name"], offers: ["offer", "title"], partnerAddresses: ["partner_address", "title"], partnerUsers: ["partner_user", "name"], offerTemplates: ["offer_template", "title"], partnerApplications: ["partner_application", "venue_name"], contactRequests: ["contact_request", "name"] };
+  const entityAliases = {};
+  for (const [collection, [entityType, field]] of Object.entries(referenceFields)) {
+    entityAliases[collection] = entityType;
+    for (const record of db[collection] || []) references.set(entityType + ":" + record.id, typeof record[field] === "string" ? record[field].slice(0, 160) : null);
+  }
+  const statuses = new Set(["active", "paused", "disabled", "archived", "created", "issued", "no_show", "cancelled", "new", "contacted", "approved", "rejected", "in_progress", "closed"]);
+  const safeStatus = (value) => statuses.has(value) ? value : null;
+  return db.auditLog.map((row) => {
+    let metadata = {};
+    try {
+      const parsed = JSON.parse(row.metadata_json || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed;
+    } catch {}
+    const entityType = entityAliases[row.entity_type] || row.entity_type;
+    const bookingStatusEvent = entityType === "booking" && ["set_booking_status", "correct_booking_status"].includes(row.action);
+    const patchEvent = String(row.action).startsWith("patch_");
+    return {
+      actorRole: row.actor_role,
+      action: row.action,
+      entityType,
+      createdAt: row.created_at,
+      referenceLabel: references.get(entityType + ":" + row.entity_id) || null,
+      previousStatus: bookingStatusEvent ? safeStatus(metadata.from) : null,
+      status: bookingStatusEvent ? safeStatus(metadata.to) : patchEvent ? safeStatus(metadata.status) : null,
+      reason: row.action === "correct_booking_status" && entityType === "booking" && typeof metadata.reason === "string" ? metadata.reason.slice(0, 500) : null
+    };
+  });
+}
+
 export function createPartner(data) {
   return updateDb((db) => {
     const time = nowIso();

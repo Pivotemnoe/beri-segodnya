@@ -57,6 +57,8 @@ Requires an admin app session unless the endpoint is login. Optional admin Basic
 - `DELETE /api/admin/contact-requests/:id`
 - `GET /api/admin/audit-log`
 
+`GET /api/admin/audit-log` возвращает только административной сессии `actorRole`, `action`, нормализованный `entityType`, `createdAt`, `referenceLabel`, `previousStatus`, `status`, `reason`. Контекст выбирается по разрешённым полям: код брони либо текущее название/имя записи, известные статусы и причина только для `correct_booking_status`. Названия не являются историческим снимком; у удалённой записи `referenceLabel` равен `null`. Некорректные старые метаданные игнорируются. Сырые метаданные, внутренние идентификаторы, сеансы, пароли, телефоны и текст обращений не возвращаются этим методом.
+
 `PATCH /api/admin/partners/:partnerId/users/:userId` с полем `password` задаёт временный пароль, отзывает активные сеансы пользователя и устанавливает обязательную смену пароля при следующем входе. Хеш, соль и исходный пароль в ответ не возвращаются.
 
 ## Partner

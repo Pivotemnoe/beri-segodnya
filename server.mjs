@@ -1117,7 +1117,7 @@ function adminPage() {
         <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Брони и коды</h3><p>Найдите код покупателя. Проверьте заведение, время получения и цену. Отмечайте «Выдан» только после передачи заказа.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-bookings]"><input type="search" placeholder="Найти код или покупателя" data-filter-query /><select data-filter-status aria-label="Статус брони"><option value="">Все статусы</option><option value="Забронировано">Текущие</option><option value="Выдано">Выданные</option><option value="Не пришёл">Не полученные</option><option value="Отменено">Отменённые</option></select></div></div><div class="staff-booking-list" data-admin-bookings></div><details class="advanced-offer-editor"><summary>Исправить ошибочную отметку</summary><p>Только для завершённой брони. Укажите причину. Отмена здесь не возвращает продукты в остаток автоматически; сначала проверьте фактическую выдачу.</p><form class="mini-form labelled-form" method="post" data-admin-correct-booking><label>Бронь<select name="bookingId" required data-admin-correction-select><option value="">Выберите код</option></select></label><label>Правильный результат<select name="status"><option value="issued">Выдано</option><option value="no_show">Не пришёл</option><option value="cancelled">Отменено</option></select></label><label>Причина<textarea name="reason" required minlength="10" maxlength="500" rows="3" placeholder="Что произошло и что проверили"></textarea></label><button class="button button-outline" type="submit">Сохранить корректировку</button></form></details></article>
         <article class="panel-card tab-panel" data-tab-panel="partner-applications"><div class="panel-heading"><div><h3>Заявки партнёров</h3><p>Здесь появляются заявки со страницы «Для заведений». Откройте заявку, свяжитесь с представителем, затем подключите или отклоните.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-applications]"><input type="search" placeholder="Найти заведение или контакт" data-filter-query /><select data-filter-status aria-label="Статус заявки"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="Связались">Связались</option><option value="Подключён">Подключённые</option><option value="Отклонено">Отклонённые</option></select></div></div><div class="table-wrap" data-admin-applications></div></article>
         <article class="panel-card tab-panel" data-tab-panel="contact-requests"><div class="panel-heading"><div><h3>Обращения</h3><p>Сообщения со страницы «Контакты». Свяжитесь с человеком по указанному телефону или почте. «В работу» и «Закрыть» меняют только отметку в кабинете — ответ автоматически не отправляется.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-contacts]"><input type="search" placeholder="Найти обращение" data-filter-query /><select data-filter-status aria-label="Статус обращения"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="В работе">В работе</option><option value="Закрыто">Закрытые</option></select></div></div><div class="table-wrap" data-admin-contacts></div></article>
-        <article class="panel-card tab-panel" data-tab-panel="audit"><div class="panel-heading"><div><h3>Журнал действий</h3><p>Здесь видно, когда менялись предложения, брони и доступы. Можно найти нужное действие или отобрать записи по роли. Пароли в журнал не попадают.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-audit]"><input type="search" placeholder="Найти действие" data-filter-query /><select data-filter-status aria-label="Роль в журнале"><option value="">Все роли</option><option value="Администратор">Администратор</option><option value="Партнёр">Партнёр</option><option value="Сервис">Сервис</option></select></div></div><div class="table-wrap" data-admin-audit></div></article>
+        <article class="panel-card tab-panel" data-tab-panel="audit"><div class="panel-heading"><div><h3>Журнал действий</h3><p>Найдите код брони, название или действие. У исправленной выдачи видны прежний результат, новый результат и причина. Названия показаны по текущим записям; у удалённых записей название может отсутствовать. Пароли и содержимое обращений здесь не показываются.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-audit]"><input type="search" placeholder="Найти код, название или действие" data-filter-query /><select data-filter-status aria-label="Роль в журнале"><option value="">Все роли</option><option value="Администратор">Администратор</option><option value="Партнёр">Партнёр</option><option value="Сервис">Сервис</option></select></div></div><div class="table-wrap" data-admin-audit></div></article>
         <article class="panel-card tab-panel" data-tab-panel="settings"><div class="settings-grid"><section><h3>Сменить пароль администратора</h3><form class="mini-form labelled-form" method="post" data-admin-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сменить пароль</button></form></section><section><h3>Что проверять каждый день</h3><ul class="check-list"><li>Откройте новые заявки и свяжитесь с представителями заведений.</li><li>Проверьте адреса, цены, количество и время получения в предложениях.</li><li>Посмотрите брони. Ошибочную отметку выдачи исправляйте с объяснением причины.</li><li>После ответа закрывайте обращения, чтобы было видно, кому ещё нужна помощь.</li></ul><p>Для нового пароля нужно не менее 12 символов. Сохраните его в надёжном месте. После смены пароля остальные входы в этот кабинет закроются.</p></section></div></article>
       </div>
     </div>
@@ -1953,7 +1953,9 @@ const AUDIT_ACTION_LABELS = {
   create_partner: "Создан партнёр", onboard_partner: "Подключён партнёр", correct_booking_status: "Исправлен результат выдачи", create_partner_from_application: "Партнёр создан из заявки",
   create_address: "Добавлена точка", create_offer: "Создано предложение", create_offer_template: "Создан шаблон", create_partner_user: "Добавлен сотрудник",
   revoke_user_sessions: "Закрыты сеансы сотрудника", revoke_partner_sessions: "Закрыты сеансы партнёра", revoke_role_sessions: "Закрыты активные входы", rehash_partner_password: "Обновлена защита пароля",
-  change_partner_password: "Партнёр сменил пароль", change_admin_password: "Администратор сменил пароль", archive_partner: "Партнёр перенесён в архив", delete_partner: "Партнёр удалён"
+  change_partner_password: "Партнёр сменил пароль", change_admin_password: "Администратор сменил пароль", archive_partner: "Партнёр перенесён в архив", delete_partner: "Партнёр удалён",
+  patch_contactRequests: "Изменён статус обращения", patch_partnerApplications: "Изменён статус заявки", patch_partners: "Изменены данные партнёра", patch_partnerAddresses: "Изменена точка получения", patch_partnerUsers: "Изменены данные сотрудника", patch_offers: "Изменено предложение", patch_offerTemplates: "Изменён шаблон",
+  delete_contactRequests: "Удалено обращение", delete_partnerApplications: "Удалена заявка партнёра"
 };
 
 const AUDIT_ENTITY_LABELS = {
@@ -1978,6 +1980,14 @@ function auditActionLabel(value) {
 
 function auditEntityLabel(value) {
   return AUDIT_ENTITY_LABELS[value] || "Запись сервиса";
+}
+
+function auditDetailsLabel(row) {
+  const details = [];
+  if (row.previousStatus && row.status) details.push(statusLabel(row.previousStatus) + " → " + statusLabel(row.status));
+  else if (row.status) details.push("Новый статус: " + statusLabel(row.status));
+  if (row.reason) details.push("Причина: " + row.reason);
+  return details.join(". ") || "—";
 }
 
 function auditActorLabel(value) {
@@ -2372,7 +2382,7 @@ async function setupAdmin() {
     }).join('') : '<p class="empty-state">Броней пока нет. Заказы покупателей появятся здесь.</p>';
     document.querySelector("[data-admin-applications]").innerHTML = table(applications.slice().reverse(), [{ label: "Заведение", value: "venue_name" }, { label: "Контакт", value: "contact_name" }, { label: "Телефон", value: "phone" }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-view-application="' + row.id + '">Открыть</button> ' + (row.status === "new" ? '<button class="table-action" data-application-status="' + row.id + '" data-status="contacted">Связались</button> ' : '') + (row.status === "approved" ? '' : '<button class="table-action primary" data-use-application="' + row.id + '">Подключить</button> <button class="table-action" data-confirm-action data-application-status="' + row.id + '" data-status="rejected">Отклонить</button> ') + '<button class="table-action danger" data-confirm-action data-delete-application="' + row.id + '">Удалить</button>');
     document.querySelector("[data-admin-contacts]").innerHTML = table(contacts.slice().reverse(), [{ label: "Имя", value: "name" }, { label: "Телефон", value: "phone" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-view-contact="' + row.id + '">Открыть</button> ' + (row.status === "closed" ? '' : '<button class="table-action" data-contact-status="' + row.id + '" data-status="in_progress">В работу</button> <button class="table-action" data-confirm-action data-contact-status="' + row.id + '" data-status="closed">Закрыть</button> ') + '<button class="table-action danger" data-confirm-action data-delete-contact="' + row.id + '">Удалить</button>');
-    document.querySelector("[data-admin-audit]").innerHTML = table(auditLog.slice().reverse(), [{ label: "Время", value: (row) => dateTimeLabel(row.createdAt) }, { label: "Роль", value: (row) => auditActorLabel(row.actorRole) }, { label: "Действие", value: (row) => auditActionLabel(row.action) }, { label: "Объект", value: (row) => auditEntityLabel(row.entityType) }]);
+    document.querySelector("[data-admin-audit]").innerHTML = table(auditLog.slice().reverse(), [{ label: "Время", value: (row) => dateTimeLabel(row.createdAt) }, { label: "Роль", value: (row) => auditActorLabel(row.actorRole) }, { label: "Действие", value: (row) => auditActionLabel(row.action) }, { label: "Объект", value: (row) => auditEntityLabel(row.entityType) + (row.referenceLabel ? " · " + row.referenceLabel : "") }, { label: "Подробности", value: auditDetailsLabel }]);
     setupTableFilters(document.querySelector("[data-admin-app]"));
     activateTabs(null, true);
     document.querySelector("[data-admin-updated]").textContent = "Обновлено в " + new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date());
@@ -3868,6 +3878,12 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-primary); 
   font-size: 12px;
   text-transform: uppercase;
 }
+[data-admin-audit] .data-table { table-layout: fixed; min-width: 850px; }
+[data-admin-audit] .data-table th:nth-child(1) { width: 140px; }
+[data-admin-audit] .data-table th:nth-child(2) { width: 130px; }
+[data-admin-audit] .data-table th:nth-child(3) { width: 190px; }
+[data-admin-audit] .data-table th:nth-child(4) { width: 190px; }
+[data-admin-audit] .data-table td:nth-child(4), [data-admin-audit] .data-table td:nth-child(5) { overflow-wrap: anywhere; }
 .data-table button {
   min-height: 32px;
   border: 1px solid var(--color-border);
@@ -4244,6 +4260,7 @@ body { background: var(--color-bg); }
 .panel-heading h3, .panel-heading p { margin: 0; }
 .panel-heading p { margin-top: 5px; color: var(--color-muted); font-size: 14px; }
 .panel-heading input { width: min(100%, 260px); }
+[data-tab-panel="audit"] .panel-heading .table-filters { flex-shrink: 0; }
 .table-action {
   min-height: 34px;
   margin: 2px;
