@@ -107,6 +107,29 @@ export async function runPilotHardeningScenario(port, request, { adminCookie, pa
   const corrected = await admin(`/api/admin/bookings/${record.id}/correction`, { method: "PATCH", body: correctionInput });
   assert.equal(corrected.status, 200);
   assert.equal(corrected.json.data.corrections.length, 1);
+  const audit = await admin("/api/admin/audit-log");
+  const correctionAudit = audit.json.data.find((row) => row.action === "correct_booking_status" && row.referenceLabel === record.code);
+  assert.equal(correctionAudit?.previousStatus, "issued");
+  assert.equal(correctionAudit?.status, "no_show");
+  assert.equal(correctionAudit?.reason, correctionInput.reason);
+  assert.equal((await owner("/api/admin/audit-log")).status, 403, "Partner can read the administrative audit log");
+  const auditFixtures = JSON.parse(fs.readFileSync(dbFile, "utf8"));
+  const fixtureBase = { actor_role: "admin", actor_id: "private-actor", entity_type: "contactRequests", entity_id: "deleted-test-contact", created_at: record.created_at };
+  auditFixtures.auditLog.push(
+    { ...fixtureBase, id: "audit-malformed-test", action: "patch_contactRequests", metadata_json: "{broken" },
+    { ...fixtureBase, id: "audit-secret-test", action: "patch_contactRequests", metadata_json: JSON.stringify({ status: "unknown-private-status", password: "never-expose-test-password", token: "never-expose-test-token", reason: "never-expose-unrelated-reason", message: "never-expose-test-message" }) }
+  );
+  fs.writeFileSync(dbFile, JSON.stringify(auditFixtures), { mode: 0o600 });
+  const safeAudit = await admin("/api/admin/audit-log");
+  assert.equal(safeAudit.status, 200, "Malformed old audit metadata stopped the endpoint");
+  assert.ok(!safeAudit.text.includes("never-expose") && !safeAudit.text.includes("private-actor") && !safeAudit.text.includes("deleted-test-contact"), "Audit leaked internal or unapproved data");
+  for (const row of safeAudit.json.data.slice(-2)) {
+    assert.equal(row.entityType, "contact_request");
+    assert.equal(row.referenceLabel, null);
+    assert.equal(row.previousStatus, null);
+    assert.equal(row.status, null);
+    assert.equal(row.reason, null);
+  }
   assert.equal((await admin(`/api/admin/bookings/${record.id}/correction`, { method: "PATCH", body: correctionInput })).status, 409, "Stale correction was accepted");
   assert.equal((await owner("/api/partner/offers")).json.data.find((row) => row.id === offer.id).remaining_quantity, 7, "Correction invented a physical stock return");
   assert.equal((await owner("/api/partner/dashboard?period=today")).json.data.estimatedRevenue, 0);

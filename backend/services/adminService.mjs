@@ -15,6 +15,7 @@ import {
   deleteCollectionItem,
   deletePartnerPermanently,
   listAdminData,
+  listAdminAuditLog,
   patchCollectionItem,
   setBookingStatus
 } from "../repositories/databaseRepository.mjs";
@@ -112,12 +113,7 @@ export function dashboard() {
 }
 
 export function auditLog() {
-  return listAdminData("auditLog").map((row) => ({
-    actorRole: row.actor_role,
-    action: row.action,
-    entityType: row.entity_type,
-    createdAt: row.created_at
-  }));
+  return listAdminAuditLog();
 }
 
 export function list(collection) {

@@ -142,6 +142,17 @@ async function runScenario(port) {
   assert(appScript.status === 200 && appScript.text.includes("setupPasswordVisibility") && appScript.text.includes("data-password-toggle"), "Password visibility controls are missing from the application script");
   new Script(publicScript.text, { filename: "served-public.js" });
   new Script(appScript.text, { filename: "served-app.js" });
+  const auditLabelsSource = appScript.text.match(/const STATUS_LABELS[\s\S]*?(?=\nfunction auditActorLabel)/)?.[0];
+  const escapeSource = appScript.text.match(/function escapeHtml\([\s\S]*?(?=\nasync function api)/)?.[0];
+  const tableSource = appScript.text.match(/function table\([\s\S]*?(?=\nfunction applyTableFilter)/)?.[0];
+  assert(auditLabelsSource && escapeSource && tableSource, "Audit presentation helpers are missing");
+  const auditView = new Script(auditLabelsSource + escapeSource + tableSource + "; ({ auditDetailsLabel, auditActionLabel, auditEntityLabel, table });").runInNewContext();
+  const auditDetails = auditView.auditDetailsLabel({ previousStatus: "issued", status: "no_show", reason: '<img src=x onerror="alert(1)">' });
+  assert(auditDetails.startsWith("Выдано → Не пришёл. Причина:"), "Audit status correction is not explained in human language");
+  assert(auditView.auditDetailsLabel({ status: "closed" }) === "Новый статус: Закрыто", "Contact status was lost from the audit");
+  assert(auditView.auditActionLabel("patch_contactRequests") === "Изменён статус обращения", "Contact actions still have generic labels");
+  const renderedAudit = auditView.table([{ detail: auditDetails }], [{ label: "Подробности", value: "detail" }]);
+  assert(!renderedAudit.includes("<img") && renderedAudit.includes("&lt;img"), "Audit reasons can inject markup into the table");
   const confirmationSource = appScript.text.match(/function confirmRiskyAction\([\s\S]*?(?=\nfunction trapAppFocus)/)?.[0];
   assert(confirmationSource, "Two-step confirmation helper is missing");
   const confirmationTimers = [];
@@ -252,6 +263,7 @@ async function runScenario(port) {
   assert(anonymousPartnerMe.status === 200 && anonymousPartnerMe.json.data.authenticated === false, "Anonymous partner session probe failed");
   const adminGate = await request(port, "/api/admin/dashboard", { auth: "adminBasic" });
   assert(adminGate.status === 401, "Admin dashboard must require app session");
+  assert((await request(port, "/api/admin/audit-log", { auth: "adminBasic" })).status === 401, "Anonymous visitor can read the audit log");
 
   const adminLogin = await request(port, "/api/admin/auth/login", {
     auth: "adminBasic",
@@ -279,6 +291,7 @@ async function runScenario(port) {
   const safeAuditLog = await request(port, "/api/admin/audit-log", { auth: "adminBasic", cookie: adminCookie });
   assert(safeAuditLog.status === 200 && safeAuditLog.json.data.length > 0, "Admin audit log is unavailable");
   assert(safeAuditLog.json.data.every((row) => row.actorRole && row.action && row.entityType && row.createdAt && !row.metadata_json && !row.entity_id && !row.actor_id), "Admin audit log exposes unsafe internal fields");
+  assert(safeAuditLog.json.data.every((row) => Object.keys(row).sort().join(",") === "action,actorRole,createdAt,entityType,previousStatus,reason,referenceLabel,status"), "Audit DTO contains unapproved fields");
 
   const onboarded = await request(port, "/api/admin/partners/onboard", {
     auth: "adminBasic",
@@ -409,6 +422,10 @@ async function runScenario(port) {
     body: { name: "Тест", phone: "+7 900 000-00-00", email: "test@example.test", type: "service_question", message: "Изолированный smoke test", personalDataConsent: true }
   });
   assert(contact.status === 201 && contact.json.ok, "Contact request failed");
+  const contactStatusChange = await request(port, `/api/admin/contact-requests/${contact.json.data.id}/status`, { auth: "adminBasic", cookie: adminCookie, method: "PATCH", body: { status: "in_progress" } });
+  assert(contactStatusChange.status === 200, "Admin contact status change failed");
+  const contactAudit = (await request(port, "/api/admin/audit-log", { auth: "adminBasic", cookie: adminCookie })).json.data.find((row) => row.action === "patch_contactRequests" && row.referenceLabel === "Тест");
+  assert(contactAudit?.entityType === "contact_request" && contactAudit.status === "in_progress" && contactAudit.previousStatus === null && contactAudit.reason === null, "Contact audit lost safe context or invented a previous status");
 
   const partnerLogin = await request(port, "/api/partner/auth/login", {
     auth: "partnerBasic",
