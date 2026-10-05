@@ -11,6 +11,7 @@ import { createPasswordHash, LEGACY_PASSWORD_ITERATIONS } from "../backend/utils
 import { todayDate } from "../backend/utils/dates.mjs";
 import { validatePhone } from "../backend/utils/validation.mjs";
 import { runPilotHardeningScenario } from "./pilot-hardening-scenario.mjs";
+import { runClientPhotoChecks } from "./client-photo-checks.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
@@ -142,11 +143,28 @@ async function runScenario(port) {
   assert(appScript.status === 200 && appScript.text.includes("setupPasswordVisibility") && appScript.text.includes("data-password-toggle"), "Password visibility controls are missing from the application script");
   new Script(publicScript.text, { filename: "served-public.js" });
   new Script(appScript.text, { filename: "served-app.js" });
+  await runClientPhotoChecks(appScript.text);
+  const presentationSource = publicScript.text.match(/function publicBookingPresentation\([\s\S]*?(?=\n  var bookingPageRoot)/)?.[0];
+  assert(presentationSource, "Status-specific booking presentation is missing");
+  const presentation = new Script(presentationSource + "; publicBookingPresentation;").runInNewContext();
+  assert(presentation("created").helpHtml.includes("Оплатите набор в магазине") && presentation("created").priceLabel === "К оплате", "Active booking lost pickup instructions");
+  for (const status of ["issued", "no_show", "cancelled"]) {
+    const view = presentation(status);
+    assert(!view.helpHtml.includes("Приходите") && !view.helpHtml.includes("Оплатите") && !view.helpHtml.includes("Покажите код"), "Completed booking still asks for pickup: " + status);
+    assert(view.priceLabel === "Цена в брони" && view.priceSuffix === " ₽" && !view.caption.includes("Оплата"), "Completed booking invents an amount still owed");
+  }
+  assert(!presentation("issued").helpHtml.includes("Оплачено"), "Handover is presented as verified payment");
   const auditLabelsSource = appScript.text.match(/const STATUS_LABELS[\s\S]*?(?=\nfunction auditActorLabel)/)?.[0];
   const escapeSource = appScript.text.match(/function escapeHtml\([\s\S]*?(?=\nasync function api)/)?.[0];
   const tableSource = appScript.text.match(/function table\([\s\S]*?(?=\nfunction applyTableFilter)/)?.[0];
+  const actorLabelsSource = appScript.text.match(/function auditActorLabel\([\s\S]*?(?=\nfunction dateTimeLabel)/)?.[0];
   assert(auditLabelsSource && escapeSource && tableSource, "Audit presentation helpers are missing");
-  const auditView = new Script(auditLabelsSource + escapeSource + tableSource + "; ({ auditDetailsLabel, auditActionLabel, auditEntityLabel, table });").runInNewContext();
+  assert(actorLabelsSource, "Audit actor presentation is missing");
+  const auditView = new Script(auditLabelsSource + actorLabelsSource + escapeSource + tableSource + "; ({ auditDetailsLabel, auditActionLabel, auditEntityLabel, auditActorNameLabel, table });").runInNewContext();
+  assert(auditView.auditActorNameLabel({actorRole: "partner", actorName: "Тестовый продавец"}) === "Тестовый продавец", "Staff name is not shown");
+  assert(auditView.auditActorNameLabel({actorRole: "partner", actorName: null}) === "Сотрудник не указан", "Old audit row invents a staff name");
+  const actorMarkup = auditView.table([{actorName: '<img src=x onerror="alert(1)">'}], [{label: "Кто выполнил", value: auditView.auditActorNameLabel}]);
+  assert(!actorMarkup.includes("<img") && actorMarkup.includes("&lt;img"), "Audit actor name can inject markup");
   const auditDetails = auditView.auditDetailsLabel({ previousStatus: "issued", status: "no_show", reason: '<img src=x onerror="alert(1)">' });
   assert(auditDetails.startsWith("Выдано → Не пришёл. Причина:"), "Audit status correction is not explained in human language");
   assert(auditView.auditDetailsLabel({ status: "closed" }) === "Новый статус: Закрыто", "Contact status was lost from the audit");
@@ -291,7 +309,7 @@ async function runScenario(port) {
   const safeAuditLog = await request(port, "/api/admin/audit-log", { auth: "adminBasic", cookie: adminCookie });
   assert(safeAuditLog.status === 200 && safeAuditLog.json.data.length > 0, "Admin audit log is unavailable");
   assert(safeAuditLog.json.data.every((row) => row.actorRole && row.action && row.entityType && row.createdAt && !row.metadata_json && !row.entity_id && !row.actor_id), "Admin audit log exposes unsafe internal fields");
-  assert(safeAuditLog.json.data.every((row) => Object.keys(row).sort().join(",") === "action,actorRole,createdAt,entityType,previousStatus,reason,referenceLabel,status"), "Audit DTO contains unapproved fields");
+  assert(safeAuditLog.json.data.every((row) => Object.keys(row).sort().join(",") === "action,actorName,actorRole,createdAt,entityType,previousStatus,reason,referenceLabel,status"), "Audit DTO contains unapproved fields");
 
   const onboarded = await request(port, "/api/admin/partners/onboard", {
     auth: "adminBasic",
