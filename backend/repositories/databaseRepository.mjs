@@ -434,6 +434,7 @@ export function listAdminData(name) {
 export function listAdminAuditLog() {
   const db = readDb();
   const references = new Map();
+  const actorNames = new Map((db.partnerUsers || []).map((user) => [user.id, typeof user.name === "string" ? user.name.trim().slice(0, 80) || null : null]));
   const referenceFields = { bookings: ["booking", "code"], partners: ["partner", "name"], offers: ["offer", "title"], partnerAddresses: ["partner_address", "title"], partnerUsers: ["partner_user", "name"], offerTemplates: ["offer_template", "title"], partnerApplications: ["partner_application", "venue_name"], contactRequests: ["contact_request", "name"] };
   const entityAliases = {};
   for (const [collection, [entityType, field]] of Object.entries(referenceFields)) {
@@ -453,6 +454,7 @@ export function listAdminAuditLog() {
     const patchEvent = String(row.action).startsWith("patch_");
     return {
       actorRole: row.actor_role,
+      actorName: row.actor_role === "partner" ? actorNames.get(row.actor_id) || null : null,
       action: row.action,
       entityType,
       createdAt: row.created_at,

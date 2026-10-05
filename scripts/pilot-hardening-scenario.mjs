@@ -109,6 +109,9 @@ export async function runPilotHardeningScenario(port, request, { adminCookie, pa
   assert.equal(corrected.json.data.corrections.length, 1);
   const audit = await admin("/api/admin/audit-log");
   const correctionAudit = audit.json.data.find((row) => row.action === "correct_booking_status" && row.referenceLabel === record.code);
+  const handoverAudit = audit.json.data.find((row) => row.action === "set_booking_status" && row.referenceLabel === record.code && row.status === "issued");
+  assert.equal(handoverAudit?.actorName, "Тестовый продавец", "Admin audit does not name the actual staff user");
+  assert.equal(correctionAudit?.actorName, null, "Missing actor identity was fabricated");
   assert.equal(correctionAudit?.previousStatus, "issued");
   assert.equal(correctionAudit?.status, "no_show");
   assert.equal(correctionAudit?.reason, correctionInput.reason);
@@ -117,7 +120,7 @@ export async function runPilotHardeningScenario(port, request, { adminCookie, pa
   const fixtureBase = { actor_role: "admin", actor_id: "private-actor", entity_type: "contactRequests", entity_id: "deleted-test-contact", created_at: record.created_at };
   auditFixtures.auditLog.push(
     { ...fixtureBase, id: "audit-malformed-test", action: "patch_contactRequests", metadata_json: "{broken" },
-    { ...fixtureBase, id: "audit-secret-test", action: "patch_contactRequests", metadata_json: JSON.stringify({ status: "unknown-private-status", password: "never-expose-test-password", token: "never-expose-test-token", reason: "never-expose-unrelated-reason", message: "never-expose-test-message" }) }
+    { ...fixtureBase, id: "audit-secret-test", action: "patch_contactRequests", metadata_json: JSON.stringify({ status: "unknown-private-status", actorName: "never-expose-metadata-name", password: "never-expose-test-password", token: "never-expose-test-token", reason: "never-expose-unrelated-reason", message: "never-expose-test-message" }) }
   );
   fs.writeFileSync(dbFile, JSON.stringify(auditFixtures), { mode: 0o600 });
   const safeAudit = await admin("/api/admin/audit-log");
@@ -129,6 +132,7 @@ export async function runPilotHardeningScenario(port, request, { adminCookie, pa
     assert.equal(row.previousStatus, null);
     assert.equal(row.status, null);
     assert.equal(row.reason, null);
+    assert.equal(row.actorName, null);
   }
   assert.equal((await admin(`/api/admin/bookings/${record.id}/correction`, { method: "PATCH", body: correctionInput })).status, 409, "Stale correction was accepted");
   assert.equal((await owner("/api/partner/offers")).json.data.find((row) => row.id === offer.id).remaining_quantity, 7, "Correction invented a physical stock return");

@@ -1117,7 +1117,7 @@ function adminPage() {
         <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Брони и коды</h3><p>Найдите код покупателя. Проверьте заведение, время получения и цену. Отмечайте «Выдан» только после передачи заказа.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-bookings]"><input type="search" placeholder="Найти код или покупателя" data-filter-query /><select data-filter-status aria-label="Статус брони"><option value="">Все статусы</option><option value="Забронировано">Текущие</option><option value="Выдано">Выданные</option><option value="Не пришёл">Не полученные</option><option value="Отменено">Отменённые</option></select></div></div><div class="staff-booking-list" data-admin-bookings></div><details class="advanced-offer-editor"><summary>Исправить ошибочную отметку</summary><p>Только для завершённой брони. Укажите причину. Отмена здесь не возвращает продукты в остаток автоматически; сначала проверьте фактическую выдачу.</p><form class="mini-form labelled-form" method="post" data-admin-correct-booking><label>Бронь<select name="bookingId" required data-admin-correction-select><option value="">Выберите код</option></select></label><label>Правильный результат<select name="status"><option value="issued">Выдано</option><option value="no_show">Не пришёл</option><option value="cancelled">Отменено</option></select></label><label>Причина<textarea name="reason" required minlength="10" maxlength="500" rows="3" placeholder="Что произошло и что проверили"></textarea></label><button class="button button-outline" type="submit">Сохранить корректировку</button></form></details></article>
         <article class="panel-card tab-panel" data-tab-panel="partner-applications"><div class="panel-heading"><div><h3>Заявки партнёров</h3><p>Здесь появляются заявки со страницы «Для заведений». Откройте заявку, свяжитесь с представителем, затем подключите или отклоните.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-applications]"><input type="search" placeholder="Найти заведение или контакт" data-filter-query /><select data-filter-status aria-label="Статус заявки"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="Связались">Связались</option><option value="Подключён">Подключённые</option><option value="Отклонено">Отклонённые</option></select></div></div><div class="table-wrap" data-admin-applications></div></article>
         <article class="panel-card tab-panel" data-tab-panel="contact-requests"><div class="panel-heading"><div><h3>Обращения</h3><p>Сообщения со страницы «Контакты». Свяжитесь с человеком по указанному телефону или почте. «В работу» и «Закрыть» меняют только отметку в кабинете — ответ автоматически не отправляется.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-contacts]"><input type="search" placeholder="Найти обращение" data-filter-query /><select data-filter-status aria-label="Статус обращения"><option value="">Все статусы</option><option value="Новое">Новые</option><option value="В работе">В работе</option><option value="Закрыто">Закрытые</option></select></div></div><div class="table-wrap" data-admin-contacts></div></article>
-        <article class="panel-card tab-panel" data-tab-panel="audit"><div class="panel-heading"><div><h3>Журнал действий</h3><p>Найдите код брони, название или действие. У исправленной выдачи видны прежний результат, новый результат и причина. Названия показаны по текущим записям; у удалённых записей название может отсутствовать. Пароли и содержимое обращений здесь не показываются.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-audit]"><input type="search" placeholder="Найти код, название или действие" data-filter-query /><select data-filter-status aria-label="Роль в журнале"><option value="">Все роли</option><option value="Администратор">Администратор</option><option value="Партнёр">Партнёр</option><option value="Сервис">Сервис</option></select></div></div><div class="table-wrap" data-admin-audit></div></article>
+        <article class="panel-card tab-panel" data-tab-panel="audit"><div class="panel-heading"><div><h3>Журнал действий</h3><p>Ищите по коду, имени сотрудника или названию. У исправленной выдачи видны прежний результат, новый результат и причина. Имена и названия взяты из текущих записей; если сотрудник не записан или удалён, его имя не подставляется. Пароли и сообщения покупателей здесь не показываются.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-audit]"><input type="search" placeholder="Найти код, имя, название или действие" data-filter-query /><select data-filter-status aria-label="Роль в журнале"><option value="">Все роли</option><option value="Администратор">Администратор</option><option value="Партнёр">Партнёр</option><option value="Сервис">Сервис</option></select></div></div><div class="table-wrap" data-admin-audit></div></article>
         <article class="panel-card tab-panel" data-tab-panel="settings"><div class="settings-grid"><section><h3>Сменить пароль администратора</h3><form class="mini-form labelled-form" method="post" data-admin-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сменить пароль</button></form></section><section><h3>Что проверять каждый день</h3><ul class="check-list"><li>Откройте новые заявки и свяжитесь с представителями заведений.</li><li>Проверьте адреса, цены, количество и время получения в предложениях.</li><li>Посмотрите брони. Ошибочную отметку выдачи исправляйте с объяснением причины.</li><li>После ответа закрывайте обращения, чтобы было видно, кому ещё нужна помощь.</li></ul><p>Для нового пароля нужно не менее 12 символов. Сохраните его в надёжном месте. После смены пароля остальные входы в этот кабинет закроются.</p></section></div></article>
       </div>
     </div>
@@ -1200,6 +1200,7 @@ function partnerDashboardPage() {
           </div>
           <div data-wizard-quick>
             <label class="photo-picker"><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple data-wizard-photo-input /><strong>Сделать фото или выбрать</strong><span>От 1 до 3 фото. Лучше при дневном свете.</span></label>
+            <p class="wizard-quality" data-wizard-photo-status role="status" aria-live="polite" hidden></p>
             <div class="wizard-photo-grid" data-wizard-photo-grid></div>
             <p class="wizard-quality" data-wizard-quality>Фото будет уменьшено и очищено от метаданных перед отправкой.</p>
           </div>
@@ -1241,20 +1242,15 @@ function bookingPage(pathname) {
     <a class="back-link" href="/#offers">← Вернуться к предложениям</a>
     <div class="booking-page-shell">
       <div class="booking-page-main">
-        <p class="kicker">Бронь на сегодня</p>
-        <h1>Ваш код и детали получения</h1>
+        <p class="kicker">Ваша бронь</p>
+        <h1 data-booking-page-title>Ваш код и детали получения</h1>
         <div class="booking-page-content" data-booking-page-content>
           <p class="booking-loading">Загружаем бронь…</p>
         </div>
       </div>
       <aside class="booking-help">
-        <h2>Что делать дальше</h2>
-        <ol>
-          <li>Приходите в указанное время.</li>
-          <li>Покажите код сотруднику.</li>
-          <li>Оплатите набор при получении.</li>
-        </ol>
-        <p>Не успеваете? Отмените бронь, чтобы набор снова стал доступен.</p>
+        <h2>Детали брони</h2>
+        <p>Загружаем статус заказа…</p>
       </aside>
     </div>
   </section>`;
@@ -1802,6 +1798,23 @@ function bookingRequestId(form, offerId, data) {
     });
   });
 
+  function publicBookingPresentation(status) {
+    var active = status === "created";
+    var help = '<h2>Что можно сделать</h2><p><a href="/#offers">Посмотреть предложения</a></p>';
+    if (active) help = '<h2>Что делать дальше</h2><ol><li>Приходите в указанное время.</li><li>Покажите код сотруднику.</li><li>Оплатите набор в магазине.</li></ol><p>Не успеваете? Отмените бронь, чтобы набор снова стал доступен.</p>';
+    if (status === "issued") help = '<h2>Что теперь</h2><p>Этот заказ отмечен как выданный. Показывать код ещё раз не нужно.</p><p><a href="/#offers">Выбрать новый набор</a></p>';
+    if (status === "no_show") help = '<h2>Что теперь</h2><p>Заведение отметило, что заказ не забрали. Если это ошибка, свяжитесь с заведением.</p><p>Для нового заказа <a href="/#offers">выберите предложение заново</a>.</p>';
+    if (status === "cancelled") help = '<h2>Что теперь</h2><p>Ничего оплачивать и показывать сотруднику не нужно.</p><p><a href="/#offers">Вернитесь к предложениям</a>, если хотите выбрать другой набор.</p>';
+    return {
+      title: active ? "Ваш код и детали получения" : status === "issued" ? "Ваш заказ" : "Ваша бронь",
+      caption: active ? "Оплата в магазине" : "Бронь завершена",
+      timeLabel: active ? "Забрать" : "Время получения в брони",
+      priceLabel: active ? "К оплате" : "Цена в брони",
+      priceSuffix: active ? " ₽ в магазине" : " ₽",
+      helpHtml: help
+    };
+  }
+
   var bookingPageRoot = document.querySelector("[data-public-booking]");
   if (bookingPageRoot) {
     var publicToken = bookingPageRoot.dataset.publicBooking;
@@ -1810,18 +1823,20 @@ function bookingRequestId(form, offerId, data) {
     var statusLabels = { created: "Забронировано", issued: "Выдано", no_show: "Не получено", cancelled: "Отменено" };
     var renderBooking = function (booking) {
       var canCancel = booking.status === "created";
+      var presentation = publicBookingPresentation(booking.status);
+      var bookingTitle = bookingPageRoot.querySelector("[data-booking-page-title]");
+      if (bookingTitle) bookingTitle.textContent = presentation.title;
+      if (bookingHelp) bookingHelp.innerHTML = presentation.helpHtml;
       var bookingUrl = "/booking/" + publicToken;
       if (!canCancel) clearLatestBooking(bookingUrl);
       if (booking.status === "cancelled") {
         content.innerHTML = '<div class="booking-status-row"><span class="booking-status status-cancelled">Отменено</span></div>' +
           '<div class="booking-cancelled"><h2>Бронь отменена</h2><p>Код больше не действует. Вы можете выбрать другое предложение.</p><a class="button button-primary" href="/#offers">Выбрать другое предложение</a></div>';
-        if (bookingHelp) bookingHelp.innerHTML = '<h2>Что теперь</h2><p>Ничего оплачивать и показывать сотруднику не нужно.</p><p><a href="/#offers">Вернитесь к предложениям</a>, если хотите выбрать другой набор.</p>';
         return;
       }
-      if (bookingHelp) bookingHelp.innerHTML = '<h2>Что делать дальше</h2><ol><li>Приходите в указанное время.</li><li>Покажите код сотруднику.</li><li>Оплатите набор при получении.</li></ol>' + (canCancel ? '<p>Не успеваете? Отмените бронь, чтобы набор снова стал доступен.</p>' : '');
-      content.innerHTML = '<div class="booking-status-row"><span class="booking-status status-' + escapeHtml(booking.status) + '">' + escapeHtml(statusLabels[booking.status] || booking.status) + '</span><small>Оплата при получении</small></div>' +
+      content.innerHTML = '<div class="booking-status-row"><span class="booking-status status-' + escapeHtml(booking.status) + '">' + escapeHtml(statusLabels[booking.status] || booking.status) + '</span><small>' + presentation.caption + '</small></div>' +
         '<div class="public-code"><small>Код бронирования</small><strong>' + escapeHtml(booking.code) + '</strong></div>' +
-        '<dl class="booking-details"><div><dt>Предложение</dt><dd>' + escapeHtml(booking.offerTitle) + '</dd></div><div><dt>Заведение</dt><dd>' + escapeHtml(booking.partnerName) + '</dd></div><div><dt>Адрес</dt><dd>' + escapeHtml(booking.address) + '</dd></div><div><dt>Забрать</dt><dd>' + escapeHtml(booking.date || 'Дата не сохранена') + ', ' + escapeHtml(booking.pickupWindow) + '</dd></div><div><dt>К оплате</dt><dd>' + (booking.price === null ? 'Уточните у менеджера' : Number(booking.price) + ' ₽ при получении') + '</dd></div></dl>' +
+        '<dl class="booking-details"><div><dt>Предложение</dt><dd>' + escapeHtml(booking.offerTitle) + '</dd></div><div><dt>Заведение</dt><dd>' + escapeHtml(booking.partnerName) + '</dd></div><div><dt>Адрес</dt><dd>' + escapeHtml(booking.address) + '</dd></div><div><dt>' + presentation.timeLabel + '</dt><dd>' + escapeHtml(booking.date || 'Дата не сохранена') + ', ' + escapeHtml(booking.pickupWindow) + '</dd></div><div><dt>' + presentation.priceLabel + '</dt><dd>' + (booking.price === null ? 'Уточните у менеджера' : Number(booking.price) + presentation.priceSuffix) + '</dd></div></dl>' +
         (booking.contents ? '<p><strong>Состав:</strong> ' + escapeHtml(booking.contents) + '</p>' : '') +
         (booking.allergens ? '<p><strong>Аллергены:</strong> ' + escapeHtml(booking.allergens) + '</p>' : '') +
         (!booking.termsVerified ? '<p class="permission-note">Старая бронь: первоначальные условия не сохранены. Уточните их у менеджера.</p>' : '') +
@@ -1992,6 +2007,10 @@ function auditDetailsLabel(row) {
 
 function auditActorLabel(value) {
   return value === "admin" ? "Администратор" : value === "partner" ? "Партнёр" : "Сервис";
+}
+
+function auditActorNameLabel(row) {
+  return row.actorName || (row.actorRole === "partner" || row.actorRole === "admin" ? "Сотрудник не указан" : "—");
 }
 
 function dateTimeLabel(value) {
@@ -2382,7 +2401,7 @@ async function setupAdmin() {
     }).join('') : '<p class="empty-state">Броней пока нет. Заказы покупателей появятся здесь.</p>';
     document.querySelector("[data-admin-applications]").innerHTML = table(applications.slice().reverse(), [{ label: "Заведение", value: "venue_name" }, { label: "Контакт", value: "contact_name" }, { label: "Телефон", value: "phone" }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-view-application="' + row.id + '">Открыть</button> ' + (row.status === "new" ? '<button class="table-action" data-application-status="' + row.id + '" data-status="contacted">Связались</button> ' : '') + (row.status === "approved" ? '' : '<button class="table-action primary" data-use-application="' + row.id + '">Подключить</button> <button class="table-action" data-confirm-action data-application-status="' + row.id + '" data-status="rejected">Отклонить</button> ') + '<button class="table-action danger" data-confirm-action data-delete-application="' + row.id + '">Удалить</button>');
     document.querySelector("[data-admin-contacts]").innerHTML = table(contacts.slice().reverse(), [{ label: "Имя", value: "name" }, { label: "Телефон", value: "phone" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-view-contact="' + row.id + '">Открыть</button> ' + (row.status === "closed" ? '' : '<button class="table-action" data-contact-status="' + row.id + '" data-status="in_progress">В работу</button> <button class="table-action" data-confirm-action data-contact-status="' + row.id + '" data-status="closed">Закрыть</button> ') + '<button class="table-action danger" data-confirm-action data-delete-contact="' + row.id + '">Удалить</button>');
-    document.querySelector("[data-admin-audit]").innerHTML = table(auditLog.slice().reverse(), [{ label: "Время", value: (row) => dateTimeLabel(row.createdAt) }, { label: "Роль", value: (row) => auditActorLabel(row.actorRole) }, { label: "Действие", value: (row) => auditActionLabel(row.action) }, { label: "Объект", value: (row) => auditEntityLabel(row.entityType) + (row.referenceLabel ? " · " + row.referenceLabel : "") }, { label: "Подробности", value: auditDetailsLabel }]);
+    document.querySelector("[data-admin-audit]").innerHTML = table(auditLog.slice().reverse(), [{ label: "Время", value: (row) => dateTimeLabel(row.createdAt) }, { label: "Роль", value: (row) => auditActorLabel(row.actorRole) }, { label: "Кто выполнил", value: auditActorNameLabel }, { label: "Действие", value: (row) => auditActionLabel(row.action) }, { label: "Объект", value: (row) => auditEntityLabel(row.entityType) + (row.referenceLabel ? " · " + row.referenceLabel : "") }, { label: "Подробности", value: auditDetailsLabel }]);
     setupTableFilters(document.querySelector("[data-admin-app]"));
     activateTabs(null, true);
     document.querySelector("[data-admin-updated]").textContent = "Обновлено в " + new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date());
@@ -2706,6 +2725,7 @@ async function setupPartnerDashboard() {
   let wizardStep = 1;
   let wizardMode = "quick";
   let wizardPhotos = [];
+  let wizardPhotosBusy = false;
   let selectedTemplateId = "";
   let wizardReturnFocus = null;
 
@@ -2724,6 +2744,20 @@ async function setupPartnerDashboard() {
     grid.innerHTML = wizardPhotos.map((photo, index) => '<figure><img src="' + photo.dataUrl + '" alt="Фото ' + (index + 1) + '" /><button type="button" data-remove-wizard-photo="' + index + '">Удалить</button>' + (photo.warning ? '<figcaption>' + escapeHtml(photo.warning) + '</figcaption>' : '') + '</figure>').join("");
     const quality = document.querySelector("[data-wizard-quality]");
     if (quality) quality.textContent = wizardPhotos.length ? "Добавлено: " + wizardPhotos.length + " из 3. Фото очищены от метаданных." : "Фото будет уменьшено и очищено от метаданных перед отправкой.";
+    const input = document.querySelector("[data-wizard-photo-input]");
+    if (input) input.disabled = wizardPhotosBusy || wizardPhotos.length >= 3;
+  }
+
+  function setWizardPhotoBusy(busy, message = "") {
+    wizardPhotosBusy = busy;
+    const wizard = document.querySelector("[data-offer-wizard]");
+    const status = wizard.querySelector("[data-wizard-photo-status]");
+    status.textContent = message;
+    status.hidden = !message;
+    wizard.querySelector("[data-wizard-photo-grid]").setAttribute("aria-busy", String(busy));
+    wizard.querySelectorAll("[data-wizard-mode], [data-wizard-next], [data-wizard-back], [data-wizard-publish], [data-wizard-clear-draft], [data-remove-wizard-photo], [data-wizard-template]").forEach((button) => { button.disabled = busy; });
+    const input = wizard.querySelector("[data-wizard-photo-input]");
+    input.disabled = busy || wizardPhotos.length >= 3;
   }
 
   function wizardDraftPayload() {
@@ -2828,6 +2862,7 @@ async function setupPartnerDashboard() {
   }
 
   function validateWizardStep() {
+    if (wizardPhotosBusy) { notify("Дождитесь подготовки фото", "error"); return false; }
     const form = document.querySelector("[data-offer-wizard-form]");
     if (wizardStep === 1) {
       if (wizardMode === "quick" && !wizardPhotos.length) { notify("Добавьте хотя бы одно фото текущей партии", "error"); return false; }
@@ -2862,20 +2897,41 @@ async function setupPartnerDashboard() {
 
   function imageFromFile(file) {
     return new Promise((resolve, reject) => {
-      if (!file.type.startsWith("image/") || file.size > 12 * 1024 * 1024) return reject(new Error("Выберите JPEG, PNG или WebP до 12 МБ"));
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 12 * 1024 * 1024) return reject(new Error("Выберите JPEG, PNG или WebP до 12 МБ"));
       const source = URL.createObjectURL(file);
       const img = new Image();
+      let settled = false;
+      let reader = null;
+      const finish = (error, result) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        img.onload = null; img.onerror = null;
+        img.removeAttribute("src");
+        URL.revokeObjectURL(source);
+        if (reader) {
+          reader.onload = null; reader.onerror = null; reader.onabort = null;
+          if (reader.readyState === 1) reader.abort();
+        }
+        if (error) reject(error);
+        else resolve(result);
+      };
+      const timer = window.setTimeout(() => finish(new Error("Фото обрабатывается слишком долго. Попробуйте выбрать его ещё раз или добавьте другое фото.")), 30000);
       img.onload = () => {
+        if (settled) return;
         try {
+          if (!img.naturalWidth || !img.naturalHeight) throw new Error("Не удалось прочитать размеры фото. Выберите другой файл.");
           const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
           const width = Math.max(1, Math.round(img.naturalWidth * scale));
           const height = Math.max(1, Math.round(img.naturalHeight * scale));
           const canvas = document.createElement("canvas");
           canvas.width = width; canvas.height = height;
           const context = canvas.getContext("2d", { alpha: false });
+          if (!context) throw new Error("Не удалось подготовить фото. Обновите страницу и попробуйте ещё раз.");
           context.fillStyle = "#ffffff"; context.fillRect(0, 0, width, height); context.drawImage(img, 0, 0, width, height);
           const sample = document.createElement("canvas"); sample.width = 32; sample.height = 32;
           const sampleContext = sample.getContext("2d", { willReadFrequently: true });
+          if (!sampleContext) throw new Error("Не удалось подготовить фото. Обновите страницу и попробуйте ещё раз.");
           sampleContext.drawImage(img, 0, 0, 32, 32);
           const pixels = sampleContext.getImageData(0, 0, 32, 32).data;
           let brightness = 0;
@@ -2884,11 +2940,22 @@ async function setupPartnerDashboard() {
           const warnings = [];
           if (img.naturalWidth < 600 || img.naturalHeight < 450) warnings.push("Низкое разрешение");
           if (brightness < 52) warnings.push("Фото выглядит тёмным");
-          resolve({ dataUrl: canvas.toDataURL("image/jpeg", .8), capturedAt: new Date().toISOString(), warning: warnings.join(". ") });
-        } catch (error) { reject(error); }
-        finally { URL.revokeObjectURL(source); }
+          canvas.toBlob((blob) => {
+            if (settled) return;
+            if (!blob || blob.type !== "image/jpeg") return finish(new Error("Не удалось сохранить фото. Выберите другой файл."));
+            try {
+              reader = new FileReader();
+              reader.onload = () => {
+                if (typeof reader.result !== "string" || !reader.result.startsWith("data:image/jpeg;base64,")) return finish(new Error("Не удалось подготовить фото. Выберите другой файл."));
+                finish(null, { dataUrl: reader.result, capturedAt: new Date().toISOString(), warning: warnings.join(". ") });
+              };
+              reader.onerror = reader.onabort = () => finish(new Error("Не удалось подготовить фото. Выберите другой файл."));
+              reader.readAsDataURL(blob);
+            } catch (error) { finish(error); }
+          }, "image/jpeg", .8);
+        } catch (error) { finish(error); }
       };
-      img.onerror = () => { URL.revokeObjectURL(source); reject(new Error("Не удалось прочитать фото")); };
+      img.onerror = () => finish(new Error("Не удалось прочитать фото. Выберите другой JPEG, PNG или WebP."));
       img.src = source;
     });
   }
@@ -2942,16 +3009,30 @@ async function setupPartnerDashboard() {
     form.addEventListener("change", saveWizardDraft);
     wizard.querySelector("[data-wizard-photo-input]").addEventListener("change", async (event) => {
       const photoInput = event.currentTarget;
+      if (wizardPhotosBusy) return;
       const files = Array.from(photoInput.files || []).slice(0, 3 - wizardPhotos.length);
+      if (!files.length) { photoInput.value = ""; return; }
+      let resultMessage = "";
+      setWizardPhotoBusy(true, "Готовим фото 1 из " + files.length + "…");
       try {
         const processed = [];
-        for (const file of files) processed.push(await imageFromFile(file));
+        for (const [index, file] of files.entries()) {
+          setWizardPhotoBusy(true, "Готовим фото " + (index + 1) + " из " + files.length + "…");
+          processed.push(await imageFromFile(file));
+        }
         wizardPhotos.push(...processed);
         renderWizardPhotos(); saveWizardDraft();
-      } catch (error) { notify(error.message || "Фото не удалось обработать", "error"); }
-      photoInput.value = "";
+        resultMessage = "Фото готовы. Можно продолжать.";
+      } catch (error) {
+        resultMessage = error.message || "Фото не удалось обработать";
+        notify(resultMessage, "error");
+      } finally {
+        photoInput.value = "";
+        setWizardPhotoBusy(false, resultMessage);
+      }
     });
     wizard.addEventListener("click", async (event) => {
+      if (wizardPhotosBusy) return;
       const remove = event.target.closest("[data-remove-wizard-photo]");
       const templateButton = event.target.closest("[data-wizard-template]");
       const preset = event.target.closest("[data-wizard-preset]");
@@ -3878,12 +3959,13 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-primary); 
   font-size: 12px;
   text-transform: uppercase;
 }
-[data-admin-audit] .data-table { table-layout: fixed; min-width: 850px; }
+[data-admin-audit] .data-table { table-layout: fixed; min-width: 1010px; }
 [data-admin-audit] .data-table th:nth-child(1) { width: 140px; }
 [data-admin-audit] .data-table th:nth-child(2) { width: 130px; }
-[data-admin-audit] .data-table th:nth-child(3) { width: 190px; }
+[data-admin-audit] .data-table th:nth-child(3) { width: 160px; }
 [data-admin-audit] .data-table th:nth-child(4) { width: 190px; }
-[data-admin-audit] .data-table td:nth-child(4), [data-admin-audit] .data-table td:nth-child(5) { overflow-wrap: anywhere; }
+[data-admin-audit] .data-table th:nth-child(5) { width: 190px; }
+[data-admin-audit] .data-table td:nth-child(3), [data-admin-audit] .data-table td:nth-child(5), [data-admin-audit] .data-table td:nth-child(6) { overflow-wrap: anywhere; }
 .data-table button {
   min-height: 32px;
   border: 1px solid var(--color-border);
