@@ -55,7 +55,7 @@
 
 - [x] `node --check server.mjs` / full build contract.
 - [x] `npm run test:smoke` on isolated storage.
-- [x] Customer flow checked locally; live forms are open, but no acceptance-test record was submitted.
+- [x] Customer flow checked locally and with two explicitly authorized synthetic live bookings in the installed APK on 08.10.2026; training offer hidden afterward, original records unchanged.
 - [x] Admin scenario on live with rotated credentials.
 - [x] Partner scenario on live with rotated credentials.
 - [x] Backup/restore test.
@@ -66,4 +66,5 @@
 - [x] Storage-backed `/api/public/health` readiness contract is covered by the isolated smoke test.
 - [ ] Real Android/iPhone PWA standalone and camera/background/resume.
 - [x] Signed APK build, signature/fingerprint/alignment/manifest verification and SHA-256 publication check.
-- [ ] Signed APK install and acceptance on a physical Android device.
+- [x] Signed APK installed on TECNO CAMON 19 / Android 13; core customer, owner and seller flows accepted on 08.10.2026. Evidence: `docs/ANDROID_DEVICE_QA_2026-10-08.md`.
+- [ ] Extended physical Android acceptance: new camera capture, weak/intermittent network, true cold web-process restart and other device/Android versions.
