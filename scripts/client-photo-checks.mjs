@@ -2,6 +2,28 @@ import assert from "node:assert/strict";
 import { Script } from "node:vm";
 
 export async function runClientPhotoChecks(appSource) {
+  const pickerSource = appSource.match(/  function renderWizardPhotos\([\s\S]*?(?=\n  function wizardDraftPayload)/)?.[0];
+  assert.ok(pickerSource, "Photo picker controls are missing");
+  const pickers = [{disabled: false}, {disabled: false}];
+  const controls = [{disabled: false}];
+  const status = {};
+  const grid = {setAttribute() {}};
+  const wizard = {
+    querySelector: selector => selector === "[data-wizard-photo-status]" ? status : grid,
+    querySelectorAll: selector => selector === "[data-wizard-photo-input]" ? pickers : controls
+  };
+  const picker = new Script("let wizardPhotos = [], wizardPhotosBusy = false;" + pickerSource + "; ({renderWizardPhotos, setWizardPhotoBusy, setCount: count => { wizardPhotos = Array.from({length: count}, () => ({dataUrl: 'data:image/jpeg;base64,test'})); }});").runInNewContext({
+    escapeHtml: text => text,
+    document: {querySelector: selector => selector === "[data-offer-wizard]" ? wizard : selector === "[data-wizard-photo-grid]" ? grid : {}, querySelectorAll: () => pickers}
+  });
+  picker.setWizardPhotoBusy(true, "Готовим фото");
+  assert.ok(pickers.every(input => input.disabled), "Camera and file picker must both wait while processing");
+  picker.setWizardPhotoBusy(false);
+  assert.ok(pickers.every(input => !input.disabled), "Both photo sources must be available after processing");
+  picker.setCount(3); picker.renderWizardPhotos();
+  assert.ok(pickers.every(input => input.disabled), "Both photo sources must respect the three-photo limit");
+  picker.setCount(2); picker.renderWizardPhotos();
+  assert.ok(pickers.every(input => !input.disabled), "Both photo sources must become available after photo removal");
   const source = appSource.match(/  function imageFromFile\([\s\S]*?(?=\n  function openOfferWizard)/)?.[0];
   assert.ok(source, "Client photo preparation is missing");
   function harness(mode = "valid") {

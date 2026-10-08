@@ -12,6 +12,7 @@ import { todayDate } from "../backend/utils/dates.mjs";
 import { validatePhone } from "../backend/utils/validation.mjs";
 import { runPilotHardeningScenario } from "./pilot-hardening-scenario.mjs";
 import { runClientPhotoChecks } from "./client-photo-checks.mjs";
+import { runClientPhoneChecks } from "./client-phone-checks.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
@@ -142,6 +143,7 @@ async function runScenario(port) {
   const appScript = await request(port, "/app.js", { auth: null });
   assert(appScript.status === 200 && appScript.text.includes("setupPasswordVisibility") && appScript.text.includes("data-password-toggle"), "Password visibility controls are missing from the application script");
   new Script(publicScript.text, { filename: "served-public.js" });
+  runClientPhoneChecks(publicScript.text);
   new Script(appScript.text, { filename: "served-app.js" });
   await runClientPhotoChecks(appScript.text);
   const presentationSource = publicScript.text.match(/function publicBookingPresentation\([\s\S]*?(?=\n  var bookingPageRoot)/)?.[0];
@@ -272,6 +274,13 @@ async function runScenario(port) {
   assertFormsUsePost(partnerLoginPage.text, "Partner page");
   const partnerDashboardPage = await request(port, "/partner/dashboard", { auth: null });
   assert(partnerDashboardPage.status === 200, "Partner dashboard shell is unavailable");
+  const photoInputs = partnerDashboardPage.text.match(/<input\b[^>]*data-wizard-photo-input[^>]*>/g) || [];
+  assert(photoInputs.length === 2, "Camera and file selection need separate controls");
+  const cameraInput = photoInputs.find(input => /capture="environment"/.test(input));
+  const fileInput = photoInputs.find(input => !/\scapture=/.test(input));
+  assert(cameraInput?.includes('aria-label="Сделать фото"') && !/\smultiple\b/.test(cameraInput), "Camera control is not single-capture or labelled");
+  assert(fileInput?.includes('aria-label="Выбрать фото"') && /\smultiple\b/.test(fileInput), "Ready photos still force camera access or cannot be selected together");
+  assert(appScript.text.includes('wizard.querySelectorAll("[data-wizard-photo-input]").forEach((input) => input.addEventListener("change"'), "Only one photo source is wired to preparation");
   const passwordInputCount = [adminPage.text, partnerLoginPage.text, partnerDashboardPage.text]
     .reduce((count, markup) => count + (markup.match(/type="password"/g) || []).length, 0);
   assert(passwordInputCount === 14, `Expected 14 password inputs to receive visibility controls, found ${passwordInputCount}`);

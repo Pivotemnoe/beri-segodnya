@@ -1199,7 +1199,10 @@ function partnerDashboardPage() {
             <button type="button" data-wizard-mode="template">Взять шаблон</button>
           </div>
           <div data-wizard-quick>
-            <label class="photo-picker"><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple data-wizard-photo-input /><strong>Сделать фото или выбрать</strong><span>От 1 до 3 фото. Лучше при дневном свете.</span></label>
+            <div class="wizard-photo-actions">
+              <label class="photo-picker"><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" aria-label="Сделать фото" data-wizard-photo-input /><strong>Сделать фото</strong><span>Открыть камеру</span></label>
+              <label class="photo-picker"><input type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="Выбрать фото" data-wizard-photo-input /><strong>Выбрать фото</strong><span>От 1 до 3 готовых фото</span></label>
+            </div>
             <p class="wizard-quality" data-wizard-photo-status role="status" aria-live="polite" hidden></p>
             <div class="wizard-photo-grid" data-wizard-photo-grid></div>
             <p class="wizard-quality" data-wizard-quality>Фото будет уменьшено и очищено от метаданных перед отправкой.</p>
@@ -1418,7 +1421,7 @@ const PUBLIC_JS = `
     var digits = String(value || "").replace(/\\D/g, "");
     if (digits.charAt(0) === "7") {
       digits = digits.slice(1);
-      if (digits.length === 11 && digits.charAt(0) === "8") digits = digits.slice(1);
+      if (digits.slice(0, 2) === "89" || (digits.length === 11 && ["7", "8"].includes(digits.charAt(0)))) digits = digits.slice(1);
     } else if (digits.length === 11 && digits.charAt(0) === "8") {
       digits = digits.slice(1);
     }
@@ -1444,6 +1447,23 @@ const PUBLIC_JS = `
       };
       input.addEventListener("focus", function () {
         if (!input.value) input.value = "+7 (";
+      });
+      input.addEventListener("beforeinput", function (event) {
+        if (!["deleteContentBackward", "deleteContentForward"].includes(event.inputType) || !event.cancelable || input.selectionStart !== input.selectionEnd) return;
+        var digits = russianPhoneDigits(input.value);
+        var before = input.value.slice(4, Math.max(4, input.selectionStart || 0)).replace(/\\D/g, "").length;
+        var index = event.inputType === "deleteContentBackward" ? before - 1 : before;
+        event.preventDefault();
+        if (index < 0 || index >= digits.length) return;
+        var remaining = digits.slice(0, index) + digits.slice(index + 1);
+        input.value = formatRussianPhone(remaining);
+        sync();
+        var caret = 4;
+        var count = event.inputType === "deleteContentBackward" ? Math.max(0, before - 1) : before;
+        for (var found = 0; caret < input.value.length && found < count; caret += 1) {
+          if (/\\d/.test(input.value.charAt(caret))) found += 1;
+        }
+        input.setSelectionRange(caret, caret);
       });
       input.addEventListener("input", function () {
         sync();
@@ -2744,8 +2764,7 @@ async function setupPartnerDashboard() {
     grid.innerHTML = wizardPhotos.map((photo, index) => '<figure><img src="' + photo.dataUrl + '" alt="Фото ' + (index + 1) + '" /><button type="button" data-remove-wizard-photo="' + index + '">Удалить</button>' + (photo.warning ? '<figcaption>' + escapeHtml(photo.warning) + '</figcaption>' : '') + '</figure>').join("");
     const quality = document.querySelector("[data-wizard-quality]");
     if (quality) quality.textContent = wizardPhotos.length ? "Добавлено: " + wizardPhotos.length + " из 3. Фото очищены от метаданных." : "Фото будет уменьшено и очищено от метаданных перед отправкой.";
-    const input = document.querySelector("[data-wizard-photo-input]");
-    if (input) input.disabled = wizardPhotosBusy || wizardPhotos.length >= 3;
+    document.querySelectorAll("[data-wizard-photo-input]").forEach((input) => { input.disabled = wizardPhotosBusy || wizardPhotos.length >= 3; });
   }
 
   function setWizardPhotoBusy(busy, message = "") {
@@ -2756,8 +2775,7 @@ async function setupPartnerDashboard() {
     status.hidden = !message;
     wizard.querySelector("[data-wizard-photo-grid]").setAttribute("aria-busy", String(busy));
     wizard.querySelectorAll("[data-wizard-mode], [data-wizard-next], [data-wizard-back], [data-wizard-publish], [data-wizard-clear-draft], [data-remove-wizard-photo], [data-wizard-template]").forEach((button) => { button.disabled = busy; });
-    const input = wizard.querySelector("[data-wizard-photo-input]");
-    input.disabled = busy || wizardPhotos.length >= 3;
+    wizard.querySelectorAll("[data-wizard-photo-input]").forEach((input) => { input.disabled = busy || wizardPhotos.length >= 3; });
   }
 
   function wizardDraftPayload() {
@@ -3007,7 +3025,7 @@ async function setupPartnerDashboard() {
     wizard.querySelectorAll("[data-wizard-mode]").forEach((button) => button.addEventListener("click", () => setWizardMode(button.dataset.wizardMode)));
     form.addEventListener("input", saveWizardDraft);
     form.addEventListener("change", saveWizardDraft);
-    wizard.querySelector("[data-wizard-photo-input]").addEventListener("change", async (event) => {
+    wizard.querySelectorAll("[data-wizard-photo-input]").forEach((input) => input.addEventListener("change", async (event) => {
       const photoInput = event.currentTarget;
       if (wizardPhotosBusy) return;
       const files = Array.from(photoInput.files || []).slice(0, 3 - wizardPhotos.length);
@@ -3030,7 +3048,7 @@ async function setupPartnerDashboard() {
         photoInput.value = "";
         setWizardPhotoBusy(false, resultMessage);
       }
-    });
+    }));
     wizard.addEventListener("click", async (event) => {
       if (wizardPhotosBusy) return;
       const remove = event.target.closest("[data-remove-wizard-photo]");
@@ -4690,9 +4708,10 @@ body { background: var(--color-bg); }
 .wizard-mode { margin-bottom: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; overflow: hidden; border: 1px solid #cad6d8; border-radius: 7px; background: #cad6d8; }
 .wizard-mode button { min-height: 48px; border: 0; background: white; color: #35535d; font: inherit; font-size: 13px; font-weight: 850; cursor: pointer; }
 .wizard-mode button.active { background: #073b4c; color: white; }
-.photo-picker { min-height: 160px; padding: 28px; display: grid; place-items: center; align-content: center; gap: 7px; border: 2px dashed #acc1c6; border-radius: 8px; background: white; color: #073b4c; text-align: center; cursor: pointer; }
+.wizard-photo-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.photo-picker { position: relative; min-height: 160px; padding: 28px; display: grid; place-items: center; align-content: center; gap: 7px; border: 2px dashed #acc1c6; border-radius: 8px; background: white; color: #073b4c; text-align: center; cursor: pointer; }
 .photo-picker:hover { border-color: #0b646a; background: #f4f9f8; }
-.photo-picker input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.photo-picker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .photo-picker strong { font-size: 17px; }
 .photo-picker span, .wizard-quality { color: #6a7e84; font-size: 12px; }
 .wizard-quality { margin: 10px 0 0; }
