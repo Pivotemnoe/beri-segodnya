@@ -5,20 +5,44 @@ import {
   findPartnerUser,
   findPartnerUserById,
   getSession,
+  isSessionActive,
   isPartnerActive,
   upsertAdminUserPassword,
   updatePartnerUserPassword
 } from "../repositories/databaseRepository.mjs";
 import {
-  createPasswordHash,
+  createPasswordHashAsync,
   LEGACY_PASSWORD_ITERATIONS,
   passwordNeedsRehash,
-  verifyPassword
+  verifyPasswordAsync
 } from "../utils/password.mjs";
 
 const loginAttempts = new Map();
 const MAX_RATE_LIMIT_KEYS = 5000;
 let nextRateLimitCleanup = 0;
+const passwordChangeAttempts = new Map();
+
+function passwordBudget(key, limit) {
+  const now = Date.now();
+  let bucket = passwordChangeAttempts.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    for (const [name, item] of passwordChangeAttempts) {
+      if (item.resetAt <= now) passwordChangeAttempts.delete(name);
+    }
+    // Never evict a live user's budget to admit attacker-selected new keys.
+    if (passwordChangeAttempts.size >= MAX_RATE_LIMIT_KEYS) return false;
+    bucket = { count: 0, resetAt: now + 10 * 60 * 1000 };
+    passwordChangeAttempts.set(key, bucket);
+  }
+  bucket.count += 1;
+  return bucket.count <= limit;
+}
+
+export function allowPasswordChange(session, clientIp) {
+  const userAllowed = passwordBudget(`user:${session.role}:${session.user_id}`, 10);
+  const ipAllowed = passwordBudget(`ip:${clientIp}`, 20);
+  return userAllowed && ipAllowed;
+}
 
 export function rateLimit(key, limit = 10, windowMs = 10 * 60 * 1000) {
   const now = Date.now();
@@ -88,29 +112,58 @@ export function sessionFromRequest(request) {
   return getSession(tokenFromRequest(request));
 }
 
-export function adminLogin(login, password) {
-  const normalized = String(login || "").trim();
-  const stored = findAdminUser(normalized);
-  if (stored) {
-    const iterations = Number(stored.password_iterations || LEGACY_PASSWORD_ITERATIONS);
-    if (!verifyPassword(password, stored.password_hash, stored.password_salt, iterations)) return null;
-    return createSession("admin", null, stored.id, "admin");
-  }
+function adminCredentials(login) {
+  const stored = findAdminUser(login);
+  if (stored) return stored;
   const expectedLogin = process.env.ADMIN_APP_LOGIN || "admin";
-  if (normalized !== expectedLogin) return null;
-  const iterations = Number(process.env.ADMIN_APP_PASSWORD_ITERATIONS || LEGACY_PASSWORD_ITERATIONS);
-  if (!verifyPassword(password, process.env.ADMIN_APP_PASSWORD_HASH, process.env.ADMIN_APP_PASSWORD_SALT, iterations)) return null;
-  return createSession("admin", null, `admin:${expectedLogin}`, "admin");
+  if (login !== expectedLogin) return null;
+  return {
+    id: `admin:${expectedLogin}`, login: expectedLogin, status: "active",
+    password_hash: process.env.ADMIN_APP_PASSWORD_HASH,
+    password_salt: process.env.ADMIN_APP_PASSWORD_SALT,
+    password_iterations: Number(process.env.ADMIN_APP_PASSWORD_ITERATIONS || LEGACY_PASSWORD_ITERATIONS)
+  };
 }
 
-export function partnerLogin(login, password) {
+function sameCredentials(before, after) {
+  return Boolean(before && after && ["id", "login", "status", "role", "partner_id", "must_change_password", "password_hash", "password_salt", "password_iterations"]
+    .every((key) => before[key] === after[key]));
+}
+
+function requireCurrentSession(session, before, after) {
+  if (!isSessionActive(session) || !sameCredentials(before, after)) {
+    throw Object.assign(new Error("Доступ изменился. Войдите снова."), { status: 401, code: "SESSION_REVOKED" });
+  }
+}
+
+export async function adminLogin(login, password) {
+  const normalized = String(login || "").trim();
+  const stored = adminCredentials(normalized);
+  if (!stored || !await verifyPasswordAsync(password, stored.password_hash, stored.password_salt, stored.password_iterations)) return null;
+  if (!sameCredentials(stored, adminCredentials(normalized))) return null;
+  return createSession("admin", null, stored.id, "admin");
+}
+
+export async function partnerLogin(login, password) {
   const user = findPartnerUser(login);
   const iterations = Number(user?.password_iterations || LEGACY_PASSWORD_ITERATIONS);
-  if (!user || !verifyPassword(password, user.password_hash, user.password_salt, iterations)) return null;
+  if (!user || !await verifyPasswordAsync(password, user.password_hash, user.password_salt, iterations)) return null;
+  let next = null;
   if (passwordNeedsRehash(iterations)) {
-    const next = createPasswordHash(password);
-    updatePartnerUserPassword(user.id, next, "rehash_partner_password");
+    next = await createPasswordHashAsync(password);
   }
+  const current = findPartnerUser(login);
+  if (!sameCredentials(user, current)) {
+    // A concurrent login may have completed transparent rehash. Authenticate
+    // against the current hash again; never infer validity from a changed hash.
+    const sameAccount = current && ["id", "login", "status", "role", "partner_id", "must_change_password"]
+      .every((key) => user[key] === current[key]);
+    if (!passwordNeedsRehash(iterations) || !sameAccount || passwordNeedsRehash(current.password_iterations) ||
+        !await verifyPasswordAsync(password, current.password_hash, current.password_salt, current.password_iterations) ||
+        !sameCredentials(current, findPartnerUser(login))) return null;
+    return createSession("partner", current.partner_id, current.id, current.role);
+  }
+  if (next) updatePartnerUserPassword(user.id, next, "rehash_partner_password");
   return createSession("partner", user.partner_id, user.id, user.role);
 }
 
@@ -144,13 +197,10 @@ export function partnerPasswordChangeRequired(session) {
   return Boolean(findPartnerUserById(session?.user_id)?.must_change_password);
 }
 
-export function changeAdminPassword(session, currentPassword, nextPassword) {
+export async function changeAdminPassword(session, currentPassword, nextPassword) {
   const login = String(session?.user_id || "").replace(/^admin:/, "");
-  const stored = findAdminUser(login);
-  const currentIterations = Number(stored?.password_iterations || process.env.ADMIN_APP_PASSWORD_ITERATIONS || LEGACY_PASSWORD_ITERATIONS);
-  const currentHash = stored?.password_hash || process.env.ADMIN_APP_PASSWORD_HASH;
-  const currentSalt = stored?.password_salt || process.env.ADMIN_APP_PASSWORD_SALT;
-  if (!login || !verifyPassword(currentPassword, currentHash, currentSalt, currentIterations)) {
+  const stored = adminCredentials(login);
+  if (!stored || !await verifyPasswordAsync(currentPassword, stored.password_hash, stored.password_salt, stored.password_iterations)) {
     const error = new Error("Текущий пароль указан неверно");
     error.status = 401;
     error.code = "BAD_CURRENT_PASSWORD";
@@ -158,15 +208,17 @@ export function changeAdminPassword(session, currentPassword, nextPassword) {
   }
   const next = passwordValue(nextPassword);
   requireDifferentPassword(currentPassword, next);
-  const credentials = createPasswordHash(next);
+  const credentials = await createPasswordHashAsync(next);
+  requireCurrentSession(session, stored, adminCredentials(login));
   const user = upsertAdminUserPassword(login, credentials);
   return createSession("admin", null, user.id, "admin");
 }
 
-export function changePartnerPassword(session, currentPassword, nextPassword) {
-  const user = findPartnerUserById(session?.user_id);
+export async function changePartnerPassword(session, currentPassword, nextPassword) {
+  const candidate = findPartnerUserById(session?.user_id);
+  const user = candidate && findPartnerUser(candidate.login);
   const iterations = Number(user?.password_iterations || LEGACY_PASSWORD_ITERATIONS);
-  if (!user || !verifyPassword(currentPassword, user.password_hash, user.password_salt, iterations)) {
+  if (!user || user.partner_id !== session.partner_id || user.role !== session.user_role || !await verifyPasswordAsync(currentPassword, user.password_hash, user.password_salt, iterations)) {
     const error = new Error("Текущий пароль указан неверно");
     error.status = 401;
     error.code = "BAD_CURRENT_PASSWORD";
@@ -174,7 +226,9 @@ export function changePartnerPassword(session, currentPassword, nextPassword) {
   }
   const next = passwordValue(nextPassword);
   requireDifferentPassword(currentPassword, next);
-  updatePartnerUserPassword(user.id, createPasswordHash(next), "change_partner_password");
+  const credentials = await createPasswordHashAsync(next);
+  requireCurrentSession(session, user, findPartnerUser(user.login));
+  updatePartnerUserPassword(user.id, credentials, "change_partner_password");
   return createSession("partner", user.partner_id, user.id, user.role);
 }
 

@@ -57,3 +57,7 @@ Cookie parsing preserves one decoding pass, duplicate-name last-wins behavior an
 ## Rate limit
 
 Login endpoints use a bounded process-local rate limit: 10 attempts per 10 minutes per IP/route. A shared limiter is still required before horizontal scaling.
+
+Password operations (own changes, administrator onboarding, staff creation and staff password reset) share 10 attempts per 10 minutes per initiating role/user and 20 per IP. This includes temporary-password sessions and sellers. User budgets survive session and IP rotation; live budgets are never evicted to admit new keys. Excess attempts return `429 RATE_LIMIT` without changing credentials or sessions; ordinary staff profile edits do not consume password budgets.
+
+Login verification, transparent rehash and all online password hashing use a shared asynchronous PBKDF2 pool: 2 active jobs and at most 8 waiting. Overflow returns `429 RATE_LIMIT`; the 600,000-iteration baseline is unchanged. Synchronous hash exports remain for seed/fixtures; the offline staff-reset command awaits the shared service. After every final authentication await, credentials, active partner/user/role and initiating session (for rotation) are rechecked before synchronous writes, so logout/reset/disable cannot be undone by stale work. Staff reset rechecks both the acting administrator session and target record; an intervening target edit returns `409 RECORD_CHANGED`. Concurrent transparent upgrades reverify the current hash rather than accepting a stale successful comparison.

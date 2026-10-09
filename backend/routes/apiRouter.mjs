@@ -4,10 +4,12 @@ import { allowed, cleanString, enumValue, validateEmail, validatePhone } from ".
 import { generateId } from "../utils/id.mjs";
 import { nowIso } from "../utils/dates.mjs";
 import { consentReceipt } from "../utils/legal.mjs";
+import { requestIdentity } from "../utils/requestIdentity.mjs";
 import { cancelPublicBooking, correctBookingStatus, createContactRequest, createPartnerApplication, getPublicBooking, getPublicOffer, listAdminData, listPublicOffers } from "../repositories/databaseRepository.mjs";
 import { createBooking } from "../services/bookingService.mjs";
 import {
   adminLogin,
+  allowPasswordChange,
   adminPasswordChangeRequired,
   changeAdminPassword,
   changePartnerPassword,
@@ -56,8 +58,7 @@ async function readBody(request, maxBytes = 32 * 1024) {
 }
 
 function ip(request) {
-  const trustProxy = process.env.TRUST_PROXY === "true";
-  return (trustProxy ? request.headers["x-forwarded-for"]?.split(",")[0]?.trim() : null) || request.socket.remoteAddress || "unknown";
+  return requestIdentity(request).ip;
 }
 
 function secureCookie() {
@@ -81,9 +82,7 @@ function validateStateRequest(request) {
   const origin = request.headers.origin;
   if (!origin) return;
   const configured = process.env.APP_BASE_URL ? new URL(process.env.APP_BASE_URL).origin : null;
-  const trustProxy = process.env.TRUST_PROXY === "true";
-  const forwardedProto = trustProxy ? String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim() : "";
-  const protocol = forwardedProto || (request.socket.encrypted ? "https" : "http");
+  const { protocol } = requestIdentity(request);
   const requestOrigin = request.headers.host ? `${protocol}://${request.headers.host}` : null;
   if (origin !== configured && origin !== requestOrigin) {
     const error = new Error("Источник запроса не разрешён");
@@ -230,7 +229,7 @@ async function handleAdmin(request, response, url) {
   if (request.method === "POST" && parts.join("/") === "auth/login") {
     if (!rateLimit(`${ip(request)}:admin-login`)) return fail(response, 429, "RATE_LIMIT", "Слишком много попыток входа");
     const input = await readBody(request);
-    const session = adminLogin(input.login, input.password);
+    const session = await adminLogin(input.login, input.password);
     if (!session) return fail(response, 401, "BAD_CREDENTIALS", "Неверный логин или пароль");
     return ok(response, { role: "admin", passwordChangeRequired: adminPasswordChangeRequired(session) }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
@@ -251,9 +250,10 @@ async function handleAdmin(request, response, url) {
   if (!auth.ok) return sendAuthFailure(response, auth);
 
   if (request.method === "POST" && parts.join("/") === "auth/change-password") {
+    if (!allowPasswordChange(auth.session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много попыток смены пароля. Попробуйте через 10 минут.");
     const input = await readBody(request);
     if (input.newPassword !== input.confirmPassword) return fail(response, 400, "PASSWORD_CONFIRMATION_MISMATCH", "Новый пароль и подтверждение не совпадают");
-    const session = changeAdminPassword(auth.session, input.currentPassword, input.newPassword);
+    const session = await changeAdminPassword(auth.session, input.currentPassword, input.newPassword);
     return ok(response, { changed: true, passwordChangeRequired: false }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
   if (adminPasswordChangeRequired(auth.session)) return fail(response, 403, "PASSWORD_CHANGE_REQUIRED", "Сначала задайте новый постоянный пароль");
@@ -261,7 +261,7 @@ async function handleAdmin(request, response, url) {
   if (request.method === "GET" && parts[0] === "dashboard") return ok(response, admin.dashboard());
   if (request.method === "GET" && parts[0] === "audit-log") return ok(response, admin.auditLog());
 
-  if (parts[0] === "partners") return handleAdminPartners(request, response, parts);
+  if (parts[0] === "partners") return handleAdminPartners(request, response, parts, auth.session);
   if (parts[0] === "offers") return handleAdminOffers(request, response, parts);
   if (parts[0] === "bookings") return handleAdminBookings(request, response, parts, auth.session);
   if (parts[0] === "partner-applications") return handleAdminApplications(request, response, parts);
@@ -270,9 +270,12 @@ async function handleAdmin(request, response, url) {
   return fail(response, 404, "NOT_FOUND", "Действие не найдено. Обновите страницу и попробуйте снова.");
 }
 
-async function handleAdminPartners(request, response, parts) {
+async function handleAdminPartners(request, response, parts, session) {
   const partnerId = parts[1];
-  if (request.method === "POST" && partnerId === "onboard" && !parts[2]) return ok(response, admin.onboardPartnerInput(await readBody(request)), 201);
+  if (request.method === "POST" && partnerId === "onboard" && !parts[2]) {
+    if (!allowPasswordChange(session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много операций с паролями. Попробуйте через 10 минут.");
+    return ok(response, await admin.onboardPartnerInput(await readBody(request), session), 201);
+  }
   if (request.method === "GET" && !partnerId) return ok(response, listAdminData("partners"));
   if (request.method === "POST" && !partnerId) return ok(response, admin.createPartnerInput(await readBody(request)), 201);
   if (request.method === "PATCH" && partnerId && !parts[2]) return ok(response, admin.patchPartnerInput(partnerId, await readBody(request)));
@@ -282,8 +285,15 @@ async function handleAdminPartners(request, response, parts) {
   if (request.method === "PATCH" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, admin.patchAddressInput(partnerId, parts[3], await readBody(request)));
   if (request.method === "DELETE" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, { deleted: admin.deleteItem("partnerAddresses", parts[3]) });
   if (request.method === "GET" && partnerId && parts[2] === "users") return ok(response, listAdminData("partnerUsers").filter((item) => item.partner_id === partnerId).map(({ password_hash, password_salt, password_iterations, ...safe }) => safe));
-  if (request.method === "POST" && partnerId && parts[2] === "users") return ok(response, admin.createPartnerUserInput(partnerId, await readBody(request)), 201);
-  if (request.method === "PATCH" && partnerId && parts[2] === "users" && parts[3]) return ok(response, admin.patchPartnerUserInput(partnerId, parts[3], await readBody(request)));
+  if (request.method === "POST" && partnerId && parts[2] === "users") {
+    if (!allowPasswordChange(session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много операций с паролями. Попробуйте через 10 минут.");
+    return ok(response, await admin.createPartnerUserInput(partnerId, await readBody(request), session), 201);
+  }
+  if (request.method === "PATCH" && partnerId && parts[2] === "users" && parts[3]) {
+    const input = await readBody(request);
+    if (input.password !== undefined && !allowPasswordChange(session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много операций с паролями. Попробуйте через 10 минут.");
+    return ok(response, await admin.patchPartnerUserInput(partnerId, parts[3], input, session));
+  }
   if (request.method === "DELETE" && partnerId && parts[2] === "users" && parts[3]) return ok(response, { deleted: admin.deletePartnerUser(partnerId, parts[3]) });
   return fail(response, 404, "NOT_FOUND", "Раздел партнёра не найден. Обновите страницу.");
 }
@@ -346,7 +356,7 @@ async function handlePartner(request, response, url) {
   if (request.method === "POST" && parts.join("/") === "auth/login") {
     if (!rateLimit(`${ip(request)}:partner-login`)) return fail(response, 429, "RATE_LIMIT", "Слишком много попыток входа");
     const input = await readBody(request);
-    const session = partnerLogin(input.login, input.password);
+    const session = await partnerLogin(input.login, input.password);
     if (!session) return fail(response, 401, "BAD_CREDENTIALS", "Неверный логин или пароль");
     return ok(response, { role: "partner", partnerId: session.partner_id, userId: session.user_id, userRole: session.user_role, passwordChangeRequired: partnerPasswordChangeRequired(session) }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
@@ -368,9 +378,10 @@ async function handlePartner(request, response, url) {
   const partnerId = auth.session.partner_id;
 
   if (request.method === "POST" && parts.join("/") === "auth/change-password") {
+    if (!allowPasswordChange(auth.session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много попыток смены пароля. Попробуйте через 10 минут.");
     const input = await readBody(request);
     if (input.newPassword !== input.confirmPassword) return fail(response, 400, "PASSWORD_CONFIRMATION_MISMATCH", "Новый пароль и подтверждение не совпадают");
-    const session = changePartnerPassword(auth.session, input.currentPassword, input.newPassword);
+    const session = await changePartnerPassword(auth.session, input.currentPassword, input.newPassword);
     return ok(response, { changed: true, passwordChangeRequired: false }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
   if (partnerPasswordChangeRequired(auth.session)) return fail(response, 403, "PASSWORD_CHANGE_REQUIRED", "Сначала задайте новый постоянный пароль");
