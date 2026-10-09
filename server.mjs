@@ -241,6 +241,7 @@ function header(pathname) {
     </nav>
     <div class="header-actions">
       <a class="last-booking-link" href="#" data-last-booking hidden>Моя бронь</a>
+      <a class="header-login" href="/partner/login">Войти в кабинет</a>
       <a class="button button-primary header-cta" href="/partners#partner-application">Для заведений</a>
     </div>
     <details class="mobile-menu">
@@ -248,6 +249,7 @@ function header(pathname) {
       <nav aria-label="Мобильная навигация">
         ${nav.map((item) => `<a href="${item.href}">${item.label}</a>`).join("")}
         <a data-last-booking href="#" hidden>Моя бронь</a>
+        <a href="/partner/login">Войти в кабинет</a>
         <a href="/partners#partner-application">Для заведений</a>
       </nav>
     </details>
@@ -1058,6 +1060,26 @@ function hiddenPage(title, text) {
   </section>`;
 }
 
+function mobileWorkspaceNavigation(kind) {
+  const admin = kind === "admin";
+  const path = admin ? "/admin" : "/partner/dashboard";
+  const primary = admin
+    ? [["overview", "Обзор", "dashboard"], ["partners", "Заведения", "shop"], ["bookings", "Брони", "ticket"]]
+    : [["offers", "Предложения", "bag"], ["bookings", "Коды", "ticket"], ["overview", "Кабинет", "shop"]];
+  const secondary = admin
+    ? [["offers", "Все предложения"], ["partner-applications", "Заявки заведений"], ["contact-requests", "Обращения"], ["audit", "История действий"], ["settings", "Пароль и настройки"]]
+    : [["addresses", "Точки выдачи"], ["profile", "Профиль заведения"], ["security", "Изменить пароль"], ["help", "Как работать"]];
+  const link = ([key, title, iconName]) => `<a data-tab-link="${key}" href="${path}?tab=${key}">${iconName ? uiIcon(iconName) : ""}<span>${title}</span></a>`;
+  return `<nav class="workspace-mobile-nav" aria-label="Разделы ${admin ? "администратора" : "кабинета"}">
+    ${primary.map(link).join("")}
+    <button type="button" data-workspace-more aria-haspopup="dialog" aria-expanded="false" aria-controls="workspace-${kind}-more">${uiIcon("help")}<span>Ещё</span></button>
+  </nav>
+  <dialog class="workspace-menu-sheet" id="workspace-${kind}-more" aria-labelledby="workspace-${kind}-title" data-workspace-sheet>
+    <div class="workspace-sheet-heading"><h3 id="workspace-${kind}-title">Все разделы</h3><button type="button" data-workspace-close aria-label="Закрыть меню">${uiIcon("close")}</button></div>
+    <nav aria-label="Дополнительные разделы">${secondary.map(link).join("")}</nav>
+  </dialog>`;
+}
+
 function adminPage() {
   return `<section class="section app-panel" data-admin-app>
     ${sectionTitle("Админка", "Панель администратора", "Подключайте заведения, помогайте с предложениями и проверяйте заказы.")}
@@ -1066,7 +1088,7 @@ function adminPage() {
       <div class="access-intro">
         <p class="kicker">Закрытый раздел</p>
         <h3>С чего начать</h3>
-        <p>После входа откройте «Заявки партнёров». Если заведение уже готово к работе, добавьте его в разделе «Партнёры».</p>
+        <p>После входа откройте «Заявки заведений». Если вы уже договорились о подключении, добавьте заведение в разделе «Заведения».</p>
         <ul class="access-points"><li>Подключение заведений и сотрудников</li><li>Проверка предложений и броней</li><li>Ответы на заявки и обращения</li></ul>
       </div>
       <div class="auth-box">
@@ -1085,13 +1107,14 @@ function adminPage() {
       <div class="auth-box"><h3>Сменить пароль</h3><form class="smart-form auth-form" method="post" data-admin-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сохранить новый пароль</button></form></div>
     </div>
     <div data-admin-dashboard hidden>
+      ${mobileWorkspaceNavigation("admin")}
       <div class="admin-actions"><span class="admin-session" data-admin-session></span><span class="refresh-status" data-admin-updated role="status"></span><button class="button button-outline" data-admin-refresh>Обновить данные</button><button class="button button-outline" data-admin-logout>Выйти</button></div>
       <nav class="tab-nav" data-tabs="admin" aria-label="Разделы админки">
         <a data-tab-link="overview" href="/admin?tab=overview">Обзор</a>
-        <a data-tab-link="partners" href="/admin?tab=partners">Партнёры</a>
+        <a data-tab-link="partners" href="/admin?tab=partners">Заведения</a>
         <a data-tab-link="offers" href="/admin?tab=offers">Предложения</a>
-        <a data-tab-link="bookings" href="/admin?tab=bookings">Брони и коды</a>
-        <a data-tab-link="partner-applications" href="/admin?tab=partner-applications">Заявки партнёров</a>
+        <a data-tab-link="bookings" href="/admin?tab=bookings">Брони</a>
+        <a data-tab-link="partner-applications" href="/admin?tab=partner-applications">Заявки заведений</a>
         <a data-tab-link="contact-requests" href="/admin?tab=contact-requests">Обращения</a>
         <a data-tab-link="audit" href="/admin?tab=audit">Журнал действий</a>
         <a data-tab-link="settings" href="/admin?tab=settings">Настройки</a>
@@ -1152,9 +1175,10 @@ function partnerLoginPage() {
 function partnerDashboardPage() {
   return `<section class="section app-panel" data-partner-dashboard-app>
     <div class="partner-dashboard-heading">
-      ${sectionTitle("Кабинет партнёра", "Панель партнёра", "Здесь вы размещаете еду на сегодня и отмечаете выданные заказы. Продавцу доступны только брони, помощь и смена пароля.")}
+      ${sectionTitle("Для заведения", "Мой кабинет", "Добавляйте предложения, проверяйте коды покупателей и отмечайте выданные заказы.")}
       <div class="partner-dashboard-actions"><label class="period-label">Период<select data-partner-period><option value="today">Сегодня</option><option value="week">7 дней</option><option value="month">30 дней</option><option value="all">Всё время</option></select></label><span class="role-badge" data-partner-role></span><button class="button button-primary" type="button" data-open-offer-wizard>Разместить сегодня</button><button class="button button-outline" data-partner-logout>Выйти</button></div>
     </div>
+    ${mobileWorkspaceNavigation("partner")}
     <nav class="tab-nav" data-tabs="partner" aria-label="Разделы кабинета партнёра">
       <a data-tab-link="overview" href="/partner/dashboard?tab=overview">Обзор</a>
       <a data-tab-link="addresses" href="/partner/dashboard?tab=addresses">Адреса</a>
@@ -1289,7 +1313,7 @@ function renderPage(pathname) {
     "/partner-terms": "Условия партнёров",
     "/admin": "Админ",
     "/partner/login": "Вход партнёра",
-    "/partner/dashboard": "Панель партнёра"
+    "/partner/dashboard": "Мой кабинет"
   };
   const isAppPage = pathname === "/admin" || pathname.startsWith("/partner/");
   return `<!doctype html>
@@ -2300,11 +2324,25 @@ function setupTabs(rootSelector, validTabs) {
   const root = document.querySelector(rootSelector);
   if (!root) return () => {};
   const fallback = validTabs[0];
+  const sheet = root.querySelector("[data-workspace-sheet]");
+  const more = root.querySelector("[data-workspace-more]");
+  if (sheet && more && typeof sheet.showModal === "function") {
+    root.dataset.mobileNavigationReady = "true";
+    more.addEventListener("click", () => { if (!sheet.open) sheet.showModal(); more.setAttribute("aria-expanded", "true"); });
+    root.querySelector("[data-workspace-close]").addEventListener("click", () => sheet.close());
+    sheet.addEventListener("close", () => more.setAttribute("aria-expanded", "false"));
+    sheet.addEventListener("click", (event) => {
+      const bounds = sheet.getBoundingClientRect();
+      if (event.target === sheet && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) sheet.close();
+    });
+  }
+  root.querySelectorAll("[data-tab-link]").forEach((link) => { link.hidden = !validTabs.includes(link.dataset.tabLink); });
   const activate = (nextTab, replace = false) => {
     const params = new URLSearchParams(location.search);
     const tab = validTabs.includes(nextTab || params.get("tab")) ? (nextTab || params.get("tab")) : fallback;
     root.querySelectorAll("[data-tab-panel]").forEach((panel) => { panel.hidden = panel.dataset.tabPanel !== tab; });
-    root.querySelectorAll("[data-tab-link]").forEach((link) => { link.classList.toggle("active", link.dataset.tabLink === tab); });
+    root.querySelectorAll("[data-tab-link]").forEach((link) => { link.classList.toggle("active", link.dataset.tabLink === tab); if (link.dataset.tabLink === tab) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current"); });
+    if (more) more.classList.toggle("active", Boolean(sheet?.querySelector('[data-tab-link="' + tab + '"]')));
     root.querySelectorAll("[data-tab-select]").forEach((select) => { select.value = tab; });
     params.set("tab", tab);
     const nextUrl = location.pathname + "?" + params.toString();
@@ -2315,6 +2353,8 @@ function setupTabs(rootSelector, validTabs) {
     link.addEventListener("click", (event) => {
       event.preventDefault();
       activate(link.dataset.tabLink);
+      if (sheet?.open) sheet.close();
+      if (matchMedia("(max-width: 760px)").matches) root.scrollIntoView({ block: "start", behavior: "instant" });
     });
   });
   root.querySelectorAll("[data-tab-select]").forEach((select) => select.addEventListener("change", () => activate(select.value)));
@@ -2624,6 +2664,8 @@ async function setupPartnerDashboard() {
   }
   const isOwner = partnerSession.userRole === "owner";
   const isSeller = partnerSession.userRole === "seller";
+  const workspaceDescription = document.querySelector(".partner-dashboard-heading .section-title p:last-child");
+  if (isSeller && workspaceDescription) workspaceDescription.textContent = "Проверяйте код покупателя и отмечайте выдачу, когда передали заказ.";
   const allowedTabs = isSeller ? ["bookings", "security", "help"] : ["overview", "addresses", "offers", "bookings", "profile", "security", "help"];
   const roleNode = document.querySelector("[data-partner-role]");
   if (roleNode) roleNode.textContent = "Роль: " + statusLabel(partnerSession.userRole);
@@ -2649,6 +2691,7 @@ async function setupPartnerDashboard() {
     const root = document.querySelector("[data-partner-dashboard-app]");
     const notice = document.querySelector("[data-partner-password-required]");
     if (notice) notice.hidden = !required;
+    root.querySelectorAll("[data-workspace-more]").forEach((button) => { button.hidden = required; });
     root.querySelector("[data-partner-stats]").hidden = required;
     root.querySelectorAll("[data-tab-link]").forEach((link) => { link.hidden = !allowedTabs.includes(link.dataset.tabLink) || (required && link.dataset.tabLink !== "security"); });
     root.querySelectorAll("[data-tab-select] option").forEach((option) => { option.disabled = !allowedTabs.includes(option.value) || (required && option.value !== "security"); option.hidden = !allowedTabs.includes(option.value); });
@@ -4325,6 +4368,16 @@ body { background: var(--color-bg); }
 [data-admin-app] .staff-booking-card[hidden] { display: none; }
 [data-admin-app] .staff-booking-card dd { overflow-wrap: anywhere; }
 .mobile-tab-select { display: none; }
+.workspace-mobile-nav { display: none; }
+.workspace-menu-sheet { width: min(440px, calc(100% - 24px)); max-height: min(80dvh, 600px); margin: auto auto 12px; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); border: 1px solid #d9e4df; border-radius: 22px; color: #102f38; background: #fff; box-shadow: 0 12px 45px #102f3833; }
+.workspace-menu-sheet::backdrop { background: #102f3866; }
+.workspace-sheet-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.workspace-sheet-heading h3 { margin: 0; font-size: 23px; }
+.workspace-sheet-heading button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: #edf4f0; cursor: pointer; }
+.workspace-menu-sheet nav { display: grid; gap: 8px; }
+.workspace-menu-sheet nav a { min-height: 50px; padding: 14px; border-radius: 12px; background: #f2f6f3; color: #102f38; text-decoration: none; font-weight: 800; }
+.workspace-menu-sheet nav a.active { color: #0b646a; background: #dfefe7; }
+.header-login { font-weight: 800; white-space: nowrap; }
 .table-filters { display: flex; align-items: center; gap: 8px; }
 .table-filters input { width: min(100%, 300px); }
 .table-filters select { width: auto; min-width: 150px; }
@@ -4403,6 +4456,9 @@ body { background: var(--color-bg); }
   .site-nav { gap: 16px; }
   .site-nav a { font-size: 13px; }
   .header-actions .last-booking-link { display: none; }
+  .header-login { font-size: 13px; }
+  .site-header .city-pill { display: none; }
+  .site-header { grid-template-columns: auto 1fr auto; gap: 16px; }
   .market-intro { width: min(100% - 40px, 1240px); grid-template-columns: minmax(0, 1fr) minmax(320px, .78fr); gap: 34px; }
   .offers-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .section-white, .partner-strip { width: min(100% - 40px, 1240px); }
@@ -4470,6 +4526,14 @@ body { background: var(--color-bg); }
   .app-panel .tab-nav { display: none; }
   .mobile-tab-select { margin: 0 0 16px; display: grid; gap: 6px; color: #49636d; font-size: 12px; font-weight: 850; }
   .mobile-tab-select select { width: 100%; min-height: 46px; background: white; }
+  [data-mobile-navigation-ready] .mobile-tab-select { display: none; }
+  [data-mobile-navigation-ready] { padding-bottom: calc(100px + env(safe-area-inset-bottom)); scroll-margin-top: 74px; }
+  [data-mobile-navigation-ready] .workspace-mobile-nav { position: fixed; z-index: 35; bottom: 0; left: 0; right: 0; display: flex; gap: 4px; padding: 7px 8px calc(7px + env(safe-area-inset-bottom)); background: #fffffffa; border-top: 1px solid #dbe5de; box-shadow: 0 -4px 18px #102f380d; }
+  .workspace-mobile-nav a, .workspace-mobile-nav button { flex: 1; min-width: 0; min-height: 60px; padding: 7px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 12px; color: #526d70; background: transparent; font: inherit; font-size: 12px; font-weight: 800; text-decoration: none; cursor: pointer; }
+  .workspace-mobile-nav .active { color: #0b646a; background: #e5f1ed; }
+  .workspace-mobile-nav .ui-icon { width: 24px; height: 24px; }
+  .workspace-mobile-nav a[hidden], .workspace-mobile-nav button[hidden], .workspace-menu-sheet a[hidden] { display: none; }
+  [data-mobile-navigation-ready]:has(input:focus, textarea:focus, select:focus) .workspace-mobile-nav { display: none; }
   .panel-heading { align-items: stretch; flex-direction: column; }
   .panel-heading input { width: 100%; }
   .table-filters { width: 100%; display: grid; grid-template-columns: 1fr; }
