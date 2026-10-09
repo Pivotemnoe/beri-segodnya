@@ -18,7 +18,12 @@ def adb(*args):
 
 def tree():
     focus = adb('shell', 'dumpsys', 'window').decode()
-    assert re.search(r'mCurrentFocus=.*ru\.berisegodnya\.app', focus), 'Not the native application'
+    if not re.search(r'mCurrentFocus=.*ru\.berisegodnya\.app', focus):
+        # The disposable emulator has no accounts or entered credentials. Preserve the cause, not a false PASS.
+        (output/'failure-window.txt').write_text(focus)
+        (output/'failure-focus.png').write_bytes(adb('exec-out', 'screencap', '-p'))
+        (output/'failure-crash.txt').write_bytes(adb('logcat', '-b', 'crash', '-d'))
+        raise AssertionError('Not the native application: ' + str(re.findall(r'mCurrentFocus=.*', focus)))
     raw = adb('exec-out', 'uiautomator', 'dump', '/dev/tty').decode()
     source = raw[raw.index('<?xml'):raw.index('</hierarchy>') + len('</hierarchy>')]
     return source, ET.fromstring(source)
@@ -65,7 +70,11 @@ def capture(name, expected):
     return current
 
 
-adb('shell', 'am', 'start', '-n', 'ru.berisegodnya.app/.MainActivity')
+adb('shell', 'am', 'start', '-W', '-n', 'ru.berisegodnya.app/.MainActivity')
+for _ in range(30):
+    if re.search(r'mCurrentFocus=.*ru\.berisegodnya\.app', adb('shell', 'dumpsys', 'window').decode()):
+        break
+    time.sleep(1)
 time.sleep(4)
 offers_loaded = False
 for _ in range(12):
