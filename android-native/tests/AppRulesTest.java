@@ -10,6 +10,7 @@ public final class AppRulesTest {
         equal("9 октября, 12:30", AppRules.friendlyTimestamp("2026-10-09T09:30:00Z"));
         equal("abcde-fghij_12345", AppRules.sessionCookieValue("__Host-bs_session=abcde-fghij_12345; Secure; HttpOnly; Path=/"));
         equal("", AppRules.sessionCookieValue("__Host-bs_session=; Max-Age=0"));
+        if (!AppRules.PRESERVED_OFFER_FIELDS.equals(java.util.Set.of("id", "addressId", "totalQuantity", "remainingQuantity", "status"))) throw new AssertionError("An edit can overwrite stock, address or publication state");
         if (AppRules.sessionCookieValue("bs_session=abcde-fghij_12345") != null || AppRules.sessionCookieValue("__Host-bs_session=invalid") != null) throw new AssertionError("Insecure or malformed cookie accepted");
         equal("", AppRules.bookingToken("https://evil.example/booking/booking-view-example"));
         equal("", AppRules.bookingToken("https://berisegodnya.ru@evil.example/booking/booking-view-example"));

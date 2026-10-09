@@ -478,7 +478,7 @@ public final class MainActivity extends Activity {
     }
 
     private void editExistingOffer(JSONObject offer) {
-        offerDraft = json("id", offer.optString("id"), "addressId", offer.optString("address_id"), "title", offer.optString("title"), "category", offer.optString("category"), "price", offer.opt("price"), "contents", offer.optString("contents"), "allergens", offer.optString("allergens"), "date", offer.optString("date"), "pickupWindow", offer.optString("pickup_window"), "totalQuantity", offer.optInt("total_quantity"), "remainingQuantity", offer.optInt("remaining_quantity"), "imageUrls", offer.optJSONArray("image_urls") == null ? new JSONArray() : offer.optJSONArray("image_urls"), "status", offer.optString("status"));
+        offerDraft = json("id", offer.optString("id"), "addressId", offer.optString("address_id"), "title", offer.optString("title"), "category", offer.optString("category"), "price", offer.opt("price"), "oldPrice", offer.isNull("old_price") ? "" : offer.optString("old_price"), "contents", offer.optString("contents"), "allergens", offer.optString("allergens"), "date", offer.optString("date"), "pickupWindow", offer.optString("pickup_window"), "totalQuantity", offer.optInt("total_quantity"), "remainingQuantity", offer.optInt("remaining_quantity"), "imageUrls", offer.optJSONArray("image_urls") == null ? new JSONArray() : offer.optJSONArray("image_urls"), "status", offer.optString("status"));
         saveDraft(); showOfferEditor(offer.optString("id"), true);
     }
 
@@ -490,11 +490,12 @@ public final class MainActivity extends Activity {
         final LinearLayout form = column;
         run(() -> api.request("GET", "/api/partner/addresses", null, true), value -> {
             JSONArray addresses = (JSONArray) value; List<JSONObject> active = new ArrayList<>();
-            for (int i = 0; i < addresses.length(); i++) if (addresses.getJSONObject(i).optBoolean("is_active", true)) active.add(addresses.getJSONObject(i));
+            for (int i = 0; i < addresses.length(); i++) if (addresses.getJSONObject(i).optBoolean("is_active", true) || addresses.getJSONObject(i).optString("id").equals(offerDraft.optString("addressId"))) active.add(addresses.getJSONObject(i));
             if (active.isEmpty()) { text(form, "Владелец должен добавить адрес, где вы будете выдавать заказы.", 18, MUTED); if ("owner".equals(userRole)) button(form, "Добавить точку", true, () -> showAddressForm(true)); return; }
             String[] labels = new String[active.size()]; int selected = 0;
             for (int i = 0; i < active.size(); i++) { labels[i] = active.get(i).optString("title") + " · " + active.get(i).optString("address"); if (active.get(i).optString("id").equals(offerDraft.optString("addressId"))) selected = i; }
             text(form, "Где выдавать", 15, INK); Spinner address = choices(form, labels, selected);
+            if (!id.isEmpty()) { address.setEnabled(false); text(form, "У размещённого предложения точка остаётся прежней. Для другого адреса добавьте новое предложение.", 14, MUTED); }
             address.setOnItemSelectedListener(selection(position -> putDraft("addressId", active.get(position).optString("id"))));
             EditText title = draftField(form, "title", "Название предложения", 120, false);
             text(form, "Категория", 15, INK); String[] keys = {"lunch", "bakery", "evening"}; int selectedCategory = 0;
@@ -504,6 +505,7 @@ public final class MainActivity extends Activity {
             EditText contents = draftField(form, "contents", "Состав набора", 500, false);
             EditText allergens = draftField(form, "allergens", "Аллергены", 240, false);
             EditText price = draftField(form, "price", "Цена, ₽", 8, true);
+            EditText oldPrice = draftField(form, "oldPrice", "Обычная цена, ₽ — по желанию", 8, true);
             EditText quantity = draftField(form, "totalQuantity", "Количество наборов", 5, true);
             if (!id.isEmpty()) { quantity.setEnabled(false); text(form, "Количество уже размещённого предложения здесь не меняется, чтобы не затронуть брони.", 14, MUTED); }
             String dateValue = offerDraft.optString("date", AppRules.today());
@@ -530,6 +532,9 @@ public final class MainActivity extends Activity {
                 try {
                     if (title.getText().toString().trim().isEmpty() || contents.getText().toString().trim().isEmpty()) throw new IllegalArgumentException("Укажите название и состав набора");
                     int count = Integer.parseInt(quantity.getText().toString()); double amount = Double.parseDouble(price.getText().toString().replace(',', '.'));
+                    String originalPrice = oldPrice.getText().toString().trim();
+                    double previousAmount = originalPrice.isEmpty() ? 0 : Double.parseDouble(originalPrice.replace(',', '.'));
+                    if (!Double.isFinite(amount) || !Double.isFinite(previousAmount) || previousAmount < 0 || previousAmount > 100000 || (previousAmount != 0 && previousAmount <= amount)) throw new IllegalArgumentException("Обычная цена должна быть выше цены предложения. Можно оставить её пустой.");
                     if (count < 1 || count > 10000 || amount < 1 || amount > 100000) throw new IllegalArgumentException("Проверьте цену и количество");
                     String[] times = pickup.getText().toString().split("–");
                     if (times.length != 2 || !LocalTime.parse(times[1]).isAfter(LocalTime.parse(times[0]))) throw new IllegalArgumentException("Конец выдачи должен быть позже начала");
@@ -537,6 +542,7 @@ public final class MainActivity extends Activity {
                     JSONObject data = new JSONObject(offerDraft.toString()); data.remove("id");
                     data.put("addressId", active.get(address.getSelectedItemPosition()).getString("id")); data.put("category", keys[kind.getSelectedItemPosition()]);
                     data.put("price", amount); data.put("totalQuantity", count); data.put("pickupWindow", pickup.getText().toString());
+                    data.put("oldPrice", previousAmount == 0 ? "" : previousAmount);
                     if (id.isEmpty()) { data.put("remainingQuantity", count); data.put("status", "active"); }
                     data.put("sourceType", "manual");
                     putDraft("addressId", data.getString("addressId")); putDraft("category", data.getString("category")); saveDraft();
@@ -562,7 +568,9 @@ public final class MainActivity extends Activity {
             mutate(() -> {
                 if (id.isEmpty()) { store.put("publication-uncertain", "pending"); publicationUncertain = true; }
                 try {
-                    Object result = api.request(id.isEmpty() ? "POST" : "PATCH", "/api/partner/offers" + (id.isEmpty() ? "" : "/" + id), data, true);
+                    JSONObject payload = new JSONObject(data.toString());
+                    if (!id.isEmpty()) for (String field : AppRules.PRESERVED_OFFER_FIELDS) payload.remove(field);
+                    Object result = api.request(id.isEmpty() ? "POST" : "PATCH", "/api/partner/offers" + (id.isEmpty() ? "" : "/" + id), payload, true);
                     store.remove("publication-uncertain"); publicationUncertain = false; return result;
                 } catch (ApiClient.Failure error) {
                     if (error.status >= 400 && error.status < 500 && error.status != 429) { store.remove("publication-uncertain"); publicationUncertain = false; }

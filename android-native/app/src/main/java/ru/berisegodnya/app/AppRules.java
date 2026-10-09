@@ -19,6 +19,8 @@ public final class AppRules {
         return "+7" + digits;
     }
     public static String today() { return LocalDate.now(ZoneId.of("Europe/Moscow")).toString(); }
+    /** Editing text/photo must never replay a stale stock or publication snapshot. */
+    public static final java.util.Set<String> PRESERVED_OFFER_FIELDS = java.util.Set.of("id", "addressId", "totalQuantity", "remainingQuantity", "status");
     public static String friendlyDate(String value) {
         try { return LocalDate.parse(value).format(java.time.format.DateTimeFormatter.ofPattern("d MMMM", java.util.Locale.forLanguageTag("ru-RU"))); }
         catch (Exception error) { return value == null ? "" : value; }

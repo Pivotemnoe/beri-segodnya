@@ -211,10 +211,14 @@ final class AdminScreens {
         EditText contents = app.field(app.column, "Состав", offer.optString("contents"), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE, 500);
         EditText allergens = app.field(app.column, "Аллергены", offer.optString("allergens"), InputType.TYPE_CLASS_TEXT, 240);
         EditText price = app.field(app.column, "Цена, ₽", offer.optString("price"), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL, 10);
+        EditText oldPrice = app.field(app.column, "Обычная цена, ₽ — по желанию", offer.isNull("old_price") ? "" : offer.optString("old_price"), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL, 10);
         Button save = app.button(app.column, "Сохранить", true, () -> { });
         save.setOnClickListener(view -> {
             try { double amount = Double.parseDouble(price.getText().toString().replace(',', '.'));
-                app.mutate(() -> app.api.request("PATCH", "/api/admin/offers/" + offer.getString("id"), app.json("title", title.getText().toString(), "contents", contents.getText().toString(), "allergens", allergens.getText().toString(), "price", amount), true), value -> offers(partnerId, false), save);
+                String previousPrice = oldPrice.getText().toString().trim();
+                double oldAmount = previousPrice.isEmpty() ? 0 : Double.parseDouble(previousPrice.replace(',', '.'));
+                if (!Double.isFinite(amount) || !Double.isFinite(oldAmount) || amount < 1 || oldAmount < 0 || (oldAmount > 0 && oldAmount <= amount)) { app.message("Проверьте цены. Обычная цена должна быть выше цены предложения."); return; }
+                app.mutate(() -> app.api.request("PATCH", "/api/admin/offers/" + offer.getString("id"), app.json("title", title.getText().toString(), "contents", contents.getText().toString(), "allergens", allergens.getText().toString(), "price", amount, "oldPrice", oldAmount == 0 ? "" : oldAmount), true), value -> offers(partnerId, false), save);
             } catch (NumberFormatException error) { app.message("Введите цену цифрами"); }
         });
     }
@@ -308,7 +312,7 @@ final class AdminScreens {
                 String actor = item.optString("actorRole");
                 app.details(row, "Кто", "admin".equals(actor) ? "Администратор" : "partner".equals(actor) ? item.isNull("actorName") ? "Сотрудник заведения" : item.optString("actorName") : "Система");
                 if (!item.isNull("referenceLabel")) app.details(row, "Что изменилось", item.optString("referenceLabel"));
-                if (!item.isNull("status")) app.details(row, "Статус", AppRules.status(item.optString("status")));
+                if (!item.isNull("status")) app.details(row, "Статус", "partner".equals(item.optString("entityType")) ? partnerStatus(item.optString("status")) : AppRules.status(item.optString("status")));
                 if (!item.isNull("reason")) app.details(row, "Причина исправления", item.optString("reason"));
             }
         }, null);
