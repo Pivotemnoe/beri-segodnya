@@ -1,0 +1,41 @@
+name: Native Android candidate
+permissions:
+  contents: read
+on:
+  pull_request:
+    branches: [main]
+    paths: ['android-native/**', 'android-twa/gradle/**', '.github/workflows/android-native.yml']
+  workflow_dispatch:
+jobs:
+  native-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
+      - name: Pure app rules
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-rules"
+          javac -d "$RUNNER_TEMP/native-rules" android-native/app/src/main/java/ru/berisegodnya/app/AppRules.java android-native/tests/AppRulesTest.java
+          java -cp "$RUNNER_TEMP/native-rules" ru.berisegodnya.app.AppRulesTest
+      - name: Reuse audited dependency checksums
+        run: |
+          mkdir -p android-native/gradle
+          cp android-twa/gradle/verification-metadata.xml android-native/gradle/verification-metadata.xml
+      - name: Compile and lint native release
+        run: android-twa/gradlew -p android-native --no-daemon --warning-mode fail --dependency-verification strict lintRelease assembleRelease
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-android-unsigned-candidate
+          path: |
+            android-native/app/build/outputs/apk/release/*.apk
+            android-native/app/build/reports/lint-results-release.*
+          if-no-files-found: error
+          retention-days: 7
+# Signing is local with the existing protected key. No private keystore is sent to CI.
