@@ -190,7 +190,10 @@ public final class MainActivity extends Activity {
         else if (!selectedTab.equals("offers")) tab("offers");
         else finish();
     }
-    @SuppressWarnings("deprecation") @Override public void onBackPressed() { back(); }
+    // API 33+ uses the platform OnBackInvokedDispatcher registered in onCreate.
+    // This override is solely the required Android 8–12 fallback, not the gesture path.
+    @android.annotation.SuppressLint("GestureBackNavigation")
+    @SuppressWarnings("deprecation") @Override public void onBackPressed() { if (Build.VERSION.SDK_INT < 33) back(); }
     @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); String token = tokenFromIntent(intent); if (!token.isEmpty()) { partnerMode = false; adminMode = false; selectedTab = "bookings"; backStack.clear(); showBooking(token, true); } }
     private String tokenFromIntent(Intent intent) { return intent != null && intent.getData() != null ? AppRules.bookingToken(intent.getData().toString()) : ""; }
 

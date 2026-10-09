@@ -31,6 +31,7 @@ jobs:
       - name: Compile and lint native release
         run: android-twa/gradlew -p android-native --no-daemon --warning-mode fail --dependency-verification strict lintRelease assembleRelease
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
           name: native-android-unsigned-candidate
           path: |
