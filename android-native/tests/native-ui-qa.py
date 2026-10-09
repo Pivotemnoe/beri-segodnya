@@ -140,7 +140,9 @@ adb('shell', 'input', 'keyevent', '4')
 time.sleep(.6)
 capture('13-cold-booking-link-back', 'Мои брони')
 activities = adb('shell', 'dumpsys', 'activity', 'activities').decode()
-assert len(re.findall(r'Hist #\d+: ActivityRecord\{[^\n]*ru\.berisegodnya\.app/(?:\.|ru\.berisegodnya\.app\.)MainActivity', activities)) == 1, 'Multiple native workspaces after booking links'
+(output/'activity-stack.txt').write_text(activities)
+activity_count = len(re.findall(r'Hist\s+#\d+:\s+ActivityRecord\{[^\n]*ru\.berisegodnya\.app/(?:\.|ru\.berisegodnya\.app\.)MainActivity', activities))
+assert activity_count == 1, f'Expected exactly one native workspace after booking links; found {activity_count}'
 crashes = adb('logcat', '-b', 'crash', '-d').decode()
 assert 'ru.berisegodnya.app' not in crashes, 'Application crash recorded'
 (output/'summary.json').write_text(json.dumps({'scope':'read-only cloud Android 13 native release UI', 'realTecnoAccepted':False, 'productionCredentialUsed':False, 'apiMutations':False, 'checks':['native focus/no WebView','public offers API loaded successfully','visitor tabs','single activity rejects malformed booking link without restarting workspace','visible partner/admin entrances','native forms','inline password eye','Android back','fixed +7 phone','keyboard hides bottom navigation and restores it','warm and cold booking links return only to buyer history','one MainActivity after repeated links','no recorded app crash']}, ensure_ascii=False, indent=2))
