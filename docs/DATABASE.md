@@ -12,6 +12,10 @@ The file is ignored by Git. Seed/migration scripts are committed.
 
 ## Collections
 
+- `customers`
+- `customerSessions`
+- `customerLoginChallenges`
+- `customerAuthLimits`
 - `partners`
 - `partnerUsers`
 - `partnerAddresses`
@@ -49,6 +53,8 @@ node backend/db/reset.mjs
 New `bookings` include `terms_snapshot` version 1: immutable price/title/contents/allergens/weight/description, partner name, address/title, date/window, and capture time. Public/staff projections and issued amounts use that snapshot. No bulk rewrite of legacy records occurs: absent snapshots are marked unverified with `price=null`, excluded from amount totals, and counted separately.
 
 Optional `request_key_hash` and `request_fingerprint` deduplicate a UUID-labelled creation retry inside the same atomic JSON mutation; projections exclude these internal values. Codes are generated with cryptographic randomness, checked against every stored code, and expand after four-digit exhaustion. This still assumes exactly one writer/process.
+
+Optional `customer_id` links a new authenticated booking to a buyer. Legacy/guest rows remain unchanged and are never associated by phone. Customer DTOs expose only that account's history; private booking capability links remain an independent way to view/cancel a booking. Profile fields: normalized email, name, contact phone, active status and consent receipt. Separate session/challenge collections contain HMAC hashes, expiries and attempts, not raw credentials. Persistent rate-limit rows store hashed budget keys and reset times. Missing collections are added on read without resetting existing data. All four collections are part of the ordinary database backup. The future SQL schema still requires a dedicated migration before replacing JSON.
 
 `status_changed_at`, `issued_at` support reporting. Cancellation stores whether it actually returned stock. `corrections` records administrator-only terminal corrections with reason, identity, time and stock delta; `auditLog` keeps an additional trace. Ordinary terminal transitions remain prohibited.
 

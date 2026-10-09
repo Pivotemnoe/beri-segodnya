@@ -4,7 +4,7 @@ import { consentReceipt } from "../utils/legal.mjs";
 import { cleanString, validatePhone } from "../utils/validation.mjs";
 import crypto from "node:crypto";
 
-export function createBooking(input) {
+export function createBooking(input, customerId = null) {
   const offerId = cleanString(input.offerId, 120, true, "Предложение");
   const customerName = cleanString(input.customerName, 80, true, "Имя");
   const customerPhone = validatePhone(input.customerPhone);
@@ -12,8 +12,10 @@ export function createBooking(input) {
   const requestId = String(input.requestId ?? "").trim();
   if (requestId && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(requestId)) throw Object.assign(new Error("Некорректный идентификатор запроса"), { status: 400, code: "INVALID_REQUEST_ID" });
   const digest = (value) => crypto.createHash("sha256").update(value).digest("hex");
-  const retry = requestId ? { keyHash: digest(requestId.toLowerCase()), fingerprint: digest(JSON.stringify([offerId, customerName, customerPhone, receipt.consent_version])) } : {};
-  const { booking, offer } = createBookingAtomic(offerId, customerName, customerPhone, generateCode(), receipt, retry);
+  const fingerprintFields = [offerId, customerName, customerPhone, receipt.consent_version];
+  if (customerId) fingerprintFields.push(customerId);
+  const retry = requestId ? { keyHash: digest(requestId.toLowerCase()), fingerprint: digest(JSON.stringify(fingerprintFields)) } : {};
+  const { booking, offer } = createBookingAtomic(offerId, customerName, customerPhone, generateCode(), receipt, retry, customerId);
   return {
     bookingId: booking.id,
     code: booking.code,

@@ -238,12 +238,13 @@ export function isPartnerActive(partnerId) {
   return readDb().partners.some((partner) => partner.id === partnerId && partner.status === "active");
 }
 
-export function createBookingAtomic(offerId, customerName, customerPhone, code, receipt = {}, retry = {}) {
+export function createBookingAtomic(offerId, customerName, customerPhone, code, receipt = {}, retry = {}, customerId = null) {
   return updateDb((db) => {
+    if (customerId && !db.customers.some(row => row.id === customerId && row.status === "active")) throw Object.assign(new Error("Войдите по почте заново."), { status: 401, code: "CUSTOMER_LOGIN_REQUIRED" });
     if (retry.keyHash) {
       const previous = db.bookings.find((item) => item.request_key_hash === retry.keyHash);
       if (previous) {
-        if (previous.request_fingerprint !== retry.fingerprint) throw Object.assign(new Error("Данные повторного запроса изменились. Начните новую бронь."), { status: 409, code: "BOOKING_REQUEST_CONFLICT" });
+        if (previous.request_fingerprint !== retry.fingerprint || (previous.customer_id || null) !== customerId) throw Object.assign(new Error("Данные повторного запроса изменились. Начните новую бронь."), { status: 409, code: "BOOKING_REQUEST_CONFLICT" });
         return { booking: previous, offer: db.offers.find((item) => item.id === previous.offer_id) };
       }
     }
@@ -284,6 +285,7 @@ export function createBookingAtomic(offerId, customerName, customerPhone, code, 
       address_id: offer.address_id,
       customer_name: customerName,
       customer_phone: customerPhone,
+      ...(customerId ? { customer_id: customerId } : {}),
       ...receipt,
       terms_snapshot: snapshotBookingTerms(offer, partner, address, time),
       ...(retry.keyHash ? { request_key_hash: retry.keyHash, request_fingerprint: retry.fingerprint } : {}),
@@ -304,6 +306,10 @@ export function getPublicBooking(publicToken) {
   const db = readDb();
   const booking = db.bookings.find((item) => item.public_token === publicToken);
   if (!booking) return null;
+  return publicBooking(booking, db);
+}
+
+export function publicBooking(booking, db) {
   return {
     publicToken: booking.public_token,
     code: booking.code,

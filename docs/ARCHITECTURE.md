@@ -5,7 +5,8 @@
 ## Parts
 
 - Public website: `/`, `/how-it-works`, `/partners`, `/contacts`, `/privacy`.
-- Backend API: `/api/public/*`, `/api/admin/*`, `/api/partner/*`.
+- Backend API: `/api/public/*`, `/api/customer/*`, `/api/admin/*`, `/api/partner/*`.
+- Optional customer account: `/customer`, email OTP, profile and owner-scoped history; guest booking remains available.
 - Admin panel: `/admin`.
 - Partner dashboard: `/partner/login`, `/partner/dashboard`.
 - Native Android 0.2: `android-native`, platform Views, role-aware bottom navigation and the same protected API; accepted on TECNO/Android 13. Release identity: `android-native/release.json`, evidence: `ANDROID_NATIVE_DEVICE_QA_2026-10-09.md`. Immutable `android-twa` 0.1 APK remains available only as a rollback version.
@@ -45,6 +46,6 @@ Booking creation atomically stores an immutable terms snapshot, unique code and 
 
 ## Storage choice
 
-JSON storage is an intentional dependency-free choice for a closed single-process pilot. Writes use a temporary file plus atomic rename. It is isolated behind repositories and must be replaced by PostgreSQL before multi-process operation or material growth.
+JSON storage is an intentional choice for a closed single-process pilot. Writes use a temporary file plus atomic rename. It is isolated behind repositories and must be replaced by PostgreSQL before multi-process operation or material growth. The only server package dependency is pinned Nodemailer for SMTP; core HTTP/storage remain Node APIs.
 
 The browser may store the latest booking URL and an unfinished quick-publication draft as UI conveniences. Offers, photos, quantities, statuses, sessions and applications remain server-side truth.

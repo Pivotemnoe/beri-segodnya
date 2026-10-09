@@ -20,22 +20,26 @@ final class ApiClient {
     private final SecureStore store;
     private volatile String session = "";
     private volatile String adminSession = "";
+    private volatile String customerSession = "";
     ApiClient(SecureStore store) { this.store = store; }
-    void restore() throws Exception { session = store.get("session"); adminSession = store.get("admin-session"); }
+    void restore() throws Exception { session = store.get("session"); adminSession = store.get("admin-session"); customerSession = store.get("customer-session"); }
+    boolean hasCustomerSession() { return !customerSession.isEmpty(); }
+    void forgetCustomerSession() { customerSession = ""; store.remove("customer-session"); store.remove("customer-profile"); store.remove("customer-bookings"); }
     boolean hasSession() { return !session.isEmpty(); }
     boolean hasAdminSession() { return !adminSession.isEmpty(); }
     void forgetAdminSession() { adminSession = ""; store.remove("admin-session"); }
     void forgetSession() { session = ""; store.remove("session"); store.remove("offer-draft"); store.remove("publication-uncertain"); }
     Object request(String method, String path, JSONObject body, boolean authenticated) throws Exception {
-        if (!path.matches("/api/(public|partner|admin)/[a-zA-Z0-9_/?=&%-]+") || path.contains("..")) throw new IllegalArgumentException("Недопустимый адрес запроса");
+        if (!path.matches("/api/(public|partner|admin|customer)/[a-zA-Z0-9_/?=&%-]+") || path.contains("..")) throw new IllegalArgumentException("Недопустимый адрес запроса");
         boolean admin = path.startsWith("/api/admin/");
+        boolean customer = path.startsWith("/api/customer/") || (path.equals("/api/public/bookings") && body != null && body.optBoolean("accountBooking"));
         HttpsURLConnection connection = (HttpsURLConnection) new URL(AppRules.ORIGIN + path).openConnection();
         try {
             connection.setInstanceFollowRedirects(false); connection.setConnectTimeout(12000); connection.setReadTimeout(20000);
             connection.setRequestMethod(method); connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("Origin", AppRules.ORIGIN); connection.setRequestProperty("X-BS-Request", "1");
-            String cookieSession = admin ? adminSession : session;
-            if (authenticated && !cookieSession.isEmpty()) connection.setRequestProperty("Cookie", "__Host-bs_session=" + cookieSession);
+            String cookieSession = customer ? customerSession : admin ? adminSession : session;
+            if (authenticated && !cookieSession.isEmpty()) connection.setRequestProperty("Cookie", (customer ? "__Host-bs_customer=" : "__Host-bs_session=") + cookieSession);
             if (body != null) {
                 byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
                 connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
@@ -52,20 +56,20 @@ final class ApiClient {
             try { envelope = new JSONObject(raw); } catch (Exception error) { throw new Failure(status, "SERVER_RESPONSE", "Сервис временно недоступен. Попробуйте позже."); }
             if (!envelope.optBoolean("ok")) {
                 JSONObject error = envelope.optJSONObject("error");
-                if (authenticated && status == 401) { if (admin) forgetAdminSession(); else forgetSession(); }
+                if (authenticated && status == 401) { if (customer) forgetCustomerSession(); else if (admin) forgetAdminSession(); else forgetSession(); }
                 throw new Failure(status, error == null ? "SERVER_RESPONSE" : error.optString("code"), error == null ? "Не удалось выполнить действие" : error.optString("message", "Не удалось выполнить действие"));
             }
             // Accept only our named session cookie, only from authentication responses at the pinned origin.
-            if (path.startsWith("/api/partner/auth/") || path.startsWith("/api/admin/auth/")) {
+            if (path.startsWith("/api/partner/auth/") || path.startsWith("/api/admin/auth/") || path.startsWith("/api/customer/auth/")) {
                 for (Map.Entry<String, List<String>> header : connection.getHeaderFields().entrySet()) {
                     if (!"Set-Cookie".equalsIgnoreCase(header.getKey())) continue;
                     for (String cookie : header.getValue()) {
-                        String value = AppRules.sessionCookieValue(cookie);
+                        String value = customer ? AppRules.customerSessionCookieValue(cookie) : AppRules.sessionCookieValue(cookie);
                         if (value == null) continue;
-                        if (value.isEmpty()) { if (admin) forgetAdminSession(); else forgetSession(); }
+                        if (value.isEmpty()) { if (customer) forgetCustomerSession(); else if (admin) forgetAdminSession(); else forgetSession(); }
                         else if (value.matches("[a-zA-Z0-9_-]{10,200}")) {
-                            store.put(admin ? "admin-session" : "session", value);
-                            if (admin) adminSession = value; else session = value;
+                            store.put(customer ? "customer-session" : admin ? "admin-session" : "session", value);
+                            if (customer) customerSession = value; else if (admin) adminSession = value; else session = value;
                         }
                     }
                 }
