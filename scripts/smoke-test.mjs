@@ -13,6 +13,7 @@ import { validatePhone } from "../backend/utils/validation.mjs";
 import { runPilotHardeningScenario } from "./pilot-hardening-scenario.mjs";
 import { runClientPhotoChecks } from "./client-photo-checks.mjs";
 import { runClientPhoneChecks } from "./client-phone-checks.mjs";
+import { runClientWorkspaceChecks } from "./client-workspace-checks.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
@@ -145,6 +146,7 @@ async function runScenario(port) {
   new Script(publicScript.text, { filename: "served-public.js" });
   runClientPhoneChecks(publicScript.text);
   new Script(appScript.text, { filename: "served-app.js" });
+  runClientWorkspaceChecks(appScript.text);
   await runClientPhotoChecks(appScript.text);
   const presentationSource = publicScript.text.match(/function publicBookingPresentation\([\s\S]*?(?=\n  var bookingPageRoot)/)?.[0];
   assert(presentationSource, "Status-specific booking presentation is missing");
