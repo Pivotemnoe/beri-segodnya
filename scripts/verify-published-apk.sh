@@ -59,3 +59,25 @@ grep -Fq "launchable-activity: name='ru.berisegodnya.app.LauncherActivity'" <<<"
   || fail "Published APK launcher activity is incorrect"
 
 printf 'Published APK verified: %s\n' "${APK_NAME}"
+
+# Keep the immutable TWA rollback above verified as well as the current native release.
+APK_NAME="beri-segodnya-android-0.2.0-native-pilot.apk"
+APK_PATH="${APK_DIR}/${APK_NAME}"
+[[ -f "${APK_PATH}" && -f "${APK_PATH}.sha256" ]] || fail "Native signed release or checksum is missing"
+(
+  cd "${APK_DIR}"
+  shasum -a 256 -c "${APK_NAME}.sha256" >/dev/null
+) || fail "Native APK SHA-256 does not match its checksum file"
+"${BUILD_TOOLS_DIR}/zipalign" -c -v 4 "${APK_PATH}" >/dev/null || fail "Native APK alignment is invalid"
+signature_info="$("${BUILD_TOOLS_DIR}/apksigner" verify --verbose --print-certs "${APK_PATH}")" || fail "Native APK signature is invalid"
+grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' <<<"${signature_info}" || fail "Native APK lacks a verified v2 signature"
+grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' <<<"${signature_info}" || fail "Native APK lacks a verified v3 signature"
+actual_fingerprint="$(printf '%s\n' "${signature_info}" | awk -F': ' '/certificate SHA-256 digest:/{print $2; exit}')"
+[[ "$(canonical_fingerprint "${actual_fingerprint}")" == "$(canonical_fingerprint "${expected_fingerprint}")" ]] || fail "Native certificate does not match the existing pilot and App Links"
+badging="$("${BUILD_TOOLS_DIR}/aapt2" dump badging "${APK_PATH}")" || fail "Unable to inspect native manifest"
+grep -Fq "package: name='ru.berisegodnya.app' versionCode='2' versionName='0.2.0-native-pilot'" <<<"${badging}" || fail "Native package or version is incorrect"
+grep -Fq "minSdkVersion:'26'" <<<"${badging}" || fail "Native minSdk is incorrect"
+grep -Fq "targetSdkVersion:'36'" <<<"${badging}" || fail "Native targetSdk is incorrect"
+grep -Fq "launchable-activity: name='ru.berisegodnya.app.MainActivity'" <<<"${badging}" || fail "Native launcher is incorrect"
+if grep -Fq 'application-debuggable' <<<"${badging}"; then fail "Native release is debuggable"; fi
+printf 'Published APK verified: %s\n' "${APK_NAME}"

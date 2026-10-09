@@ -50,9 +50,9 @@
 - [x] GitHub Actions run `32641699229` passed both `pilot-gate` and `android-source-gate`, including strict dependency verification, `lintRelease` and `assembleRelease`.
 - [ ] Legal/operator configuration is complete and `LEGAL_OPERATOR_READY=true` is approved.
 - [x] Signed APK is built and verified against its signature, public fingerprint, manifest and SHA-256.
-- [ ] Signed APK is installed and accepted on a physical Android target.
+- [x] Native signed APK 0.2 is installed and its core flows accepted on TECNO/Android 13; exact artifact and limits: `ANDROID_NATIVE_DEVICE_QA_2026-10-09.md`.
 - [ ] Dedicated `deploy` SSH key and app-specific alert delivery are verified.
 
-Result: the deployed web/PWA is ready for an internal technical rehearsal without real personal data, and the integrated source/CI gate is green. The signed APK/device acceptance, legal/operator configuration and external operating gates remain open. Source changes after `569b4da` must pass a new PR before deployment.
+Result: the deployed web/PWA and accepted native Android core flow are ready for an internal technical rehearsal without real personal data. Broader device coverage, legal/operator configuration and external operating gates remain open. Current source changes must pass a new PR before deployment; historical CI runs above do not certify later releases.
 
 Public production remains blocked by the items in `docs/PILOT_READINESS.md`.

@@ -1,0 +1,4 @@
+<!-- Lucide layout-dashboard; ISC license in res/raw/license_lucide.txt. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="@android:color/transparent" android:strokeColor="#0B646A" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M4,3h5a1,1 0,0 1,1 1v7a1,1 0,0 1,-1 1H4a1,1 0,0 1,-1 -1V4a1,1 0,0 1,1 -1z M15,3h5a1,1 0,0 1,1 1v3a1,1 0,0 1,-1 1h-5a1,1 0,0 1,-1 -1V4a1,1 0,0 1,1 -1z M15,12h5a1,1 0,0 1,1 1v7a1,1 0,0 1,-1 1h-5a1,1 0,0 1,-1 -1v-7a1,1 0,0 1,1 -1z M4,16h5a1,1 0,0 1,1 1v3a1,1 0,0 1,-1 1H4a1,1 0,0 1,-1 -1v-3a1,1 0,0 1,1 -1z" />
+</vector>

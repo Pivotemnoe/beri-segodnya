@@ -40,7 +40,8 @@ const requiredContracts = [
   "/offline.css",
   "/offline.js",
   "/android",
-  "/icons/android-download-qr.svg",
+  "/icons/android-download-qr-native-v2.svg",
+  "/downloads/beri-segodnya-android-0.2.0-native-pilot.apk",
   "/downloads/beri-segodnya-android-0.1.0-pilot.apk",
   "application/vnd.android.package-archive",
   "Content-Disposition",
@@ -127,5 +128,19 @@ if (fs.readFileSync(publishedChecksumPath, "utf8").trim() !== `${publishedApkSha
 }
 
 await import("./android-config-check.mjs");
+
+const nativeRelease = JSON.parse(fs.readFileSync(path.join(root, "android-native", "release.json"), "utf8"));
+if (nativeRelease.package !== "ru.berisegodnya.app" || nativeRelease.versionCode !== 2 || nativeRelease.versionName !== "0.2.0-native-pilot" || nativeRelease.minSdk !== 26 || nativeRelease.targetSdk !== 36 || nativeRelease.apkName !== "beri-segodnya-android-0.2.0-native-pilot.apk") {
+  throw new Error("Native release identity is inconsistent");
+}
+const nativeApk = fs.readFileSync(path.join(root, "public", "downloads", nativeRelease.apkName));
+const nativeSha256 = createHash("sha256").update(nativeApk).digest("hex");
+if (nativeApk.length !== nativeRelease.bytes || nativeApk.length < 65536 || nativeApk.readUInt32LE(0) !== 0x04034b50 || nativeSha256 !== nativeRelease.sha256 || fs.readFileSync(path.join(root, "public", "downloads", nativeRelease.apkName + ".sha256"), "utf8").trim() !== `${nativeSha256}  ${nativeRelease.apkName}`) {
+  throw new Error("Native signed APK bytes, ZIP header, release manifest or checksum changed");
+}
+if (nativeRelease.certificateSha256.toUpperCase() !== assetLinks[0].target.sha256_cert_fingerprints[0].replaceAll(":", "")) {
+  throw new Error("Native release certificate differs from verified App Links");
+}
+if (!fs.existsSync(path.join(root, "public", "icons", "android-download-qr-native-v2.svg"))) throw new Error("Native APK QR code is missing");
 
 console.log(`Build check passed: ${files.length} JavaScript modules and server contracts`);

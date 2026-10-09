@@ -39,3 +39,12 @@ android-twa/*.sha256
 android-twa/*.jks
 android-twa/*.keystore
 android-twa/.secrets/
+
+# Native client build output; signing keys remain outside the repository.
+android-native/.gradle/
+android-native/build/
+android-native/app/build/
+android-native/local.properties
+android-native/*.apk
+android-native/.idea/
+android-native/tests/__pycache__/
