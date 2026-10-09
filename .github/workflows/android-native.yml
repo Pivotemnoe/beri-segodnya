@@ -6,6 +6,11 @@ on:
     branches: [main]
     paths: ['android-native/**', 'android-twa/gradle/**', '.github/workflows/android-native.yml']
   workflow_dispatch:
+    inputs:
+      run_ui_qa:
+        description: 'Read-only native UI QA on disposable cloud Android 13 (no production credentials)'
+        type: boolean
+        default: false
 jobs:
   native-android:
     runs-on: ubuntu-latest
@@ -30,6 +35,28 @@ jobs:
           cp android-twa/gradle/verification-metadata.xml android-native/gradle/verification-metadata.xml
       - name: Compile and lint native release
         run: android-twa/gradlew -p android-native --no-daemon --warning-mode fail --dependency-verification strict lintRelease assembleRelease
+      - name: Disposable Android 13 UI QA
+        if: github.event_name == 'workflow_dispatch' && inputs.run_ui_qa
+        env:
+          QA_OUTPUT: ${{ runner.temp }}/native-ui-qa
+        run: |
+          sdkmanager 'system-images;android-33;google_apis;x86_64' 'emulator'
+          echo no | avdmanager create avd --force --name beri-native-qa --package 'system-images;android-33;google_apis;x86_64' --device pixel_4
+          sudo chmod 666 /dev/kvm
+          "$ANDROID_HOME/emulator/emulator" -avd beri-native-qa -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/beri-emulator.log" 2>&1 &
+          timeout 180 adb wait-for-device
+          booted=false
+          for attempt in $(seq 1 90); do
+            if [ "$(adb -s emulator-5554 shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then booted=true; break; fi
+            sleep 2
+          done
+          test "$booted" = true
+          adb -s emulator-5554 shell input keyevent 82
+          keytool -genkeypair -keystore "$RUNNER_TEMP/qa-only.jks" -storepass android-qa-only -keypass android-qa-only -alias qa -keyalg RSA -keysize 2048 -validity 1 -dname 'CN=Disposable QA, O=Not a production release, C=XX'
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign --ks "$RUNNER_TEMP/qa-only.jks" --ks-pass pass:android-qa-only --key-pass pass:android-qa-only --out "$RUNNER_TEMP/native-qa.apk" android-native/app/build/outputs/apk/release/app-release-unsigned.apk
+          adb -s emulator-5554 install "$RUNNER_TEMP/native-qa.apk"
+          python3 android-native/tests/native-ui-qa.py emulator-5554 "$QA_OUTPUT"
+          adb -s emulator-5554 emu kill
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -37,6 +64,8 @@ jobs:
           path: |
             android-native/app/build/outputs/apk/release/*.apk
             android-native/app/build/reports/lint-results-release.*
+            ${{ runner.temp }}/native-ui-qa/*
+            ${{ runner.temp }}/beri-emulator.log
           if-no-files-found: error
           retention-days: 7
-# Signing is local with the existing protected key. No private keystore is sent to CI.
+# Production signing is local. Cloud UI QA uses only a new disposable test key, never the protected release key.

@@ -408,7 +408,7 @@ public final class MainActivity extends Activity {
             return;
         }
         partnerMode = true; backStack.clear();
-        if (!List.of("owner", "manager", "seller").contains(userRole)) { api.forgetSession(); userRole = ""; partnerMode = false; showLogin(false); message("Доступ изменён. Войдите заново или обратитесь к администратору."); return; }
+        if (!"owner".equals(userRole) && !"manager".equals(userRole) && !"seller".equals(userRole)) { api.forgetSession(); userRole = ""; partnerMode = false; showLogin(false); message("Доступ изменён. Войдите заново или обратитесь к администратору."); return; }
         if (passwordChangeRequired) { selectedTab = "account"; showChangePassword(false); }
         else tab("seller".equals(userRole) ? "codes" : "partner-offers");
     }
