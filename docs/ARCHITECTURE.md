@@ -8,7 +8,7 @@
 - Backend API: `/api/public/*`, `/api/admin/*`, `/api/partner/*`.
 - Admin panel: `/admin`.
 - Partner dashboard: `/partner/login`, `/partner/dashboard`.
-- Native Android candidate: `android-native`, platform Views and the same protected API; release/acceptance gates in `NATIVE_ANDROID_REBUILD.md`. Published `android-twa` remains the rollback version until device acceptance.
+- Native Android 0.2: `android-native`, platform Views, role-aware bottom navigation and the same protected API; accepted on TECNO/Android 13. Release identity: `android-native/release.json`, evidence: `ANDROID_NATIVE_DEVICE_QA_2026-10-09.md`. Immutable `android-twa` 0.1 APK remains available only as a rollback version.
 - Storage: server-side JSON in `data/db.json` and partner media in `data/uploads/`.
 - Auth: optional Basic Auth for the public preview plus one app login per role and an HttpOnly `bs_session` cookie for admin/partner API.
 

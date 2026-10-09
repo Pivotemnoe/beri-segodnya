@@ -87,7 +87,7 @@ try {
         assert.ok([400, 401, 404].includes(result.status), `${route}: unexpected ${result.status}`);
         assert.equal((await request(port, "/api/public/health")).status, 200, `Worker died after ${route}`);
       }
-      for (const [route, content] of [["/manifest.webmanifest", "application/manifest+json"], ["/sw.js", "text/javascript"], ["/icons/ui/store.svg", "image/svg+xml"], ["/images/offer-lunch-v2.png", "image/png"], ["/downloads/beri-segodnya-android-0.1.0-pilot.apk", "application/vnd.android.package-archive"]]) {
+      for (const [route, content] of [["/manifest.webmanifest", "application/manifest+json"], ["/sw.js", "text/javascript"], ["/icons/ui/store.svg", "image/svg+xml"], ["/icons/android-download-qr-native-v2.svg", "image/svg+xml"], ["/images/offer-lunch-v2.png", "image/png"], ["/downloads/beri-segodnya-android-0.1.0-pilot.apk", "application/vnd.android.package-archive"], ["/downloads/beri-segodnya-android-0.2.0-native-pilot.apk", "application/vnd.android.package-archive"]]) {
         const result = await request(port, route);
         assert.equal(result.status, 200, `Legitimate asset failed: ${route}`);
         assert.ok(result.headers["content-type"].startsWith(content));

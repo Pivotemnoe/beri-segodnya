@@ -10,6 +10,7 @@ MVP локального сервиса ограниченных предлож�
 - Server-side JSON storage: `data/db.json`
 - Partner photo storage: `data/uploads/`
 - HTML/CSS/JS без frontend-сборки
+- Нативный Android: `android-native`, Android Views и нижнее меню, тот же защищённый API
 - Basic Auth preview gate
 - HttpOnly cookie sessions для admin/partner API
 
@@ -54,6 +55,9 @@ http://localhost:3010
 - `docs/RUNBOOK.md`
 - `docs/PILOT_READINESS.md`
 - `docs/ANDROID_PILOT_APK_2026-08-27.md`
+- `docs/NATIVE_ANDROID_REBUILD.md`
+- `docs/ANDROID_NATIVE_DEVICE_QA_2026-10-09.md`
+- `docs/ANDROID_QUICK_START.md`
 - `docs/PRODUCT_STRATEGY_ARMAVIR.md`
 - `docs/PARTNER_QUICK_PUBLISH.md`
 - `docs/OWNER_GUIDE.md`

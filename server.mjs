@@ -811,14 +811,14 @@ function contactsPage() {
 }
 
 function androidPage() {
-  const apkPath = "/downloads/beri-segodnya-android-0.1.0-pilot.apk";
+  const apkPath = "/downloads/beri-segodnya-android-0.2.0-native-pilot.apk";
   return `<section class="android-simple">
     <article class="android-simple-card">
       <img class="android-simple-icon" src="/icons/icon-192.png" alt="" width="96" height="96" />
       <h1>Приложение «Бери сегодня»</h1>
       <p>Отсканируйте QR-код или нажмите кнопку.</p>
       <a class="android-qr-link" href="${apkPath}" download aria-label="Скачать приложение по QR-коду">
-        <img src="/icons/android-download-qr.svg" alt="QR-код для скачивания приложения «Бери сегодня»" width="280" height="280" />
+        <img src="/icons/android-download-qr-native-v2.svg" alt="QR-код для скачивания приложения «Бери сегодня»" width="280" height="280" />
       </a>
       <a class="button button-primary android-download-button" href="${apkPath}" download>${uiIcon("smartphone", "button-icon")} Скачать приложение</a>
     </article>
@@ -5448,6 +5448,16 @@ async function handleRequest(request, response) {
   }
 
   const androidDownload = {
+    "/downloads/beri-segodnya-android-0.2.0-native-pilot.apk": [
+      "beri-segodnya-android-0.2.0-native-pilot.apk",
+      "application/vnd.android.package-archive",
+      "public, max-age=31536000, immutable"
+    ],
+    "/downloads/beri-segodnya-android-0.2.0-native-pilot.apk.sha256": [
+      "beri-segodnya-android-0.2.0-native-pilot.apk.sha256",
+      "text/plain; charset=utf-8",
+      "public, max-age=31536000, immutable"
+    ],
     "/downloads/beri-segodnya-android-0.1.0-pilot.apk": [
       "beri-segodnya-android-0.1.0-pilot.apk",
       "application/vnd.android.package-archive",
