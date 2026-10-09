@@ -7,6 +7,7 @@ import { ensureDb } from "./backend/storage/jsonStore.mjs";
 import { handleApiRequest } from "./backend/routes/apiRouter.mjs";
 import { listPublicOffers } from "./backend/repositories/databaseRepository.mjs";
 import { sessionFromRequest } from "./backend/services/authService.mjs";
+import { customerAuthEnabled } from "./backend/services/customerService.mjs";
 import { partnerUploadFolder, resolveUploadedImage } from "./backend/storage/imageStore.mjs";
 import { legalConfig } from "./backend/utils/legal.mjs";
 import { streamFile } from "./backend/utils/httpFile.mjs";
@@ -240,6 +241,7 @@ function header(pathname) {
         .join("")}
     </nav>
     <div class="header-actions">
+      ${customerAuthEnabled() ? '<a class="header-login" href="/customer" data-customer-link>Вход для покупателя</a>' : ""}
       <a class="last-booking-link" href="#" data-last-booking hidden>Моя бронь</a>
       <a class="header-login" href="/partner/login">Вход для партнёра</a>
       <a class="button button-primary header-cta" href="/partners#partner-application">Для заведений</a>
@@ -250,6 +252,7 @@ function header(pathname) {
         ${nav.map((item) => `<a href="${item.href}">${item.label}</a>`).join("")}
         <a data-last-booking href="#" hidden>Моя бронь</a>
         <a href="/partner/login">Вход для партнёра</a>
+        ${customerAuthEnabled() ? '<a href="/customer" data-customer-link>Вход для покупателя</a>' : ""}
         <a href="/partners#partner-application">Для заведений</a>
       </nav>
     </details>
@@ -1284,6 +1287,7 @@ function bookingPage(pathname) {
 }
 
 function renderBody(pathname) {
+  if (pathname === "/customer") return customerPage();
   if (pathname === "/") return homePage();
   if (pathname === "/how-it-works") return howItWorksPage();
   if (pathname === "/partners") return partnersPage();
@@ -1300,6 +1304,36 @@ function renderBody(pathname) {
   return "";
 }
 
+function customerPage() {
+  return `<section class="section customer-account" data-customer-page>
+    <p class="kicker">Для покупателей</p><h1>Мой кабинет</h1>
+    <p>Войдите по почте, чтобы видеть свои брони на сайте и в приложении. Имя и телефон достаточно сохранить один раз.</p>
+    <p class="form-error" role="status" aria-live="polite" data-customer-message>Загружаем кабинет…</p>
+    <div data-customer-login hidden><form class="booking-form" data-customer-email-form>
+      <label>Ваша почта<input name="email" type="email" autocomplete="email" required maxlength="120" /></label>
+      <label class="consent"><input name="personalDataConsent" type="checkbox" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">политику конфиденциальности</a>.</span></label>
+      <button class="button button-primary" type="submit">Получить код на почту</button>
+    </form><form class="booking-form" data-customer-code-form hidden>
+      <label>Код из письма<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required /></label>
+      <button class="button button-primary" type="submit">Войти</button>
+      <button class="button button-outline" type="button" data-customer-resend>Отправить код ещё раз</button>
+      <button class="button button-outline" type="button" data-customer-other-email>Указать другую почту</button>
+    </form><p>Пароль не нужен. Можно также <a href="/#offers">забронировать без регистрации</a>.</p></div>
+    <div data-customer-account hidden>
+      <p>Вы вошли как <strong data-customer-email></strong></p>
+      <form class="booking-form" data-customer-profile-form>
+        <label>Ваше имя<input name="name" autocomplete="given-name" required maxlength="80" /></label>
+        <label>Телефон для связи по заказу<input name="phone" autocomplete="tel" type="tel" inputmode="tel" data-russian-phone required maxlength="19" placeholder="+7 (___) ___-__-__" /></label>
+        <button class="button button-primary" type="submit">Сохранить</button>
+      </form>
+      <h2>Мои брони</h2><div class="customer-bookings" data-customer-bookings></div>
+      <button class="button button-outline" type="button" data-customer-claim hidden>Добавить последнюю бронь с этого устройства</button>
+      <div class="actions"><button class="button button-outline" type="button" data-customer-logout>Выйти из кабинета</button><button class="button button-outline" type="button" data-customer-delete>Запросить удаление кабинета</button></div>
+    </div>
+    <p><a href="mailto:${html(config.supportEmail)}">Написать в поддержку</a> · <a href="/partner/login">Вход для партнёра</a></p>
+  </section>`;
+}
+
 function renderPage(pathname) {
   const titles = {
     "/": "Бери сегодня",
@@ -1307,6 +1341,7 @@ function renderPage(pathname) {
     "/partners": "Партнёрам",
     "/contacts": "Контакты",
     "/android": "Приложение для Android",
+    "/customer": "Мой кабинет",
     "/privacy": "Политика",
     "/personal-data-consent": "Согласие на обработку ПДн",
     "/terms": "Правила сервиса",
@@ -1342,6 +1377,7 @@ function renderPage(pathname) {
       ${isAppPage ? "" : footer()}
       ${isAppPage ? "" : bookingModal()}
       ${isAppPage ? `<script src="/app.js"></script>` : `<script src="/public.js"></script>`}
+      ${isAppPage ? "" : '<script src="/customer.js"></script>'}
       ${isAppPage ? "" : `<script src="/pwa.js"></script>`}
     </body>
   </html>`;
@@ -1356,6 +1392,8 @@ function bookingModal() {
         <h2 id="booking-title">Получить код</h2>
         <div class="booking-summary" id="booking-summary"></div>
         <form class="booking-form" id="booking-form" method="post">
+          <p data-booking-account-note>Бронируйте без регистрации. Введите имя и телефон для связи по заказу.</p>
+          ${customerAuthEnabled() ? '<p><a href="/customer">Вход по почте — по желанию</a>. В кабинете можно сохранить данные, чтобы не вводить их каждый раз.</p>' : ""}
           <label>Имя<input name="customerName" required maxlength="80" placeholder="Ваше имя" /></label>
           <label>Телефон<input name="customerPhone" required type="tel" inputmode="tel" maxlength="19" placeholder="+7 (___) ___-__-__" data-russian-phone /></label>
           <label class="consent"><input type="checkbox" name="personalDataConsent" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">Политику обработки персональных данных</a></span></label>
@@ -1367,6 +1405,7 @@ function bookingModal() {
         <p class="success-mark" aria-hidden="true">${uiIcon("checkBig", "success-icon")}</p>
         <h2 tabindex="-1" data-booking-success-title>Набор забронирован</h2>
         <p>Сохраните код и покажите его сотруднику в указанное время.</p>
+        ${customerAuthEnabled() ? '<p data-booking-customer-invite><a href="/customer">Создайте кабинет, когда вам удобно</a>: сохраните данные для следующих заказов и добавьте эту бронь в историю.</p>' : ""}
         <strong id="booking-code">BS-1042</strong>
         <div class="booking-success-actions">
           <button class="button button-outline" type="button" data-copy-booking-code>Копировать код</button>
@@ -1382,6 +1421,7 @@ const PUBLIC_JS = `
   var offers = window.DEFAULT_OFFERS || [];
   var selectedOffer = null;
   var publicConfig = window.PUBLIC_CONFIG || {};
+  window.bsCustomerReady = !publicConfig.customerAuthEnabled;
   var drawerReturnFocus = null;
   var modalReturnFocus = null;
 
@@ -1745,6 +1785,14 @@ const PUBLIC_JS = `
       document.querySelector('[data-booking-step="form"]').hidden = false;
       document.querySelector('[data-booking-step="success"]').hidden = true;
       form.reset();
+      form.dataset.bookingOwner = window.bsCustomer?.id || "";
+      form.querySelector('[data-booking-account-note]').textContent = form.dataset.bookingOwner ? "Вы вошли по почте. Эту бронь сохраним в вашем кабинете." : "Бронируйте без регистрации. Введите имя и телефон для связи по заказу.";
+      var customerInvite = modal.querySelector('[data-booking-customer-invite]');
+      if (customerInvite) customerInvite.hidden = Boolean(form.dataset.bookingOwner);
+      if (window.bsCustomer) {
+        form.elements.customerName.value = window.bsCustomer.name || "";
+        form.elements.customerPhone.value = window.bsCustomer.phone || "";
+      }
       modal.hidden = false;
       document.body.classList.add("modal-open");
       form.querySelector('input[name="customerName"]')?.focus({ preventScroll: true });
@@ -1771,7 +1819,7 @@ const PUBLIC_JS = `
   });
 
 function bookingRequestId(form, offerId, data) {
-  const fingerprint = JSON.stringify([offerId, data.customerName, data.customerPhone, data.personalDataConsent]);
+  const fingerprint = JSON.stringify([offerId, data.customerName, data.customerPhone, data.personalDataConsent, form.dataset.bookingOwner || null]);
   if (form.bookingAttempt?.fingerprint === fingerprint) return form.bookingAttempt.id;
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
@@ -1794,7 +1842,7 @@ function bookingRequestId(form, offerId, data) {
       var data = formObject(bookingForm);
       api("/api/public/bookings", {
         method: "POST",
-        body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone, personalDataConsent: data.personalDataConsent, requestId: bookingRequestId(bookingForm, selectedOffer.id, data) }
+        body: { offerId: selectedOffer.id, customerName: data.customerName, customerPhone: data.customerPhone, personalDataConsent: data.personalDataConsent, accountBooking: Boolean(bookingForm.dataset.bookingOwner), requestId: bookingRequestId(bookingForm, selectedOffer.id, data) }
       }).then(function (result) {
         document.getElementById("booking-code").textContent = result.code;
         delete bookingForm.bookingAttempt;
@@ -3928,6 +3976,13 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-primary); 
 .booking-summary h3 { margin: 0 0 8px; }
 .booking-summary p { color: var(--color-muted); margin: 6px 0; }
 .booking-form { display: grid; gap: 14px; }
+.customer-account { max-width: 800px; }
+.customer-account > p { line-height: 1.6; }
+.customer-account .booking-form { max-width: 520px; margin: 24px 0; }
+.customer-account h1 { font-size: clamp(32px, 6vw, 48px); }
+.customer-bookings { display: grid; gap: 16px; margin-bottom: 20px; }
+.customer-booking-card { background: white; border: 1px solid #d8e4e2; border-radius: 16px; padding: 20px; }
+.customer-account .actions { margin-top: 24px; }
 .booking-success { text-align: center; }
 .booking-success strong {
   display: block;
@@ -5377,6 +5432,7 @@ async function handleRequest(request, response) {
   }
 
   const pwaAsset = {
+    "/customer.js": ["customer.js", "text/javascript; charset=utf-8", "no-store"],
     "/.well-known/assetlinks.json": [".well-known/assetlinks.json", "application/json; charset=utf-8", "public, max-age=300"],
     "/manifest.webmanifest": ["manifest.webmanifest", "application/manifest+json; charset=utf-8", "no-cache"],
     "/sw.js": ["sw.js", "text/javascript; charset=utf-8", "no-cache"],
@@ -5486,7 +5542,8 @@ async function handleRequest(request, response) {
       demoMode: config.demoMode,
       appName: config.appName,
       appCity: config.appCity,
-      legalReady: config.legal.ready
+      legalReady: config.legal.ready,
+      customerAuthEnabled: customerAuthEnabled() && config.legal.ready
     })};`;
     sendText(response, 200, pageConfig, { ...securityHeaders, "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" });
     return;
@@ -5497,7 +5554,7 @@ async function handleRequest(request, response) {
     return;
   }
 
-  const knownRoutes = new Set(["/", "/how-it-works", "/partners", "/contacts", "/android", "/privacy", "/personal-data-consent", "/terms", "/partner-terms", "/admin", "/partner/login", "/partner/dashboard"]);
+  const knownRoutes = new Set(["/", "/customer", "/how-it-works", "/partners", "/contacts", "/android", "/privacy", "/personal-data-consent", "/terms", "/partner-terms", "/admin", "/partner/login", "/partner/dashboard"]);
   const isBookingRoute = url.pathname.startsWith("/booking/") && url.pathname.length > "/booking/".length;
 
   if (!knownRoutes.has(url.pathname) && !isBookingRoute) {

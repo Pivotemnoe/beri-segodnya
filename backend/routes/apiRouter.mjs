@@ -7,6 +7,7 @@ import { consentReceipt } from "../utils/legal.mjs";
 import { requestIdentity } from "../utils/requestIdentity.mjs";
 import { cancelPublicBooking, correctBookingStatus, createContactRequest, createPartnerApplication, getPublicBooking, getPublicOffer, listAdminData, listPublicOffers } from "../repositories/databaseRepository.mjs";
 import { createBooking } from "../services/bookingService.mjs";
+import { customerAuthEnabled, customerFromRequest, requireCustomer, customerLogin, customerCookie, customerLogout, saveCustomerProfile, customerBookings, claimCustomerBooking, requestCustomerDeletion } from "../services/customerService.mjs";
 import {
   adminLogin,
   allowPasswordChange,
@@ -120,6 +121,7 @@ export async function handleApiRequest(request, response, url) {
   try {
     validateStateRequest(request);
     if (url.pathname.startsWith("/api/public/")) return await handlePublic(request, response, url);
+    if (url.pathname.startsWith("/api/customer/")) return await handleCustomer(request, response, url);
     if (url.pathname.startsWith("/api/admin/")) return await handleAdmin(request, response, url);
     if (url.pathname.startsWith("/api/partner/")) return await handlePartner(request, response, url);
     return fail(response, 404, "NOT_FOUND", "Действие не найдено. Обновите страницу и попробуйте снова.");
@@ -144,6 +146,34 @@ export async function handleApiRequest(request, response, url) {
       expose ? (error.message || "Не удалось выполнить запрос") : "Произошла ошибка. Повторите позже."
     );
   }
+}
+
+async function handleCustomer(request, response, url) {
+  const route = url.pathname.slice("/api/customer/".length);
+  if (request.method === "GET" && route === "auth/me") {
+    const profile = customerFromRequest(request);
+    return ok(response, { enabled: customerAuthEnabled(), authenticated: Boolean(profile), profile });
+  }
+  if (request.method === "POST" && route === "auth/request-code") return ok(response, await customerLogin.requestCode(await readBody(request, 4096), ip(request)));
+  if (request.method === "POST" && route === "auth/verify-code") {
+    const result = customerLogin.verifyCode(await readBody(request, 4096), ip(request));
+    response.setHeader("Set-Cookie", customerCookie(result.token, secureCookie()));
+    return ok(response, { authenticated: true, profile: result.customer });
+  }
+  if (request.method === "POST" && route === "auth/logout") {
+    response.setHeader("Set-Cookie", customerLogout(request));
+    return ok(response, { authenticated: false });
+  }
+  if (request.method === "GET" && route === "profile") return ok(response, requireCustomer(request));
+  if (request.method === "PATCH" && route === "profile") return ok(response, saveCustomerProfile(request, await readBody(request, 4096)));
+  if (request.method === "GET" && route === "bookings") return ok(response, customerBookings(request));
+  if (request.method === "POST" && route === "bookings/claim") {
+    const customer = requireCustomer(request);
+    if (!rateLimit(`${ip(request)}:${customer.id}:booking-claim`, 20, 60 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Подождите немного и попробуйте снова.");
+    return ok(response, claimCustomerBooking(request, (await readBody(request, 4096)).publicToken));
+  }
+  if (request.method === "POST" && route === "account/deletion-request") return ok(response, requestCustomerDeletion(request));
+  return fail(response, 404, "NOT_FOUND", "Действие не найдено.");
 }
 
 async function handlePublic(request, response, url) {
@@ -171,7 +201,10 @@ async function handlePublic(request, response, url) {
     }
     if (parts[1]) return fail(response, 404, "NOT_FOUND", "Действие с бронью не найдено. Обновите страницу.");
     if (!rateLimit(`${ip(request)}:booking-create`, 12, 10 * 60 * 1000)) return fail(response, 429, "RATE_LIMIT", "Слишком много бронирований. Попробуйте позже");
-    return ok(response, createBooking(await readBody(request)), 201);
+    const input = await readBody(request);
+    // Never accept a caller-supplied owner ID or silently downgrade an expired account to a guest booking.
+    const customer = input.accountBooking === true ? requireCustomer(request) : null;
+    return ok(response, createBooking(input, customer?.id || null), 201);
   }
 
   if (request.method === "GET" && parts[0] === "bookings" && parts[1]) {

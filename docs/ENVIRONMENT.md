@@ -13,6 +13,11 @@ HOST=127.0.0.1
 TRUST_PROXY=true
 
 SESSION_SECRET=replace_with_random_long_secret
+CUSTOMER_AUTH_ENABLED=false
+SMTP_HOST=smtp.timeweb.ru
+SMTP_PORT=465
+SMTP_USER=support@berisegodnya.ru
+SMTP_PASSWORD=
 
 SITE_ACCESS_ENABLED=true
 SITE_ACCESS_USER=replace
@@ -99,6 +104,7 @@ Put `hash`, `salt` and `iterations` into the matching `ADMIN_APP_PASSWORD_*` var
 - Restrict file permissions.
 - Never print secrets in logs.
 - Never commit `.env.local`.
+- Customer accounts are opt-in. Enabling them does not disable guest booking. Keep the existing legal gate; SMTP OAuth for Codex is not server SMTP authentication. Use the mailbox password only in the protected server environment, sender equal to SMTP_USER, TLS certificate validation intact. The customer service limits outgoing codes to 200 per rolling day; verify the actual provider quota before advertising.
 
 ## Seed and smoke-test secrets
 

@@ -42,6 +42,13 @@ public final class AppRules {
         String value = first.substring(prefix.length());
         return value.isEmpty() || value.matches("[a-zA-Z0-9_-]{10,200}") ? value : null;
     }
+    public static String customerSessionCookieValue(String cookie) {
+        String first = cookie == null ? "" : cookie.split(";", 2)[0];
+        String prefix = "__Host-bs_customer=";
+        if (!first.startsWith(prefix)) return null;
+        String value = first.substring(prefix.length());
+        return value.isEmpty() || value.matches("[a-zA-Z0-9_-]{43}") ? value : null;
+    }
     public static boolean trustedImage(String path) {
         return path != null && path.matches("/(images|uploads)/[a-zA-Z0-9_./-]+\\.(png|jpe?g|webp)") && !path.contains("..");
     }

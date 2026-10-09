@@ -19,6 +19,7 @@
     "test:api": "node scripts/smoke-test.mjs",
     "test:request-boundaries": "node scripts/request-boundary-test.mjs",
     "test:auth-boundaries": "node scripts/auth-boundary-test.mjs",
+    "test:customer-auth": "node scripts/customer-auth-test.mjs",
     "test:upload-quota": "node scripts/upload-quota-test.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:security": "node scripts/security-check.mjs",
@@ -33,6 +34,6 @@
     "reset:partner-password": "node scripts/reset-partner-password.mjs",
     "dev:next": "next dev -p 3010"
   },
-  "dependencies": {},
+  "dependencies": { "nodemailer": "10.0.16" },
   "devDependencies": {}
 }

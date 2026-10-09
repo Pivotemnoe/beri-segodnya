@@ -64,6 +64,8 @@ public final class MainActivity extends Activity {
     private String selectedTab = "offers", userRole = "", category = "";
     private int generation;
     private JSONArray savedBookings = new JSONArray();
+    private JSONArray customerBookings = new JSONArray();
+    private JSONObject customerProfile;
     private JSONObject pendingBooking, offerDraft = new JSONObject();
     private String editingOffer = "";
     private boolean partnerMode, passwordChangeRequired;
@@ -85,6 +87,11 @@ public final class MainActivity extends Activity {
         text(column, "Открываем приложение…", 18, MUTED).setTag("api-loading");
         run(() -> {
             store.initialize(); api.restore();
+            if (api.hasCustomerSession()) {
+                String profile = store.get("customer-profile"), history = store.get("customer-bookings");
+                customerProfile = profile.isEmpty() ? null : new JSONObject(profile);
+                customerBookings = history.isEmpty() ? new JSONArray() : new JSONArray(history);
+            }
             String bookings = store.get("bookings"), pending = store.get("pending-booking"), draft = store.get("offer-draft");
             publicationUncertain = !store.get("publication-uncertain").isEmpty();
             savedBookings = bookings.isEmpty() ? new JSONArray() : new JSONArray(bookings);
@@ -156,6 +163,7 @@ public final class MainActivity extends Activity {
         } else if (!partnerMode) {
             nav("offers", "Предложения", R.drawable.ic_bag);
             nav("bookings", "Мои брони", R.drawable.ic_ticket);
+            nav("customer", "Профиль", R.drawable.ic_user);
             nav("partner", "Партнёрам", R.drawable.ic_store);
         } else {
             if (!"seller".equals(userRole)) nav("partner-offers", "Предложения", R.drawable.ic_bag);
@@ -184,6 +192,7 @@ public final class MainActivity extends Activity {
             case "admin-bookings" -> admin.bookings(false);
             case "admin-more" -> admin.more(false);
             case "bookings" -> showBookings();
+            case "customer" -> showCustomer();
             case "partner" -> showPartnerEntrance();
             case "partner-offers" -> showPartnerOffers();
             case "codes" -> showCodes();
@@ -285,8 +294,10 @@ public final class MainActivity extends Activity {
         screen("Забронировать", () -> bookingForm(offer, false), child);
         text(column, offer.optString("title") + " · " + money(offer, "price"), 20, INK);
         text(column, offer.optString("pickupWindow") + " · " + offer.optString("address"), 16, MUTED);
-        EditText name = field(column, "Ваше имя", "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS, 80);
-        EditText phone = phoneField(column, "Телефон", "");
+        final String owner = api.hasCustomerSession() && customerProfile != null ? customerProfile.optString("id") : "";
+        EditText name = field(column, "Ваше имя", owner.isEmpty() ? "" : customerProfile.optString("name"), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS, 80);
+        EditText phone = phoneField(column, "Телефон", owner.isEmpty() ? "" : customerProfile.optString("phone"));
+        text(column, owner.isEmpty() ? "Кабинет не нужен для брони. Позже можно войти по почте и сохранить данные для следующих заказов." : "Данные из вашего кабинета. Эту бронь сохраним в общей истории.", 15, MUTED);
         legalLinks(column, false);
         CheckBox consent = check(column, "Я согласен на обработку персональных данных и принимаю политику конфиденциальности");
         Button submit = button(column, "Получить код брони", true, () -> {
@@ -295,6 +306,7 @@ public final class MainActivity extends Activity {
                 if (!consent.isChecked()) throw new IllegalArgumentException("Для бронирования нужно согласие на обработку данных");
                 if (pendingBooking != null) { message("Сначала проверьте незавершённую бронь в разделе «Предложения»"); return; }
                 JSONObject payload = json("offerId", offer.getString("id"), "customerName", name.getText().toString().trim(), "customerPhone", AppRules.phone(phone.getText().toString()), "personalDataConsent", true, "requestId", UUID.randomUUID().toString());
+                payload.put("accountBooking", !owner.isEmpty()); payload.put("customerAccountId", owner);
                 submitBooking(payload);
             } catch (Exception error) { message(error.getMessage()); }
         });
@@ -308,11 +320,13 @@ public final class MainActivity extends Activity {
         mutate(() -> {
             store.put("pending-booking", payload.toString()); pendingBooking = payload;
             try {
-                JSONObject result = (JSONObject) api.request("POST", "/api/public/bookings", payload, false);
-                rememberBooking(result.getString("publicToken"), result);
+                boolean owned = payload.optBoolean("accountBooking");
+                if (owned && (!api.hasCustomerSession() || customerProfile == null || !payload.optString("customerAccountId").equals(customerProfile.optString("id")))) throw new IllegalArgumentException("Войдите по прежней почте и затем проверьте незавершённую бронь.");
+                JSONObject result = (JSONObject) api.request("POST", "/api/public/bookings", payload, owned);
+                rememberBooking(result.getString("publicToken"), result, owned);
                 store.remove("pending-booking"); pendingBooking = null; return result;
             } catch (ApiClient.Failure error) {
-                if (error.status >= 400 && error.status < 500 && error.status != 429) { store.remove("pending-booking"); pendingBooking = null; }
+                if (error.status >= 400 && error.status < 500 && error.status != 429 && !(payload.optBoolean("accountBooking") && error.status == 401)) { store.remove("pending-booking"); pendingBooking = null; }
                 throw error;
             }
         }, value -> { selectedTab = "bookings"; backStack.clear(); showBooking(((JSONObject) value).getString("publicToken"), false); }, null);
@@ -320,16 +334,40 @@ public final class MainActivity extends Activity {
     }
 
     private void rememberBooking(String token, JSONObject snapshot) throws Exception {
+        boolean owned = false;
+        for (int i = 0; i < customerBookings.length(); i++) if (token.equals(customerBookings.optJSONObject(i).optString("token"))) owned = true;
+        rememberBooking(token, snapshot, owned && api.hasCustomerSession());
+    }
+    private void rememberBooking(String token, JSONObject snapshot, boolean owned) throws Exception {
         JSONArray next = new JSONArray();
         next.put(json("token", token, "code", snapshot.optString("code"), "offerTitle", snapshot.optString("offerTitle"), "address", snapshot.optString("address"), "pickupWindow", snapshot.optString("pickupWindow"), "date", snapshot.optString("date")));
-        for (int i = 0; i < savedBookings.length() && next.length() < 50; i++) {
-            JSONObject old = savedBookings.getJSONObject(i); if (!token.equals(old.optString("token"))) next.put(old);
+        JSONArray previous = owned ? customerBookings : savedBookings;
+        for (int i = 0; i < previous.length() && next.length() < 50; i++) {
+            JSONObject old = previous.getJSONObject(i); if (!token.equals(old.optString("token"))) next.put(old);
         }
-        store.put("bookings", next.toString()); savedBookings = next;
+        store.put(owned ? "customer-bookings" : "bookings", next.toString());
+        if (owned) customerBookings = next; else savedBookings = next;
     }
 
     private void showBookings() {
         screen("Мои брони", this::showBookings, false);
+        if (api.hasCustomerSession()) {
+            text(column, "Брони из вашего кабинета — общие с сайтом и другими устройствами.", 16, MUTED);
+            LinearLayout history = vertical(); column.addView(history);
+            renderCustomerHistory(history, customerBookings);
+            run(() -> {
+                JSONObject state = (JSONObject) api.request("GET", "/api/customer/auth/me", null, true);
+                if (!state.optBoolean("authenticated")) { api.forgetCustomerSession(); throw new ApiClient.Failure(401, "CUSTOMER_LOGIN_REQUIRED", "Войдите по почте заново."); }
+                customerProfile = state.getJSONObject("profile"); store.put("customer-profile", customerProfile.toString());
+                JSONArray rows = (JSONArray) api.request("GET", "/api/customer/bookings", null, true);
+                JSONArray next = new JSONArray(); for (int i = 0; i < rows.length(); i++) { JSONObject row = rows.getJSONObject(i); row.put("token", row.getString("publicToken")); next.put(row); }
+                store.put("customer-bookings", next.toString()); customerBookings = next; return next;
+            }, value -> { history.removeAllViews(); renderCustomerHistory(history, (JSONArray) value); }, null);
+        } else {
+            text(column, "Кабинет необязателен. Войдите по почте, если хотите сохранять данные и видеть свои брони на других устройствах.", 16, MUTED);
+            button(column, "Войти по почте", false, () -> tab("customer"));
+        }
+        text(column, "Брони без кабинета на этом телефоне", 20, INK);
         text(column, "Ваши коды сохраняются на этом телефоне. Статус брони проверяем у заведения.", 16, MUTED);
         if (savedBookings.length() == 0) {
             text(column, "Здесь будут ваши заказы", 22, INK);
@@ -342,8 +380,85 @@ public final class MainActivity extends Activity {
             text(row, item.optString("code"), 27, TEAL).setTypeface(null, Typeface.BOLD);
             text(row, AppRules.friendlyDate(item.optString("date")) + " " + item.optString("pickupWindow"), 16, MUTED);
             button(row, "Открыть бронь", true, () -> showBooking(item.optString("token"), true));
+            if (api.hasCustomerSession()) button(row, "Добавить в кабинет", false, () -> new AlertDialog.Builder(this).setTitle("Добавить бронь в кабинет?").setMessage("Она станет доступна на всех устройствах, где вы вошли по этой почте.").setNegativeButton("Не сейчас", null).setPositiveButton("Добавить", (dialog, which) -> mutate(() -> {
+                Object result = api.request("POST", "/api/customer/bookings/claim", json("publicToken", item.optString("token")), true);
+                JSONArray remaining = new JSONArray(); for (int n = 0; n < savedBookings.length(); n++) { JSONObject old = savedBookings.getJSONObject(n); if (!old.optString("token").equals(item.optString("token"))) remaining.put(old); }
+                store.put("bookings", remaining.toString()); savedBookings = remaining; return result;
+            }, result -> showBookings(), null)).show());
         }
     }
+
+    private void renderCustomerHistory(LinearLayout parent, JSONArray rows) {
+        if (rows.length() == 0) text(parent, "Здесь появятся брони, оформленные после входа по почте.", 16, MUTED);
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject row = rows.optJSONObject(i); if (row == null) continue;
+            LinearLayout card = card(parent); text(card, row.optString("offerTitle", "Ваша бронь"), 21, INK);
+            text(card, row.optString("code"), 27, TEAL);
+            button(card, "Открыть бронь", true, () -> showBooking(row.optString("token", row.optString("publicToken")), true));
+        }
+    }
+
+    private void showCustomer() {
+        screen("Мой кабинет", this::showCustomer, false);
+        if (!api.hasCustomerSession()) { clearCustomerState(); customerLoginForm(); return; }
+        text(column, "Открываем кабинет…", 16, MUTED).setTag("api-loading");
+        run(() -> api.request("GET", "/api/customer/auth/me", null, true), value -> {
+            JSONObject state = (JSONObject) value;
+            if (!state.optBoolean("authenticated")) { api.forgetCustomerSession(); clearCustomerState(); showCustomer(); return; }
+            customerProfile = state.getJSONObject("profile"); store.put("customer-profile", customerProfile.toString());
+            column.removeAllViews(); text(column, "Мой кабинет", 28, INK); text(column, customerProfile.optString("email"), 17, MUTED);
+            EditText name = field(column, "Ваше имя", customerProfile.optString("name"), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS, 80);
+            EditText phone = phoneField(column, "Телефон для связи по заказу", customerProfile.optString("phone"));
+            button(column, "Сохранить данные", true, () -> {
+                try { JSONObject data = json("name", name.getText().toString(), "phone", AppRules.phone(phone.getText().toString()));
+                    mutate(() -> api.request("PATCH", "/api/customer/profile", data, true), result -> { customerProfile = (JSONObject) result; store.put("customer-profile", customerProfile.toString()); message("Сохранили. При следующей брони данные заполнятся сами."); }, null);
+                } catch (IllegalArgumentException error) { message(error.getMessage()); }
+            });
+            button(column, "Мои брони", false, () -> tab("bookings"));
+            button(column, "Выйти из кабинета", false, () -> {
+                if (pendingBooking != null && pendingBooking.optBoolean("accountBooking")) { message("Сначала проверьте незавершённую бронь, чтобы не потерять результат."); return; }
+                mutate(() -> api.request("POST", "/api/customer/auth/logout", new JSONObject(), true), result -> { api.forgetCustomerSession(); clearCustomerState(); showCustomer(); }, null);
+            });
+            button(column, "Запросить удаление кабинета", false, () -> new AlertDialog.Builder(this).setTitle("Удалить кабинет?").setMessage("Поддержка проверит незавершённые брони и ответит на вашу почту.").setNegativeButton("Не сейчас", null).setPositiveButton("Отправить запрос", (dialog, which) -> mutate(() -> api.request("POST", "/api/customer/account/deletion-request", new JSONObject(), true), result -> message(((JSONObject) result).optString("message")), null)).show());
+            customerLinks();
+        }, null);
+    }
+
+    private void customerLoginForm() {
+        text(column, "Бронируйте без регистрации. Кабинет нужен только для удобства: сохранить имя и телефон и видеть общую историю на сайте и в приложении.", 17, MUTED);
+        EditText email = field(column, "Ваша почта", "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS, 120);
+        legalLinks(column, false);
+        CheckBox consent = check(column, "Я согласен на обработку персональных данных и принимаю политику конфиденциальности");
+        button(column, "Получить код на почту", true, () -> {
+            if (!consent.isChecked()) { message("Для кабинета нужно согласие на обработку данных."); return; }
+            String address = email.getText().toString().trim();
+            mutate(() -> api.request("POST", "/api/customer/auth/request-code", json("email", address, "personalDataConsent", true), false), result -> customerCodeForm(address, ((JSONObject) result).getString("challengeId")), null);
+        });
+        button(column, "Выбрать товар без регистрации", false, () -> tab("offers")); customerLinks();
+    }
+
+    private void customerCodeForm(String email, String challenge) {
+        screen("Код из письма", this::showCustomer, false);
+        text(column, "Отправили код на " + email + ". Он действует 10 минут. Если письма нет, проверьте «Спам».", 17, MUTED);
+        EditText code = field(column, "Шесть цифр из письма", "", InputType.TYPE_CLASS_NUMBER, 6);
+        button(column, "Войти", true, () -> {
+            String value = code.getText().toString().trim(); if (!value.matches("[0-9]{6}")) { message("Введите шесть цифр из письма."); return; }
+            mutate(() -> api.request("POST", "/api/customer/auth/verify-code", json("challengeId", challenge, "code", value), false), result -> {
+                code.setText(""); customerProfile = ((JSONObject) result).getJSONObject("profile"); store.put("customer-profile", customerProfile.toString()); customerBookings = new JSONArray(); store.remove("customer-bookings"); showCustomer();
+            }, null);
+        });
+        button(column, "Отправить ещё раз", false, () -> mutate(() -> api.request("POST", "/api/customer/auth/request-code", json("email", email, "personalDataConsent", true), false), result -> customerCodeForm(email, ((JSONObject) result).getString("challengeId")), null));
+        button(column, "Указать другую почту", false, this::showCustomer);
+    }
+
+    private void customerLinks() {
+        button(column, "Вход для партнёра", false, () -> tab("partner"));
+        button(column, "Написать в поддержку", false, () -> {
+            try { startActivity(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@berisegodnya.ru"))); }
+            catch (android.content.ActivityNotFoundException error) { message("Напишите нам на support@berisegodnya.ru из вашей почты."); }
+        });
+    }
+    private void clearCustomerState() { customerProfile = null; customerBookings = new JSONArray(); }
 
     private void showBooking(String token, boolean child) {
         screen("Ваша бронь", () -> showBooking(token, false), child);
@@ -844,6 +959,7 @@ public final class MainActivity extends Activity {
         // Categories only: never log a URL, cookie, token, password, payload or exception message.
         android.util.Log.w("BeriToday", "Failure type=" + error.getClass().getSimpleName() + " cause=" + (error.getCause() == null ? "none" : error.getCause().getClass().getSimpleName()));
         if (error instanceof ApiClient.Failure failure) {
+            if ("CUSTOMER_LOGIN_REQUIRED".equals(failure.code)) { clearCustomerState(); selectedTab = "customer"; backStack.clear(); showCustomer(); message("Войдите по почте заново. Брони без кабинета остаются на телефоне."); return; }
             if (failure.status == 401 && adminMode) { adminMode = false; backStack.clear(); admin.login(false); message("Войдите как администратор ещё раз"); return; }
             if (failure.status == 401 && partnerMode) { clearPartnerState(); partnerMode = false; selectedTab = "partner"; backStack.clear(); showLogin(false); message("Войдите в кабинет ещё раз"); return; }
             if ("PASSWORD_CHANGE_REQUIRED".equals(failure.code)) { if (adminMode) { adminPasswordChangeRequired = true; admin.password(false); } else { passwordChangeRequired = true; showChangePassword(false); } return; }

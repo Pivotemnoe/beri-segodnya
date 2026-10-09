@@ -28,6 +28,7 @@ jobs:
       - run: npm run build
       - run: npm run test:security
       - run: npm run test:auth-boundaries
+      - run: npm run test:customer-auth
       - run: npm run test:backup
       - run: npm run test:api
       - run: npm audit --omit=dev

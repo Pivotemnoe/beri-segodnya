@@ -6,6 +6,10 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../.
 
 const collections = [
   "adminUsers",
+  "customers",
+  "customerSessions",
+  "customerLoginChallenges",
+  "customerAuthLimits",
   "partners",
   "partnerUsers",
   "partnerAddresses",

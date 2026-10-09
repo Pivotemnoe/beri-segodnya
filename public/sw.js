@@ -9,7 +9,7 @@ const STATIC_ASSETS = [
   "/icons/apple-touch-icon.png"
 ];
 
-const PRIVATE_PATH = /^\/(?:api|admin|partner|booking|uploads)(?:\/|$)/;
+const PRIVATE_PATH = /^\/(?:api|admin|partner|customer|booking|uploads)(?:\/|$)/;
 const CACHEABLE_PUBLIC_ASSET = /^\/(?:icons|images)\//;
 
 self.addEventListener("install", (event) => {
