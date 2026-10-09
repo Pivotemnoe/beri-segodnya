@@ -18,7 +18,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
@@ -178,6 +180,8 @@ public final class MainActivity extends Activity {
         ImageView image = new ImageView(this); image.setImageResource(icon); image.setImageTintList(ColorStateList.valueOf(selected ? TEAL : MUTED));
         item.addView(image, new LinearLayout.LayoutParams(dp(24), dp(24)));
         TextView label = text(item, title, 12, selected ? TEAL : MUTED); label.setGravity(Gravity.CENTER); label.setPadding(0, dp(4), 0, 0);
+        label.setMaxLines(1); label.setEllipsize(TextUtils.TruncateAt.END);
+        label.setAutoSizeTextTypeUniformWithConfiguration(10, 12, 1, TypedValue.COMPLEX_UNIT_SP);
         if (selected) label.setTypeface(null, Typeface.BOLD);
         item.setContentDescription(title); item.setOnClickListener(view -> tab(key));
         navigation.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
