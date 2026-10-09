@@ -103,7 +103,7 @@ public final class MainActivity extends Activity {
             if (auth.optBoolean("authenticated")) { userRole = auth.optString("userRole"); passwordChangeRequired = auth.optBoolean("passwordChangeRequired"); }
             else if (!auth.optBoolean("offline")) { api.forgetSession(); clearPartnerState(); }
             String token = tokenFromIntent(getIntent());
-            if (!token.isEmpty()) { selectedTab = "bookings"; showBooking(token, true); }
+            if (!token.isEmpty()) openBookingLink(token);
             else if (state != null && state.getBoolean("partnerMode") && api.hasSession()) enterPartner();
             else if (state != null && state.getBoolean("adminMode") && api.hasAdminSession()) admin.login(false);
             else tab(state == null ? "offers" : state.getString("visitorTab", "offers"));
@@ -213,6 +213,13 @@ public final class MainActivity extends Activity {
         else if (!selectedTab.equals("offers")) tab("offers");
         else finish();
     }
+    void completeChildScreen(Runnable parent) { AppRules.completeChildScreen(backStack, parent); }
+    private void openBookingLink(String token) {
+        partnerMode = false; adminMode = false; selectedTab = "bookings"; backStack.clear();
+        // A buyer link must never inherit the previous partner/admin screen as its Back destination.
+        currentScreen = this::showBookings;
+        showBooking(token, true);
+    }
     // API 33+ uses the platform OnBackInvokedDispatcher registered in onCreate.
     // This override is solely the required Android 8–12 fallback, not the gesture path.
     @android.annotation.SuppressLint("GestureBackNavigation")
@@ -221,7 +228,7 @@ public final class MainActivity extends Activity {
         super.onNewIntent(intent); setIntent(intent); String token = tokenFromIntent(intent);
         if (token.isEmpty()) return;
         if (mutationInFlight) { message("Дождитесь сохранения и откройте ссылку на бронь ещё раз"); return; }
-        partnerMode = false; adminMode = false; selectedTab = "bookings"; backStack.clear(); showBooking(token, true);
+        openBookingLink(token);
     }
     private String tokenFromIntent(Intent intent) { return intent != null && intent.getData() != null ? AppRules.bookingToken(intent.getData().toString()) : ""; }
 
@@ -749,7 +756,7 @@ public final class MainActivity extends Activity {
         CheckBox active = check(column, "Точка работает и выдаёт заказы"); active.setChecked(existing == null || existing.optBoolean("is_active", true));
         text(column, "Адрес уже оформленной брони не изменится. Перед закрытием точки проверьте текущие заказы.", 15, MUTED);
         Button submit = new Button(this); styleButton(submit, "Сохранить точку", true); addSpace(column, submit);
-        submit.setOnClickListener(view -> mutate(() -> api.request(existing == null ? "POST" : "PATCH", "/api/partner/addresses" + (existing == null ? "" : "/" + existing.getString("id")), json("title", title.getText().toString(), "city", city.getText().toString(), "address", address.getText().toString(), "isActive", active.isChecked()), true), value -> { backStack.clear(); showAddresses(false); }, submit));
+        submit.setOnClickListener(view -> mutate(() -> api.request(existing == null ? "POST" : "PATCH", "/api/partner/addresses" + (existing == null ? "" : "/" + existing.getString("id")), json("title", title.getText().toString(), "city", city.getText().toString(), "address", address.getText().toString(), "isActive", active.isChecked()), true), value -> completeChildScreen(() -> showAddresses(false)), submit));
     }
 
     private void showProfile(boolean child) {

@@ -108,7 +108,7 @@ final class AdminScreens {
         Button save = app.button(app.column, "Сохранить", true, () -> { });
         save.setOnClickListener(view -> {
             try { JSONObject data = app.json("name", name.getText().toString(), "contactName", contact.getText().toString(), "phone", phone.getText().toString().isEmpty() ? "" : AppRules.phone(phone.getText().toString()), "email", email.getText().toString());
-                app.mutate(() -> app.api.request("PATCH", "/api/admin/partners/" + partner.getString("id"), data, true), value -> { app.message("Данные сохранены"); partner((JSONObject) value, false); }, save);
+                app.mutate(() -> app.api.request("PATCH", "/api/admin/partners/" + partner.getString("id"), data, true), value -> { app.message("Данные сохранены"); app.completeChildScreen(() -> partner((JSONObject) value, false)); }, save);
             } catch (Exception error) { app.message(error.getMessage()); }
         });
     }
@@ -163,7 +163,7 @@ final class AdminScreens {
                 JSONObject data = app.json("name", name.getText().toString(), "login", login.getText().toString(), "role", roles[role.getSelectedItemPosition()]);
                 String pass = password.getText().toString();
                 if (user == null || !pass.isEmpty()) { if (pass.length() < 12) throw new IllegalArgumentException("Нужно не менее 12 символов в пароле"); data.put("password", pass); }
-                app.mutate(() -> app.api.request(user == null ? "POST" : "PATCH", "/api/admin/partners/" + partnerId + "/users" + (user == null ? "" : "/" + user.getString("id")), data, true), result -> { password.setText(""); app.message("Доступ сохранён"); users(partnerId, false); }, save);
+                app.mutate(() -> app.api.request(user == null ? "POST" : "PATCH", "/api/admin/partners/" + partnerId + "/users" + (user == null ? "" : "/" + user.getString("id")), data, true), result -> { password.setText(""); app.message("Доступ сохранён"); app.completeChildScreen(() -> users(partnerId, false)); }, save);
             } catch (Exception error) { app.message(error.getMessage()); }
         });
     }
@@ -187,7 +187,7 @@ final class AdminScreens {
         EditText city = app.field(app.column, "Город", address == null ? "Армавир" : address.optString("city"), InputType.TYPE_CLASS_TEXT, 80);
         EditText line = app.field(app.column, "Адрес", address == null ? "" : address.optString("address"), InputType.TYPE_CLASS_TEXT, 160);
         Button save = app.button(app.column, "Сохранить адрес", true, () -> { });
-        save.setOnClickListener(view -> app.mutate(() -> app.api.request(address == null ? "POST" : "PATCH", "/api/admin/partners/" + partnerId + "/addresses" + (address == null ? "" : "/" + address.getString("id")), app.json("title", title.getText().toString(), "city", city.getText().toString(), "address", line.getText().toString()), true), value -> addresses(partnerId, false), save));
+        save.setOnClickListener(view -> app.mutate(() -> app.api.request(address == null ? "POST" : "PATCH", "/api/admin/partners/" + partnerId + "/addresses" + (address == null ? "" : "/" + address.getString("id")), app.json("title", title.getText().toString(), "city", city.getText().toString(), "address", line.getText().toString()), true), value -> app.completeChildScreen(() -> addresses(partnerId, false)), save));
     }
     private void offers(String partnerId, boolean child) {
         app.screen("Предложения", () -> offers(partnerId, false), child);
@@ -218,7 +218,7 @@ final class AdminScreens {
                 String previousPrice = oldPrice.getText().toString().trim();
                 double oldAmount = previousPrice.isEmpty() ? 0 : Double.parseDouble(previousPrice.replace(',', '.'));
                 if (!Double.isFinite(amount) || !Double.isFinite(oldAmount) || amount < 1 || oldAmount < 0 || (oldAmount > 0 && oldAmount <= amount)) { app.message("Проверьте цены. Обычная цена должна быть выше цены предложения."); return; }
-                app.mutate(() -> app.api.request("PATCH", "/api/admin/offers/" + offer.getString("id"), app.json("title", title.getText().toString(), "contents", contents.getText().toString(), "allergens", allergens.getText().toString(), "price", amount, "oldPrice", oldAmount == 0 ? "" : oldAmount), true), value -> offers(partnerId, false), save);
+                app.mutate(() -> app.api.request("PATCH", "/api/admin/offers/" + offer.getString("id"), app.json("title", title.getText().toString(), "contents", contents.getText().toString(), "allergens", allergens.getText().toString(), "price", amount, "oldPrice", oldAmount == 0 ? "" : oldAmount), true), value -> app.completeChildScreen(() -> offers(partnerId, false)), save);
             } catch (NumberFormatException error) { app.message("Введите цену цифрами"); }
         });
     }

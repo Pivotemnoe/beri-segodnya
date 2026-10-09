@@ -6,6 +6,14 @@ public final class AppRulesTest {
         equal("9991234567", AppRules.phoneDigits("+7 (999) 123-45-67"));
         equal("8991234567", AppRules.phoneDigits("8991234567"));
         equal("+79991234567", AppRules.phone("9991234567"));
+        var history = new java.util.ArrayDeque<Runnable>();
+        int[] parentCalls = {0};
+        Runnable grandparent = () -> { };
+        history.push(grandparent); history.push(() -> { throw new AssertionError("Stale parent called"); });
+        AppRules.completeChildScreen(history, () -> parentCalls[0]++);
+        if (history.size() != 1 || history.peek() != grandparent || parentCalls[0] != 1) throw new AssertionError("Saved child form left a duplicate Back screen");
+        history.clear(); AppRules.completeChildScreen(history, () -> parentCalls[0]++);
+        if (!history.isEmpty() || parentCalls[0] != 2) throw new AssertionError("Root form completion failed");
         equal("9 октября", AppRules.friendlyDate("2026-10-09"));
         equal("9 октября, 12:30", AppRules.friendlyTimestamp("2026-10-09T09:30:00Z"));
         equal("abcde-fghij_12345", AppRules.sessionCookieValue("__Host-bs_session=abcde-fghij_12345; Secure; HttpOnly; Path=/"));

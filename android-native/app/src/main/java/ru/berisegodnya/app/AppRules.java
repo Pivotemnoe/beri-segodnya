@@ -18,6 +18,11 @@ public final class AppRules {
         if (digits.length() != 10) throw new IllegalArgumentException("Введите десять цифр после +7");
         return "+7" + digits;
     }
+    /** A saved child form returns to its refreshed parent without leaving a duplicate Back entry. */
+    public static void completeChildScreen(java.util.Deque<Runnable> history, Runnable parent) {
+        if (!history.isEmpty()) history.pop();
+        parent.run();
+    }
     public static String today() { return LocalDate.now(ZoneId.of("Europe/Moscow")).toString(); }
     /** Editing text/photo must never replay a stale stock or publication snapshot. */
     public static final java.util.Set<String> PRESERVED_OFFER_FIELDS = java.util.Collections.unmodifiableSet(new java.util.HashSet<>(java.util.Arrays.asList("id", "addressId", "totalQuantity", "remainingQuantity", "status")));
