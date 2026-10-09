@@ -43,7 +43,9 @@ jobs:
           androidTools="$ANDROID_HOME/cmdline-tools/latest/bin"
           test -x "$androidTools/sdkmanager"
           test -x "$androidTools/avdmanager"
-          "$androidTools/sdkmanager" 'system-images;android-33;google_apis;x86_64' 'emulator'
+          "$androidTools/sdkmanager" 'system-images;android-33;google_apis;x86_64' 'emulator' 'platform-tools'
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          test -x "$ANDROID_HOME/platform-tools/adb"
           echo no | "$androidTools/avdmanager" create avd --force --name beri-native-qa --package 'system-images;android-33;google_apis;x86_64' --device pixel_4
           sudo chmod 666 /dev/kvm
           "$ANDROID_HOME/emulator/emulator" -avd beri-native-qa -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/beri-emulator.log" 2>&1 &
