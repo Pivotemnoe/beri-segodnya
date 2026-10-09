@@ -89,6 +89,12 @@ if not offers_loaded:
 assert offers_loaded, 'Public offers API did not finish successfully; inspect 01-offers before claiming live connectivity'
 tap('Мои брони')
 capture('02-bookings', 'Мои брони')
+tap('Профиль')
+capture('02c-customer-entry', 'Мой кабинет')
+assert node('Выбрать товар без регистрации', True)[0] is not None, 'Optional customer account has no visible guest exit'
+tap('Выбрать товар без регистрации')
+capture('02d-customer-guest-exit', 'Что забрать сегодня')
+tap('Мои брони')
 # A rejected link must reuse the activity, not spawn a second in-memory booking/draft store.
 adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-d', 'https://berisegodnya.ru/booking/invalid', '-n', 'ru.berisegodnya.app/.MainActivity')
 time.sleep(.6)
@@ -145,5 +151,5 @@ activity_count = len(re.findall(r'Hist\s+#\d+:\s+ActivityRecord\{[^\n]*ru\.beris
 assert activity_count == 1, f'Expected exactly one native workspace after booking links; found {activity_count}'
 crashes = adb('logcat', '-b', 'crash', '-d').decode()
 assert 'ru.berisegodnya.app' not in crashes, 'Application crash recorded'
-(output/'summary.json').write_text(json.dumps({'scope':'read-only cloud Android 13 native release UI', 'realTecnoAccepted':False, 'productionCredentialUsed':False, 'apiMutations':False, 'checks':['native focus/no WebView','public offers API loaded successfully','visitor tabs','single activity rejects malformed booking link without restarting workspace','visible partner/admin entrances','native forms','inline password eye','Android back','fixed +7 phone','keyboard hides bottom navigation and restores it','warm and cold booking links return only to buyer history','one MainActivity after repeated links','no recorded app crash']}, ensure_ascii=False, indent=2))
+(output/'summary.json').write_text(json.dumps({'scope':'read-only cloud Android 13 native release UI', 'realTecnoAccepted':False, 'productionCredentialUsed':False, 'apiMutations':False, 'checks':['native focus/no WebView','public offers API loaded successfully','visitor tabs','optional customer profile with visible guest exit','single activity rejects malformed booking link without restarting workspace','visible partner/admin entrances','native forms','inline password eye','Android back','fixed +7 phone','keyboard hides bottom navigation and restores it','warm and cold booking links return only to buyer history','one MainActivity after repeated links','no recorded app crash']}, ensure_ascii=False, indent=2))
 print('Native cloud UI QA: PASS (physical partner/booking/handover checks still required)')
