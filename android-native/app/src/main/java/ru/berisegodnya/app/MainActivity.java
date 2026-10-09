@@ -689,12 +689,15 @@ public final class MainActivity extends Activity {
         if (!partnerGuard()) return;
         screen("Мой кабинет", this::showAccount, false);
         text(column, switch (userRole) { case "owner" -> "Владелец заведения"; case "manager" -> "Менеджер заведения"; default -> "Продавец заведения"; }, 20, INK);
+        LinearLayout summary = card(column);
+        text(summary, "Сегодня", 21, INK).setTypeface(null, Typeface.BOLD);
+        TextView loading = text(summary, "Загружаем…", 16, MUTED);
         run(() -> api.request("GET", "/api/partner/dashboard?period=today", null, true), value -> {
             JSONObject data = (JSONObject) value;
-            text(column, "Сегодня", 21, INK).setTypeface(null, Typeface.BOLD);
-            details(column, "Брони", String.valueOf(data.optInt("bookingsCount")));
-            details(column, "Выдано", String.valueOf(data.optInt("issuedBookingsCount")));
-            details(column, "Выручка по выданным заказам", money(data, "estimatedRevenue"));
+            summary.removeView(loading);
+            details(summary, "Брони", String.valueOf(data.optInt("bookingsCount")));
+            details(summary, "Выдано", String.valueOf(data.optInt("issuedBookingsCount")));
+            details(summary, "Выручка по выданным заказам", money(data, "estimatedRevenue"));
         }, null);
         if (!"seller".equals(userRole)) button(column, "Точки выдачи", false, () -> showAddresses(true));
         if (!"seller".equals(userRole)) button(column, "Профиль заведения", false, () -> showProfile(true));
