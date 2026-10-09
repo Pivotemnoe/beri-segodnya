@@ -55,8 +55,9 @@ public final class MainActivity extends Activity {
     private final ExecutorService images = Executors.newFixedThreadPool(2);
     private final ArrayDeque<Runnable> backStack = new ArrayDeque<>();
     private SecureStore store;
-    private ApiClient api;
-    private LinearLayout root, column, navigation;
+    ApiClient api;
+    private LinearLayout root, navigation;
+    LinearLayout column;
     private TextView heading;
     private Runnable currentScreen;
     private String selectedTab = "offers", userRole = "", category = "";
@@ -65,13 +66,15 @@ public final class MainActivity extends Activity {
     private JSONObject pendingBooking, offerDraft = new JSONObject();
     private String editingOffer = "";
     private boolean partnerMode, passwordChangeRequired;
+    boolean adminMode, adminPasswordChangeRequired;
+    private AdminScreens admin;
 
-    @FunctionalInterface private interface Job { Object run() throws Exception; }
-    @FunctionalInterface private interface Result { void receive(Object value) throws Exception; }
+    @FunctionalInterface interface Job { Object run() throws Exception; }
+    @FunctionalInterface interface Result { void receive(Object value) throws Exception; }
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        store = new SecureStore(this); api = new ApiClient(store);
+        store = new SecureStore(this); api = new ApiClient(store); admin = new AdminScreens(this);
         buildShell();
         if (Build.VERSION.SDK_INT >= 33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::back);
         text(column, "Открываем приложение…", 18, MUTED);
@@ -124,7 +127,12 @@ public final class MainActivity extends Activity {
 
     private void rebuildNavigation() {
         navigation.removeAllViews();
-        if (!partnerMode) {
+        if (adminMode) {
+            nav("admin-overview", "Обзор", R.drawable.ic_dashboard);
+            nav("admin-partners", "Заведения", R.drawable.ic_store);
+            nav("admin-bookings", "Брони", R.drawable.ic_ticket);
+            nav("admin-more", "Ещё", R.drawable.ic_more);
+        } else if (!partnerMode) {
             nav("offers", "Предложения", R.drawable.ic_bag);
             nav("bookings", "Мои брони", R.drawable.ic_ticket);
             nav("partner", "Партнёрам", R.drawable.ic_store);
@@ -149,6 +157,10 @@ public final class MainActivity extends Activity {
     private void tab(String key) {
         hideKeyboard(); backStack.clear(); selectedTab = key; rebuildNavigation();
         switch (key) {
+            case "admin-overview" -> admin.overview(false);
+            case "admin-partners" -> admin.partners(false);
+            case "admin-bookings" -> admin.bookings(false);
+            case "admin-more" -> admin.more(false);
             case "bookings" -> showBookings();
             case "partner" -> showPartnerEntrance();
             case "partner-offers" -> showPartnerOffers();
@@ -158,23 +170,28 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void screen(String title, Runnable refresh, boolean child) {
+    void screen(String title, Runnable refresh, boolean child) {
         hideKeyboard();
         if (child && currentScreen != null) backStack.push(currentScreen);
         currentScreen = refresh; generation++; column.removeAllViews();
         if (!backStack.isEmpty()) button(column, "Назад", false, this::back);
         heading = text(column, title, 28, INK); heading.setTypeface(null, Typeface.BOLD); heading.setPadding(0, dp(12), 0, dp(14));
         rebuildNavigation();
+        if (android.animation.ValueAnimator.areAnimatorsEnabled()) {
+            column.animate().cancel(); column.setAlpha(0); column.setTranslationY(dp(10));
+            column.animate().alpha(1).translationY(0).setDuration(160).start();
+        }
     }
 
     private void back() {
         if (!backStack.isEmpty()) backStack.pop().run();
+        else if (adminMode) admin.exitToCustomer();
         else if (partnerMode) new AlertDialog.Builder(this).setTitle("Вернуться к предложениям для покупателей?").setPositiveButton("Перейти", (dialog, which) -> { partnerMode = false; tab("offers"); }).setNegativeButton("Остаться", null).show();
         else if (!selectedTab.equals("offers")) tab("offers");
         else finish();
     }
     @SuppressWarnings("deprecation") @Override public void onBackPressed() { back(); }
-    @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); String token = tokenFromIntent(intent); if (!token.isEmpty()) { partnerMode = false; selectedTab = "bookings"; backStack.clear(); showBooking(token, true); } }
+    @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); String token = tokenFromIntent(intent); if (!token.isEmpty()) { partnerMode = false; adminMode = false; selectedTab = "bookings"; backStack.clear(); showBooking(token, true); } }
     private String tokenFromIntent(Intent intent) { return intent != null && intent.getData() != null ? AppRules.bookingToken(intent.getData().toString()) : ""; }
 
     private void showOffers() {
@@ -340,6 +357,7 @@ public final class MainActivity extends Activity {
         LinearLayout application = card(column); text(application, "Хотите подключить заведение?", 21, INK);
         text(application, "Оставьте контакты — обсудим запуск и поможем разместить первое предложение.", 16, MUTED);
         button(application, "Оставить заявку", false, () -> showApplication(true));
+        button(column, "Вход администратора проекта", false, () -> admin.login(true));
     }
 
     private void showLogin(boolean child) {
@@ -669,7 +687,7 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private void run(Job job, Result result, Button button) {
+    void run(Job job, Result result, Button button) {
         int expected = generation; if (button != null) button.setEnabled(false);
         worker.execute(() -> {
             try { Object value = job.run(); runOnUiThread(() -> {
@@ -688,8 +706,9 @@ public final class MainActivity extends Activity {
 
     private void showError(Exception error) {
         if (error instanceof ApiClient.Failure failure) {
+            if (failure.status == 401 && adminMode) { adminMode = false; backStack.clear(); admin.login(false); message("Войдите как администратор ещё раз"); return; }
             if (failure.status == 401 && partnerMode) { partnerMode = false; userRole = ""; selectedTab = "partner"; backStack.clear(); showLogin(false); message("Войдите в кабинет ещё раз"); return; }
-            if ("PASSWORD_CHANGE_REQUIRED".equals(failure.code)) { passwordChangeRequired = true; showChangePassword(false); return; }
+            if ("PASSWORD_CHANGE_REQUIRED".equals(failure.code)) { if (adminMode) { adminPasswordChangeRequired = true; admin.password(false); } else { passwordChangeRequired = true; showChangePassword(false); } return; }
             text(column, failure.getMessage(), 17, INK);
         } else if (error instanceof IllegalArgumentException) text(column, error.getMessage(), 17, INK);
         else text(column, "Не удалось связаться с сервисом. Проверьте интернет и попробуйте ещё раз. Если оформляли бронь, проверьте её в разделе «Предложения».", 17, INK);
@@ -705,13 +724,13 @@ public final class MainActivity extends Activity {
         images.execute(() -> { try { Bitmap bitmap = api.image(path); runOnUiThread(() -> { if (generation == expected && !isDestroyed() && bitmap != null) view.setImageBitmap(bitmap); else if (bitmap != null) bitmap.recycle(); }); } catch (Exception ignored) { /* Text remains usable if a photo cannot load. */ } });
     }
 
-    private EditText field(LinearLayout parent, String label, String initial, int type, int max) {
+    EditText field(LinearLayout parent, String label, String initial, int type, int max) {
         text(parent, label, 15, INK).setPadding(0, dp(10), 0, dp(4));
         EditText input = new EditText(this); input.setTextSize(17); input.setTextColor(INK); input.setInputType(type); input.setText(initial); input.setSaveEnabled(false);
         input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(max)}); input.setBackground(shape(Color.WHITE, 12, 0xffccd8d6));
         input.setPadding(dp(13), dp(13), dp(13), dp(13)); input.setMinHeight(dp(52)); input.setContentDescription(label); addSpace(parent, input); return input;
     }
-    private EditText phoneField(LinearLayout parent, String label, String initial) {
+    EditText phoneField(LinearLayout parent, String label, String initial) {
         text(parent, label, 15, INK).setPadding(0, dp(10), 0, dp(4));
         LinearLayout row = horizontal(); row.setGravity(Gravity.CENTER_VERTICAL); row.setBackground(shape(Color.WHITE, 12, 0xffccd8d6));
         TextView prefix = text(row, "+7", 18, INK); prefix.setPadding(dp(14), 0, dp(8), 0); prefix.setContentDescription("Код страны +7");
@@ -731,7 +750,7 @@ public final class MainActivity extends Activity {
         row.addView(input, new LinearLayout.LayoutParams(0, dp(54), 1)); addSpace(parent, row);
         return input;
     }
-    private EditText passwordField(LinearLayout parent, String label) {
+    EditText passwordField(LinearLayout parent, String label) {
         EditText input = field(parent, label, "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, 120);
         input.setAutofillHints(View.AUTOFILL_HINT_PASSWORD); input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES);
         Button toggle = button(parent, "Показать пароль", false, () -> { });
@@ -742,7 +761,7 @@ public final class MainActivity extends Activity {
         });
         return input;
     }
-    private Spinner choices(LinearLayout parent, String[] values, int selected) {
+    Spinner choices(LinearLayout parent, String[] values, int selected) {
         Spinner spinner = new Spinner(this); ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, values);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item); spinner.setAdapter(adapter); spinner.setSelection(selected); spinner.setBackground(shape(Color.WHITE, 12, 0xffccd8d6)); spinner.setPadding(dp(10), dp(10), dp(10), dp(10)); addSpace(parent, spinner, dp(52)); return spinner;
     }
@@ -753,21 +772,23 @@ public final class MainActivity extends Activity {
         if (partner) button(parent, "Условия подключения", false, () -> openDocument("/partner-terms"));
     }
     private void openDocument(String path) { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(AppRules.ORIGIN + path))); }
-    private LinearLayout vertical() { LinearLayout layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL); return layout; }
+    LinearLayout vertical() { LinearLayout layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL); return layout; }
     private LinearLayout horizontal() { LinearLayout layout = new LinearLayout(this); layout.setOrientation(LinearLayout.HORIZONTAL); return layout; }
-    private TextView text(LinearLayout parent, String value, int size, int color) { TextView text = new TextView(this); text.setText(value); text.setTextSize(size); text.setTextColor(color); text.setLineSpacing(dp(3), 1); text.setPadding(0, dp(4), 0, dp(4)); parent.addView(text, new LinearLayout.LayoutParams(-1, -2)); return text; }
-    private void details(LinearLayout parent, String label, String value) { if (value == null || value.isEmpty()) return; text(parent, label, 14, MUTED).setPadding(0, dp(12), 0, 0); text(parent, value, 17, INK); }
-    private LinearLayout card(LinearLayout parent) { LinearLayout card = vertical(); card.setPadding(dp(16), dp(14), dp(16), dp(14)); card.setBackground(shape(Color.WHITE, 18, 0xffe0e8e3)); addSpace(parent, card); return card; }
-    private Button button(LinearLayout parent, String label, boolean primary, Runnable action) { Button button = new Button(this); styleButton(button, label, primary); button.setOnClickListener(view -> action.run()); addSpace(parent, button); return button; }
+    TextView text(LinearLayout parent, String value, int size, int color) { TextView text = new TextView(this); text.setText(value); text.setTextSize(size); text.setTextColor(color); text.setLineSpacing(dp(3), 1); text.setPadding(0, dp(4), 0, dp(4)); parent.addView(text, new LinearLayout.LayoutParams(-1, -2)); return text; }
+    void details(LinearLayout parent, String label, String value) { if (value == null || value.isEmpty()) return; text(parent, label, 14, MUTED).setPadding(0, dp(12), 0, 0); text(parent, value, 17, INK); }
+    LinearLayout card(LinearLayout parent) { LinearLayout card = vertical(); card.setPadding(dp(16), dp(14), dp(16), dp(14)); card.setBackground(shape(Color.WHITE, 18, 0xffe0e8e3)); addSpace(parent, card); return card; }
+    Button button(LinearLayout parent, String label, boolean primary, Runnable action) { Button button = new Button(this); styleButton(button, label, primary); button.setOnClickListener(view -> action.run()); addSpace(parent, button); return button; }
     private void styleButton(Button button, String label, boolean primary) { button.setText(label); button.setAllCaps(false); button.setTextSize(16); button.setTypeface(null, Typeface.BOLD); button.setTextColor(primary ? Color.WHITE : TEAL); button.setBackground(shape(primary ? ORANGE : 0xffe9f1ed, 13, 0)); button.setPadding(dp(12), dp(10), dp(12), dp(10)); button.setMinHeight(dp(52)); }
     private void addSpace(LinearLayout parent, View view) { addSpace(parent, view, -2); }
     private void addSpace(LinearLayout parent, View view, int height) { LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, height); params.topMargin = dp(10); parent.addView(view, params); }
     private GradientDrawable shape(int fill, int radius, int border) { GradientDrawable shape = new GradientDrawable(); shape.setColor(fill); shape.setCornerRadius(dp(radius)); if (border != 0) shape.setStroke(dp(1), border); return shape; }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
-    private String money(JSONObject value, String key) { if (value.isNull(key)) return "Стоимость не указана"; return new java.text.DecimalFormat("0.##").format(value.optDouble(key)) + " ₽"; }
-    private void message(String text) { Toast.makeText(this, text == null ? "Проверьте заполненные поля" : text, Toast.LENGTH_LONG).show(); }
+    String money(JSONObject value, String key) { if (value.isNull(key)) return "Стоимость не указана"; return new java.text.DecimalFormat("0.##").format(value.optDouble(key)) + " ₽"; }
+    void message(String text) { Toast.makeText(this, text == null ? "Проверьте заполненные поля" : text, Toast.LENGTH_LONG).show(); }
     private void hideKeyboard() { View view = getCurrentFocus(); if (view != null) ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(view.getWindowToken(), 0); }
     private TextWatcher watcher(Runnable action) { return new TextWatcher() { public void beforeTextChanged(CharSequence value, int start, int count, int after) { } public void onTextChanged(CharSequence value, int start, int before, int count) { } public void afterTextChanged(Editable value) { action.run(); } }; }
-    private JSONObject json(Object... items) { JSONObject object = new JSONObject(); try { for (int i = 0; i < items.length; i += 2) object.put((String) items[i], items[i + 1]); } catch (Exception error) { throw new IllegalArgumentException("Не удалось подготовить данные", error); } return object; }
+    JSONObject json(Object... items) { JSONObject object = new JSONObject(); try { for (int i = 0; i < items.length; i += 2) object.put((String) items[i], items[i + 1]); } catch (Exception error) { throw new IllegalArgumentException("Не удалось подготовить данные", error); } return object; }
+    void openAdminTab(String key) { partnerMode = false; adminMode = true; tab(key); }
+    void exitAdmin() { adminMode = false; partnerMode = false; backStack.clear(); tab("partner"); }
     @Override protected void onDestroy() { worker.shutdown(); images.shutdown(); super.onDestroy(); }
 }
