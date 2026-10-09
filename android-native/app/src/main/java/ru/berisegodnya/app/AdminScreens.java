@@ -226,7 +226,8 @@ final class AdminScreens {
         if (!guard()) return;
         app.screen("Брони покупателей", () -> bookings(false), child);
         EditText code = app.field(app.column, "Найти по коду — или оставьте пустым", "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS, 12);
-        LinearLayout list = app.vertical(); app.column.addView(list);
+        LinearLayout list = app.vertical();
+        Button search = app.button(app.column, "Показать брони", true, () -> { });
         Runnable load = () -> app.run(() -> app.api.request("GET", "/api/admin/bookings", null, true), value -> {
             list.removeAllViews(); JSONArray bookings = (JSONArray) value; String filter = code.getText().toString().replaceAll("\\s", "").toUpperCase(java.util.Locale.ROOT);
             for (int i = bookings.length() - 1; i >= 0; i--) {
@@ -238,8 +239,8 @@ final class AdminScreens {
                 app.button(card, "Изменить статус", false, () -> bookingStatus(booking, true));
             }
             if (list.getChildCount() == 0) app.text(list, "Броней с таким кодом нет", 18, MUTED);
-        }, null);
-        app.button(app.column, "Показать брони", true, load); load.run();
+        }, search);
+        search.setOnClickListener(view -> load.run()); app.column.addView(list); load.run();
     }
     private void bookingStatus(JSONObject booking, boolean child) {
         app.screen("Статус брони " + booking.optString("code"), () -> bookingStatus(booking, false), child);

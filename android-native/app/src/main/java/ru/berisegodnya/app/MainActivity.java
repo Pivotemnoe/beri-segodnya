@@ -664,20 +664,23 @@ public final class MainActivity extends Activity {
         screen("Проверить код покупателя", this::showCodes, false);
         text(column, "Найдите бронь по коду. Отмечайте выдачу только после того, как передали заказ покупателю.", 16, MUTED);
         EditText code = field(column, "Код брони", "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS, 12);
-        LinearLayout results = vertical(); column.addView(results);
-        Button search = button(column, "Найти бронь", true, () -> {
+        LinearLayout results = vertical();
+        Button search = button(column, "Найти бронь", true, () -> { });
+        search.setOnClickListener(view -> {
             String query = code.getText().toString().replaceAll("\\s", "").toUpperCase(java.util.Locale.ROOT);
             if (query.isEmpty()) { message("Введите код, который показывает покупатель"); return; }
             results.removeAllViews();
             run(() -> api.request("GET", "/api/partner/bookings", null, true), value -> {
+                if (!query.equals(code.getText().toString().replaceAll("\\s", "").toUpperCase(java.util.Locale.ROOT))) { text(results, "Код изменён. Нажмите «Найти бронь» ещё раз.", 18, MUTED); return; }
                 JSONArray bookings = (JSONArray) value; boolean found = false;
                 for (int i = 0; i < bookings.length(); i++) {
                     JSONObject booking = bookings.getJSONObject(i);
                     if (!query.equals(booking.optString("code"))) continue; found = true; codeCard(results, booking);
                 }
                 if (!found) text(results, "Такого кода у вашего заведения нет. Проверьте цифры и название магазина.", 18, MUTED);
-            }, null);
+            }, search);
         });
+        column.addView(results);
     }
 
     private void codeCard(LinearLayout parent, JSONObject booking) {
