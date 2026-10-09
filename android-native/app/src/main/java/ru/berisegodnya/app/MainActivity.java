@@ -77,6 +77,8 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        // Deliver IME/system-bar insets to our root instead of letting DecorView consume them.
+        if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
         store = new SecureStore(this); api = new ApiClient(store); admin = new AdminScreens(this);
         buildShell();
         if (Build.VERSION.SDK_INT >= 33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::back);
@@ -137,9 +139,9 @@ public final class MainActivity extends Activity {
                 var keyboard = insets.getInsets(WindowInsets.Type.ime());
                 top = bars.top; bottom = Math.max(bars.bottom, keyboard.bottom);
                 view.setPadding(Math.max(bars.left, dp(0)), top, bars.right, bottom);
-                navigation.setVisibility(keyboard.bottom > bars.bottom ? View.GONE : View.VISIBLE);
+                navigation.setVisibility(insets.isVisible(WindowInsets.Type.ime()) ? View.GONE : View.VISIBLE);
             } else { view.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(), insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); }
-            return insets;
+            return Build.VERSION.SDK_INT >= 30 ? WindowInsets.CONSUMED : insets;
         });
         root.requestApplyInsets(); rebuildNavigation();
     }

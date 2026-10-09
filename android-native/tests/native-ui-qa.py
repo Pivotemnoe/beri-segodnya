@@ -93,13 +93,15 @@ phone, _ = node('Телефон: десять цифр после +7')
 assert phone is not None and phone.get('text') == '9001234567', 'Fixed +7 phone normalization failed'
 source, current = tree()
 assert any(e.get('text') == '+7' for e in current.iter('node')), 'Country prefix missing'
+assert not any(e.get('text') == 'Предложения' for e in current.iter('node')), 'Bottom navigation takes up space above the keyboard'
 (output/'08-phone-keyboard.xml').write_text(source)
 (output/'08-phone-keyboard.png').write_bytes(adb('exec-out', 'screencap', '-p'))
 adb('shell', 'input', 'keyevent', '4')
 adb('shell', 'input', 'keyevent', '4')
 time.sleep(.6)
 capture('09-application-back', 'Партнёрам')
+assert node('Предложения', True)[0] is not None, 'Bottom navigation not restored after closing keyboard'
 crashes = adb('logcat', '-b', 'crash', '-d').decode()
 assert 'ru.berisegodnya.app' not in crashes, 'Application crash recorded'
-(output/'summary.json').write_text(json.dumps({'scope':'read-only cloud Android 13 native release UI', 'realTecnoAccepted':False, 'productionCredentialUsed':False, 'apiMutations':False, 'checks':['native focus/no WebView','visitor tabs','visible partner/admin entrances','native forms','inline password eye','Android back','fixed +7 phone','keyboard','no recorded app crash']}, ensure_ascii=False, indent=2))
+(output/'summary.json').write_text(json.dumps({'scope':'read-only cloud Android 13 native release UI', 'realTecnoAccepted':False, 'productionCredentialUsed':False, 'apiMutations':False, 'checks':['native focus/no WebView','visitor tabs','visible partner/admin entrances','native forms','inline password eye','Android back','fixed +7 phone','keyboard hides bottom navigation and restores it','no recorded app crash']}, ensure_ascii=False, indent=2))
 print('Native cloud UI QA: PASS (physical partner/booking/handover checks still required)')
