@@ -290,7 +290,11 @@ final class AdminScreens {
         app.button(app.column, "Изменить мой пароль", false, () -> password(true));
         app.button(app.column, "Перейти к покупкам", false, this::exitToCustomer);
         app.button(app.column, "Выйти из админ-панели", false, () -> confirm("Выйти из админ-панели?", "Для следующего входа понадобится пароль.", () -> app.mutate(() -> {
-            try { return app.api.request("POST", "/api/admin/auth/logout", new JSONObject(), true); } finally { app.api.forgetAdminSession(); }
+            try { app.api.request("POST", "/api/admin/auth/logout", new JSONObject(), true); }
+            catch (java.io.IOException error) { /* Local exit remains available offline. */ }
+            catch (ApiClient.Failure error) { /* Revoked sessions cannot keep the local cabinet open. */ }
+            finally { app.api.forgetAdminSession(); }
+            return new JSONObject();
         }, value -> app.exitAdmin(), null)));
     }
     private void audit(boolean child) {
@@ -300,8 +304,12 @@ final class AdminScreens {
             JSONArray audit = (JSONArray) value;
             for (int i = audit.length() - 1; i >= Math.max(0, audit.length() - 100); i--) {
                 JSONObject item = audit.getJSONObject(i); LinearLayout row = app.card(app.column);
-                title(row, actionName(item.optString("action"))); app.details(row, "Когда", AppRules.friendlyTimestamp(item.optString("created_at")));
-                app.details(row, "Кто", "admin".equals(item.optString("actor_role")) ? "Администратор" : "partner".equals(item.optString("actor_role")) ? "Сотрудник заведения" : "Система");
+                title(row, actionName(item.optString("action"))); app.details(row, "Когда", AppRules.friendlyTimestamp(item.optString("createdAt")));
+                String actor = item.optString("actorRole");
+                app.details(row, "Кто", "admin".equals(actor) ? "Администратор" : "partner".equals(actor) ? item.isNull("actorName") ? "Сотрудник заведения" : item.optString("actorName") : "Система");
+                if (!item.isNull("referenceLabel")) app.details(row, "Что изменилось", item.optString("referenceLabel"));
+                if (!item.isNull("status")) app.details(row, "Статус", AppRules.status(item.optString("status")));
+                if (!item.isNull("reason")) app.details(row, "Причина исправления", item.optString("reason"));
             }
         }, null);
     }

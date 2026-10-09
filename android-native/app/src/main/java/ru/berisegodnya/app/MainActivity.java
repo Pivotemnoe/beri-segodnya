@@ -59,6 +59,7 @@ public final class MainActivity extends Activity {
     private LinearLayout root, navigation;
     LinearLayout column;
     private TextView heading;
+    private android.widget.ProgressBar progress;
     private Runnable currentScreen;
     private String selectedTab = "offers", userRole = "", category = "";
     private int generation;
@@ -117,6 +118,8 @@ public final class MainActivity extends Activity {
         LinearLayout brand = vertical(); brand.setPadding(dp(12), 0, 0, 0);
         text(brand, "Бери сегодня", 21, INK).setTypeface(null, Typeface.BOLD);
         text(brand, "Армавир", 13, MUTED); header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        progress = new android.widget.ProgressBar(this); progress.setContentDescription("Сохраняем изменения"); progress.setVisibility(View.GONE);
+        header.addView(progress, new LinearLayout.LayoutParams(dp(28), dp(28)));
         root.addView(header);
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setClipToPadding(false);
         column = vertical(); column.setPadding(dp(18), dp(8), dp(18), dp(22)); scroll.addView(column);
@@ -405,6 +408,7 @@ public final class MainActivity extends Activity {
             return;
         }
         partnerMode = true; backStack.clear();
+        if (!List.of("owner", "manager", "seller").contains(userRole)) { api.forgetSession(); userRole = ""; partnerMode = false; showLogin(false); message("Доступ изменён. Войдите заново или обратитесь к администратору."); return; }
         if (passwordChangeRequired) { selectedTab = "account"; showChangePassword(false); }
         else tab("seller".equals(userRole) ? "codes" : "partner-offers");
     }
@@ -681,12 +685,17 @@ public final class MainActivity extends Activity {
             details(column, "Выручка по выданным заказам", money(data, "estimatedRevenue"));
         }, null);
         if (!"seller".equals(userRole)) button(column, "Точки выдачи", false, () -> showAddresses(true));
+        if (!"seller".equals(userRole)) button(column, "Профиль заведения", false, () -> showProfile(true));
+        button(column, "Как работать", false, () -> showHelp(true));
         button(column, "Изменить пароль", false, () -> showChangePassword(true));
         button(column, "Перейти к покупкам", false, () -> { partnerMode = false; tab("offers"); });
         button(column, "Выйти из кабинета", false, () -> new AlertDialog.Builder(this).setTitle("Выйти из кабинета?").setNegativeButton("Остаться", null)
             .setPositiveButton("Выйти", (dialog, which) -> mutate(() -> {
-                try { return api.request("POST", "/api/partner/auth/logout", new JSONObject(), true); }
+                try { api.request("POST", "/api/partner/auth/logout", new JSONObject(), true); }
+                catch (java.io.IOException error) { /* Local exit must also work offline. Server session expires separately. */ }
+                catch (ApiClient.Failure error) { /* A revoked or unreachable server must not keep the local cabinet open. */ }
                 finally { api.forgetSession(); }
+                return new JSONObject();
             }, value -> { userRole = ""; passwordChangeRequired = false; publicationUncertain = false; offerDraft = new JSONObject(); partnerMode = false; tab("partner"); }, null)).show());
     }
 
@@ -696,18 +705,61 @@ public final class MainActivity extends Activity {
         if ("owner".equals(userRole)) button(column, "Добавить точку", true, () -> showAddressForm(true));
         run(() -> api.request("GET", "/api/partner/addresses", null, true), value -> {
             JSONArray addresses = (JSONArray) value;
-            for (int i = 0; i < addresses.length(); i++) { JSONObject address = addresses.getJSONObject(i); LinearLayout card = card(column); text(card, address.optString("title"), 21, INK); text(card, address.optString("city") + " · " + address.optString("address"), 17, MUTED); text(card, address.optBoolean("is_active", true) ? "Работает" : "Закрыта", 15, TEAL); }
+            for (int i = 0; i < addresses.length(); i++) {
+                JSONObject address = addresses.getJSONObject(i); LinearLayout card = card(column); text(card, address.optString("title"), 21, INK); text(card, address.optString("city") + " · " + address.optString("address"), 17, MUTED); text(card, address.optBoolean("is_active", true) ? "Работает" : "Закрыта", 15, TEAL);
+                if ("owner".equals(userRole)) button(card, "Изменить точку", false, () -> showAddressForm(address, true));
+            }
         }, null);
     }
 
     private void showAddressForm(boolean child) {
+        showAddressForm(null, child);
+    }
+    private void showAddressForm(JSONObject existing, boolean child) {
         if (!"owner".equals(userRole)) { message("Точки выдачи добавляет владелец"); return; }
-        screen("Новая точка выдачи", () -> showAddressForm(false), child);
-        EditText title = field(column, "Название точки", "", InputType.TYPE_CLASS_TEXT, 120);
-        EditText city = field(column, "Город", "Армавир", InputType.TYPE_CLASS_TEXT, 80);
-        EditText address = field(column, "Адрес", "", InputType.TYPE_CLASS_TEXT, 160);
+        screen(existing == null ? "Новая точка выдачи" : "Точка выдачи", () -> showAddressForm(existing, false), child);
+        EditText title = field(column, "Название точки", existing == null ? "" : existing.optString("title"), InputType.TYPE_CLASS_TEXT, 120);
+        EditText city = field(column, "Город", existing == null ? "Армавир" : existing.optString("city"), InputType.TYPE_CLASS_TEXT, 80);
+        EditText address = field(column, "Адрес", existing == null ? "" : existing.optString("address"), InputType.TYPE_CLASS_TEXT, 160);
+        CheckBox active = check(column, "Точка работает и выдаёт заказы"); active.setChecked(existing == null || existing.optBoolean("is_active", true));
+        text(column, "Адрес уже оформленной брони не изменится. Перед закрытием точки проверьте текущие заказы.", 15, MUTED);
         Button submit = new Button(this); styleButton(submit, "Сохранить точку", true); addSpace(column, submit);
-        submit.setOnClickListener(view -> mutate(() -> api.request("POST", "/api/partner/addresses", json("title", title.getText().toString(), "city", city.getText().toString(), "address", address.getText().toString(), "isActive", true), true), value -> { backStack.clear(); showAddresses(false); }, submit));
+        submit.setOnClickListener(view -> mutate(() -> api.request(existing == null ? "POST" : "PATCH", "/api/partner/addresses" + (existing == null ? "" : "/" + existing.getString("id")), json("title", title.getText().toString(), "city", city.getText().toString(), "address", address.getText().toString(), "isActive", active.isChecked()), true), value -> { backStack.clear(); showAddresses(false); }, submit));
+    }
+
+    private void showProfile(boolean child) {
+        if (!partnerGuard() || "seller".equals(userRole)) return;
+        screen("Профиль заведения", () -> showProfile(false), child);
+        run(() -> api.request("GET", "/api/partner/profile", null, true), value -> {
+            JSONObject profile = (JSONObject) value;
+            if (!"owner".equals(userRole)) {
+                details(column, "Название", profile.optString("name")); details(column, "Контакт", profile.optString("contact_name")); details(column, "Телефон", profile.optString("phone")); details(column, "Email", profile.optString("email"));
+                text(column, "Эти данные меняет владелец заведения.", 16, MUTED); return;
+            }
+            EditText name = field(column, "Название заведения", profile.optString("name"), InputType.TYPE_CLASS_TEXT, 120);
+            EditText contact = field(column, "Контактное лицо", profile.optString("contact_name"), InputType.TYPE_CLASS_TEXT, 80);
+            EditText phone = phoneField(column, "Телефон — по желанию", profile.optString("phone"));
+            EditText email = field(column, "Email — по желанию", profile.optString("email"), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS, 120);
+            Button save = button(column, "Сохранить данные", true, () -> { });
+            save.setOnClickListener(view -> {
+                try {
+                    JSONObject data = json("name", name.getText().toString(), "contactName", contact.getText().toString(), "phone", phone.getText().toString().isEmpty() ? "" : AppRules.phone(phone.getText().toString()), "email", email.getText().toString());
+                    mutate(() -> api.request("PATCH", "/api/partner/profile", data, true), result -> { message("Данные сохранены"); showProfile(false); }, save);
+                } catch (IllegalArgumentException error) { message(error.getMessage()); }
+            });
+        }, null);
+    }
+
+    private void showHelp(boolean child) {
+        screen("Как работать", () -> showHelp(false), child);
+        if (!"seller".equals(userRole)) {
+            LinearLayout offer = card(column); text(offer, "Разместить предложение", 22, INK);
+            text(offer, "Откройте «Предложения» → «Добавить предложение». Выберите точку, добавьте своё фото, состав, цену, количество и время. Проверьте карточку и опубликуйте.", 17, MUTED);
+        }
+        LinearLayout code = card(column); text(code, "Выдать заказ", 22, INK);
+        text(code, "Попросите покупателя показать код. Откройте «Коды» и найдите бронь. Проверьте набор и время. Покупатель оплачивает в магазине. Передайте заказ и нажмите «Отметить выдачу».", 17, MUTED);
+        LinearLayout connection = card(column); text(connection, "Если пропал интернет", 22, INK);
+        text(connection, "Не отмечайте выдачу наугад и не публикуйте второй экземпляр. Восстановите связь, обновите список и проверьте, сохранилось ли действие. За помощью с доступом обратитесь к администратору проекта.", 17, MUTED);
     }
 
     private void showChangePassword(boolean child) {
@@ -731,19 +783,19 @@ public final class MainActivity extends Activity {
     }
     void mutate(Job job, Result result, Button button) {
         if (mutationInFlight) { message("Подождите, сохраняем изменения…"); return; }
-        mutationInFlight = true; runTask(job, result, button, true);
+        mutationInFlight = true; progress.setVisibility(View.VISIBLE); runTask(job, result, button, true);
     }
     private void runTask(Job job, Result result, Button button, boolean mutation) {
         int expected = generation; if (button != null) button.setEnabled(false);
         worker.execute(() -> {
             try { Object value = job.run(); runOnUiThread(() -> {
-                if (mutation) mutationInFlight = false;
+                if (mutation) { mutationInFlight = false; progress.setVisibility(View.GONE); }
                 if (isFinishing() || isDestroyed()) return;
                 if (button != null) button.setEnabled(true);
                 if (expected != generation) return;
                 try { result.receive(value); } catch (Exception error) { showError(error); }
             }); } catch (Exception error) { runOnUiThread(() -> {
-                if (mutation) mutationInFlight = false;
+                if (mutation) { mutationInFlight = false; progress.setVisibility(View.GONE); }
                 if (isFinishing() || isDestroyed()) return;
                 if (button != null) button.setEnabled(true);
                 if (expected != generation) return;
