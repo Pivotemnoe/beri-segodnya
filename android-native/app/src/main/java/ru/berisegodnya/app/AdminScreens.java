@@ -30,7 +30,7 @@ final class AdminScreens {
         submit.setOnClickListener(view -> {
             String user = login.getText().toString().trim(), pass = password.getText().toString();
             if (user.isEmpty() || pass.isEmpty()) { app.message("Введите логин и пароль"); return; }
-            app.run(() -> app.api.request("POST", "/api/admin/auth/login", app.json("login", user, "password", pass), false), value -> {
+            app.mutate(() -> app.api.request("POST", "/api/admin/auth/login", app.json("login", user, "password", pass), false), value -> {
                 password.setText(""); app.adminPasswordChangeRequired = ((JSONObject) value).optBoolean("passwordChangeRequired"); enter();
             }, submit);
         });
@@ -97,7 +97,7 @@ final class AdminScreens {
         app.button(app.column, "Точки выдачи", false, () -> addresses(id, true));
         app.button(app.column, "Предложения заведения", false, () -> offers(id, true));
         boolean active = "active".equals(partner.optString("status"));
-        app.button(app.column, active ? "Приостановить работу" : "Возобновить работу", false, () -> confirm(active ? "Приостановить заведение?" : "Возобновить заведение?", "Брони и история не удалятся.", () -> app.run(() -> app.api.request("PATCH", "/api/admin/partners/" + id, app.json("status", active ? "paused" : "active"), true), value -> partner((JSONObject) value, false), null)));
+        app.button(app.column, active ? "Приостановить работу" : "Возобновить работу", false, () -> confirm(active ? "Приостановить заведение?" : "Возобновить заведение?", "Брони и история не удалятся.", () -> app.mutate(() -> app.api.request("PATCH", "/api/admin/partners/" + id, app.json("status", active ? "paused" : "active"), true), value -> partner((JSONObject) value, false), null)));
     }
     private void editPartner(JSONObject partner, boolean child) {
         app.screen("Данные заведения", () -> editPartner(partner, false), child);
@@ -108,7 +108,7 @@ final class AdminScreens {
         Button save = app.button(app.column, "Сохранить", true, () -> { });
         save.setOnClickListener(view -> {
             try { JSONObject data = app.json("name", name.getText().toString(), "contactName", contact.getText().toString(), "phone", phone.getText().toString().isEmpty() ? "" : AppRules.phone(phone.getText().toString()), "email", email.getText().toString());
-                app.run(() -> app.api.request("PATCH", "/api/admin/partners/" + partner.getString("id"), data, true), value -> { app.message("Данные сохранены"); partner((JSONObject) value, false); }, save);
+                app.mutate(() -> app.api.request("PATCH", "/api/admin/partners/" + partner.getString("id"), data, true), value -> { app.message("Данные сохранены"); partner((JSONObject) value, false); }, save);
             } catch (Exception error) { app.message(error.getMessage()); }
         });
     }
@@ -130,7 +130,7 @@ final class AdminScreens {
                 if (password.getText().length() < 12) throw new IllegalArgumentException("Придумайте временный пароль не короче 12 символов");
                 JSONObject data = app.json("partnerName", name.getText().toString(), "partnerType", TYPES[type.getSelectedItemPosition()], "contactName", contact.getText().toString(), "userName", contact.getText().toString(), "phone", phone.getText().toString().isEmpty() ? "" : AppRules.phone(phone.getText().toString()), "email", email.getText().toString(), "city", city.getText().toString(), "address", address.getText().toString(), "addressTitle", "Основная точка", "login", login.getText().toString(), "password", password.getText().toString());
                 if (application != null) data.put("applicationId", application.getString("id"));
-                confirm("Подключить это заведение?", name.getText().toString() + "\n" + address.getText().toString(), () -> app.run(() -> app.api.request("POST", "/api/admin/partners/onboard", data, true), value -> {
+                confirm("Подключить это заведение?", name.getText().toString() + "\n" + address.getText().toString(), () -> app.mutate(() -> app.api.request("POST", "/api/admin/partners/onboard", data, true), value -> {
                     password.setText(""); app.message("Заведение подключено. Передайте владельцу логин и временный пароль."); app.openAdminTab("admin-partners");
                 }, save));
             } catch (Exception error) { app.message(error.getMessage()); }
@@ -146,7 +146,7 @@ final class AdminScreens {
                 app.details(card, "Логин", user.optString("login")); app.text(card, roleName(user.optString("role")) + " · " + ("active".equals(user.optString("status")) ? "Вход открыт" : "Вход закрыт"), 16, TEAL);
                 app.button(card, "Изменить доступ или пароль", false, () -> userForm(partnerId, user, true));
                 boolean active = "active".equals(user.optString("status"));
-                app.button(card, active ? "Закрыть доступ" : "Открыть доступ", false, () -> confirm(active ? "Закрыть вход этому сотруднику?" : "Открыть вход этому сотруднику?", user.optString("name"), () -> app.run(() -> app.api.request("PATCH", "/api/admin/partners/" + partnerId + "/users/" + user.getString("id"), app.json("status", active ? "disabled" : "active"), true), result -> users(partnerId, false), null)));
+                app.button(card, active ? "Закрыть доступ" : "Открыть доступ", false, () -> confirm(active ? "Закрыть вход этому сотруднику?" : "Открыть вход этому сотруднику?", user.optString("name"), () -> app.mutate(() -> app.api.request("PATCH", "/api/admin/partners/" + partnerId + "/users/" + user.getString("id"), app.json("status", active ? "disabled" : "active"), true), result -> users(partnerId, false), null)));
             }
         }, null);
     }
@@ -163,7 +163,7 @@ final class AdminScreens {
                 JSONObject data = app.json("name", name.getText().toString(), "login", login.getText().toString(), "role", roles[role.getSelectedItemPosition()]);
                 String pass = password.getText().toString();
                 if (user == null || !pass.isEmpty()) { if (pass.length() < 12) throw new IllegalArgumentException("Нужно не менее 12 символов в пароле"); data.put("password", pass); }
-                app.run(() -> app.api.request(user == null ? "POST" : "PATCH", "/api/admin/partners/" + partnerId + "/users" + (user == null ? "" : "/" + user.getString("id")), data, true), result -> { password.setText(""); app.message("Доступ сохранён"); users(partnerId, false); }, save);
+                app.mutate(() -> app.api.request(user == null ? "POST" : "PATCH", "/api/admin/partners/" + partnerId + "/users" + (user == null ? "" : "/" + user.getString("id")), data, true), result -> { password.setText(""); app.message("Доступ сохранён"); users(partnerId, false); }, save);
             } catch (Exception error) { app.message(error.getMessage()); }
         });
     }
@@ -177,7 +177,7 @@ final class AdminScreens {
                 app.text(card, address.optString("city") + " · " + address.optString("address"), 17, MUTED);
                 boolean active = address.optBoolean("is_active", true); app.text(card, active ? "Работает" : "Закрыта", 15, TEAL);
                 app.button(card, "Изменить адрес", false, () -> addressForm(partnerId, address, true));
-                app.button(card, active ? "Закрыть точку" : "Открыть точку", false, () -> confirm(active ? "Закрыть эту точку?" : "Открыть эту точку?", "Существующие брони и их адреса сохранятся.", () -> app.run(() -> app.api.request("PATCH", "/api/admin/partners/" + partnerId + "/addresses/" + address.getString("id"), app.json("isActive", !active), true), result -> addresses(partnerId, false), null)));
+                app.button(card, active ? "Закрыть точку" : "Открыть точку", false, () -> confirm(active ? "Закрыть эту точку?" : "Открыть эту точку?", "Существующие брони и их адреса сохранятся.", () -> app.mutate(() -> app.api.request("PATCH", "/api/admin/partners/" + partnerId + "/addresses/" + address.getString("id"), app.json("isActive", !active), true), result -> addresses(partnerId, false), null)));
             }
         }, null);
     }
@@ -187,7 +187,7 @@ final class AdminScreens {
         EditText city = app.field(app.column, "Город", address == null ? "Армавир" : address.optString("city"), InputType.TYPE_CLASS_TEXT, 80);
         EditText line = app.field(app.column, "Адрес", address == null ? "" : address.optString("address"), InputType.TYPE_CLASS_TEXT, 160);
         Button save = app.button(app.column, "Сохранить адрес", true, () -> { });
-        save.setOnClickListener(view -> app.run(() -> app.api.request(address == null ? "POST" : "PATCH", "/api/admin/partners/" + partnerId + "/addresses" + (address == null ? "" : "/" + address.getString("id")), app.json("title", title.getText().toString(), "city", city.getText().toString(), "address", line.getText().toString()), true), value -> addresses(partnerId, false), save));
+        save.setOnClickListener(view -> app.mutate(() -> app.api.request(address == null ? "POST" : "PATCH", "/api/admin/partners/" + partnerId + "/addresses" + (address == null ? "" : "/" + address.getString("id")), app.json("title", title.getText().toString(), "city", city.getText().toString(), "address", line.getText().toString()), true), value -> addresses(partnerId, false), save));
     }
     private void offers(String partnerId, boolean child) {
         app.screen("Предложения", () -> offers(partnerId, false), child);
@@ -197,10 +197,10 @@ final class AdminScreens {
                 JSONObject offer = offers.getJSONObject(i); if (!partnerId.isEmpty() && !partnerId.equals(offer.optString("partner_id"))) continue;
                 LinearLayout card = app.card(app.column); title(card, offer.optString("title"));
                 app.text(card, AppRules.status(offer.optString("status")) + " · " + app.money(offer, "price"), 17, TEAL);
-                app.text(card, offer.optString("date") + " · " + offer.optString("pickup_window") + " · доступно: " + offer.optInt("remaining_quantity"), 16, MUTED);
+                app.text(card, AppRules.friendlyDate(offer.optString("date")) + " · " + offer.optString("pickup_window") + " · доступно: " + offer.optInt("remaining_quantity"), 16, MUTED);
                 app.button(card, "Изменить предложение", false, () -> offerForm(offer, partnerId, true));
                 boolean active = "active".equals(offer.optString("status"));
-                app.button(card, active ? "Снять с витрины" : "Вернуть на витрину", false, () -> confirm(active ? "Снять предложение?" : "Опубликовать предложение?", "Ранее оформленные брони сохранятся.", () -> app.run(() -> app.api.request("PATCH", "/api/admin/offers/" + offer.getString("id"), app.json("status", active ? "paused" : "active"), true), result -> offers(partnerId, false), null)));
+                app.button(card, active ? "Снять с витрины" : "Вернуть на витрину", false, () -> confirm(active ? "Снять предложение?" : "Опубликовать предложение?", "Ранее оформленные брони сохранятся.", () -> app.mutate(() -> app.api.request("PATCH", "/api/admin/offers/" + offer.getString("id"), app.json("status", active ? "paused" : "active"), true), result -> offers(partnerId, false), null)));
             }
         }, null);
     }
@@ -214,7 +214,7 @@ final class AdminScreens {
         Button save = app.button(app.column, "Сохранить", true, () -> { });
         save.setOnClickListener(view -> {
             try { double amount = Double.parseDouble(price.getText().toString().replace(',', '.'));
-                app.run(() -> app.api.request("PATCH", "/api/admin/offers/" + offer.getString("id"), app.json("title", title.getText().toString(), "contents", contents.getText().toString(), "allergens", allergens.getText().toString(), "price", amount), true), value -> offers(partnerId, false), save);
+                app.mutate(() -> app.api.request("PATCH", "/api/admin/offers/" + offer.getString("id"), app.json("title", title.getText().toString(), "contents", contents.getText().toString(), "allergens", allergens.getText().toString(), "price", amount), true), value -> offers(partnerId, false), save);
             } catch (NumberFormatException error) { app.message("Введите цену цифрами"); }
         });
     }
@@ -229,7 +229,7 @@ final class AdminScreens {
                 JSONObject booking = bookings.getJSONObject(i); if (!filter.isEmpty() && !filter.equals(booking.optString("code"))) continue;
                 LinearLayout card = app.card(list); title(card, booking.optString("code") + " · " + booking.optString("offerTitle"));
                 app.text(card, booking.optString("partnerName"), 16, MUTED); app.text(card, AppRules.status(booking.optString("status")), 17, TEAL);
-                app.details(card, "Выдача", booking.optString("date") + " · " + booking.optString("pickupWindow"));
+                app.details(card, "Выдача", AppRules.friendlyDate(booking.optString("date")) + " · " + booking.optString("pickupWindow"));
                 app.details(card, "Покупатель", booking.optString("customer_name")); app.details(card, "Телефон", booking.optString("customer_phone"));
                 app.button(card, "Изменить статус", false, () -> bookingStatus(booking, true));
             }
@@ -248,7 +248,7 @@ final class AdminScreens {
             if (correction && reason.getText().toString().trim().length() < 10) { app.message("Кратко опишите причину — не менее 10 символов"); return; }
             JSONObject data = app.json("status", statuses[status.getSelectedItemPosition()]);
             if (correction) { try { data.put("expectedStatus", booking.getString("status")); data.put("reason", reason.getText().toString()); } catch (Exception error) { app.message("Обновите бронь и попробуйте ещё раз"); return; } }
-            confirm("Изменить статус этой брони?", booking.optString("code") + "\n" + AppRules.status(statuses[status.getSelectedItemPosition()]), () -> app.run(() -> app.api.request("PATCH", "/api/admin/bookings/" + booking.getString("id") + (correction ? "/correction" : "/status"), data, true), value -> { app.message("Статус сохранён"); app.openAdminTab("admin-bookings"); }, null));
+            confirm("Изменить статус этой брони?", booking.optString("code") + "\n" + AppRules.status(statuses[status.getSelectedItemPosition()]), () -> app.mutate(() -> app.api.request("PATCH", "/api/admin/bookings/" + booking.getString("id") + (correction ? "/correction" : "/status"), data, true), value -> { app.message("Статус сохранён"); app.openAdminTab("admin-bookings"); }, null));
         });
     }
     private void applications(boolean child) {
@@ -289,7 +289,7 @@ final class AdminScreens {
         app.button(app.column, "История действий", false, () -> audit(true));
         app.button(app.column, "Изменить мой пароль", false, () -> password(true));
         app.button(app.column, "Перейти к покупкам", false, this::exitToCustomer);
-        app.button(app.column, "Выйти из админ-панели", false, () -> confirm("Выйти из админ-панели?", "Для следующего входа понадобится пароль.", () -> app.run(() -> {
+        app.button(app.column, "Выйти из админ-панели", false, () -> confirm("Выйти из админ-панели?", "Для следующего входа понадобится пароль.", () -> app.mutate(() -> {
             try { return app.api.request("POST", "/api/admin/auth/logout", new JSONObject(), true); } finally { app.api.forgetAdminSession(); }
         }, value -> app.exitAdmin(), null)));
     }
@@ -300,7 +300,7 @@ final class AdminScreens {
             JSONArray audit = (JSONArray) value;
             for (int i = audit.length() - 1; i >= Math.max(0, audit.length() - 100); i--) {
                 JSONObject item = audit.getJSONObject(i); LinearLayout row = app.card(app.column);
-                title(row, actionName(item.optString("action"))); app.details(row, "Когда", item.optString("created_at"));
+                title(row, actionName(item.optString("action"))); app.details(row, "Когда", AppRules.friendlyTimestamp(item.optString("created_at")));
                 app.details(row, "Кто", "admin".equals(item.optString("actor_role")) ? "Администратор" : "partner".equals(item.optString("actor_role")) ? "Сотрудник заведения" : "Система");
             }
         }, null);
@@ -312,14 +312,14 @@ final class AdminScreens {
         Button save = app.button(app.column, "Изменить пароль", true, () -> { });
         save.setOnClickListener(view -> {
             String value = next.getText().toString(); if (value.length() < 12 || !value.equals(repeat.getText().toString())) { app.message("Нужно не менее 12 символов. Пароли должны совпадать."); return; }
-            app.run(() -> app.api.request("POST", "/api/admin/auth/change-password", app.json("currentPassword", old.getText().toString(), "newPassword", value, "confirmPassword", repeat.getText().toString()), true), result -> {
+            app.mutate(() -> app.api.request("POST", "/api/admin/auth/change-password", app.json("currentPassword", old.getText().toString(), "newPassword", value, "confirmPassword", repeat.getText().toString()), true), result -> {
                 old.setText(""); next.setText(""); repeat.setText(""); app.adminPasswordChangeRequired = false; app.message("Пароль изменён"); app.openAdminTab("admin-overview");
             }, save);
         });
     }
     void exitToCustomer() { confirm("Вернуться к покупкам?", "Вход администратора сохранится на этом телефоне до выхода или окончания сессии.", app::exitAdmin); }
     private void selectStatus(String title, String[] names, String[] keys, String path, Runnable refresh) {
-        new AlertDialog.Builder(app).setTitle(title).setItems(names, (dialog, which) -> confirm("Сохранить этот статус?", names[which], () -> app.run(() -> app.api.request("PATCH", path, app.json("status", keys[which]), true), value -> refresh.run(), null))).setNegativeButton("Не менять", null).show();
+        new AlertDialog.Builder(app).setTitle(title).setItems(names, (dialog, which) -> confirm("Сохранить этот статус?", names[which], () -> app.mutate(() -> app.api.request("PATCH", path, app.json("status", keys[which]), true), value -> refresh.run(), null))).setNegativeButton("Не менять", null).show();
     }
     private void dial(LinearLayout parent, String phone) { if (phone == null || phone.isEmpty()) return; app.button(parent, "Позвонить", false, () -> app.startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + phone.replaceAll("[^+0-9]", ""))))); }
     private void confirm(String title, String text, Runnable action) { new AlertDialog.Builder(app).setTitle(title).setMessage(text).setNegativeButton("Не менять", null).setPositiveButton("Подтвердить", (dialog, which) -> action.run()).show(); }

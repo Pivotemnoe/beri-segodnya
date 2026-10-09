@@ -6,6 +6,11 @@ public final class AppRulesTest {
         equal("9991234567", AppRules.phoneDigits("+7 (999) 123-45-67"));
         equal("8991234567", AppRules.phoneDigits("8991234567"));
         equal("+79991234567", AppRules.phone("9991234567"));
+        equal("9 октября", AppRules.friendlyDate("2026-10-09"));
+        equal("9 октября, 12:30", AppRules.friendlyTimestamp("2026-10-09T09:30:00Z"));
+        equal("abcde-fghij_12345", AppRules.sessionCookieValue("__Host-bs_session=abcde-fghij_12345; Secure; HttpOnly; Path=/"));
+        equal("", AppRules.sessionCookieValue("__Host-bs_session=; Max-Age=0"));
+        if (AppRules.sessionCookieValue("bs_session=abcde-fghij_12345") != null || AppRules.sessionCookieValue("__Host-bs_session=invalid") != null) throw new AssertionError("Insecure or malformed cookie accepted");
         equal("", AppRules.bookingToken("https://evil.example/booking/booking-view-example"));
         equal("", AppRules.bookingToken("https://berisegodnya.ru@evil.example/booking/booking-view-example"));
         equal("", AppRules.bookingToken("https://berisegodnya.ru:8443/booking/booking-view-example"));

@@ -8,6 +8,7 @@
 - Backend API: `/api/public/*`, `/api/admin/*`, `/api/partner/*`.
 - Admin panel: `/admin`.
 - Partner dashboard: `/partner/login`, `/partner/dashboard`.
+- Native Android candidate: `android-native`, platform Views and the same protected API; release/acceptance gates in `NATIVE_ANDROID_REBUILD.md`. Published `android-twa` remains the rollback version until device acceptance.
 - Storage: server-side JSON in `data/db.json` and partner media in `data/uploads/`.
 - Auth: optional Basic Auth for the public preview plus one app login per role and an HttpOnly `bs_session` cookie for admin/partner API.
 

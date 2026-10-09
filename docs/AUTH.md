@@ -35,6 +35,8 @@ Seed passwords are never committed. Set the three `SEED_PARTNER_*_PASSWORD` vari
 
 ## Sessions
 
+The native Android candidate keeps partner and admin session tokens in separate encrypted Android Keystore-backed storage. HTTPS responses use only `__Host-bs_session`; no password or browser cookie is imported. Server permission checks are identical for website and Android requests.
+
 Session cookie:
 
 ```text

@@ -19,6 +19,22 @@ public final class AppRules {
         return "+7" + digits;
     }
     public static String today() { return LocalDate.now(ZoneId.of("Europe/Moscow")).toString(); }
+    public static String friendlyDate(String value) {
+        try { return LocalDate.parse(value).format(java.time.format.DateTimeFormatter.ofPattern("d MMMM", java.util.Locale.forLanguageTag("ru-RU"))); }
+        catch (Exception error) { return value == null ? "" : value; }
+    }
+    public static String friendlyTimestamp(String value) {
+        try { return java.time.Instant.parse(value).atZone(ZoneId.of("Europe/Moscow")).format(java.time.format.DateTimeFormatter.ofPattern("d MMMM, HH:mm", java.util.Locale.forLanguageTag("ru-RU"))); }
+        catch (Exception error) { return value == null ? "" : value; }
+    }
+    /** The API is pinned to HTTPS. Never accept a lower-priority, non-Host session cookie. */
+    public static String sessionCookieValue(String cookie) {
+        String first = cookie == null ? "" : cookie.split(";", 2)[0];
+        String prefix = "__Host-bs_session=";
+        if (!first.startsWith(prefix)) return null;
+        String value = first.substring(prefix.length());
+        return value.isEmpty() || value.matches("[a-zA-Z0-9_-]{10,200}") ? value : null;
+    }
     public static boolean trustedImage(String path) {
         return path != null && path.matches("/(images|uploads)/[a-zA-Z0-9_./-]+\\.(png|jpe?g|webp)") && !path.contains("..");
     }

@@ -25,7 +25,7 @@ final class ApiClient {
     boolean hasSession() { return !session.isEmpty(); }
     boolean hasAdminSession() { return !adminSession.isEmpty(); }
     void forgetAdminSession() { adminSession = ""; store.remove("admin-session"); }
-    void forgetSession() { session = ""; store.remove("session"); store.remove("offer-draft"); }
+    void forgetSession() { session = ""; store.remove("session"); store.remove("offer-draft"); store.remove("publication-uncertain"); }
     Object request(String method, String path, JSONObject body, boolean authenticated) throws Exception {
         if (!path.matches("/api/(public|partner|admin)/[a-zA-Z0-9_/?=&%-]+") || path.contains("..")) throw new IllegalArgumentException("Недопустимый адрес запроса");
         boolean admin = path.startsWith("/api/admin/");
@@ -35,7 +35,7 @@ final class ApiClient {
             connection.setRequestMethod(method); connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("Origin", AppRules.ORIGIN); connection.setRequestProperty("X-BS-Request", "1");
             String cookieSession = admin ? adminSession : session;
-            if (authenticated && !cookieSession.isEmpty()) connection.setRequestProperty("Cookie", "bs_session=" + cookieSession);
+            if (authenticated && !cookieSession.isEmpty()) connection.setRequestProperty("Cookie", "__Host-bs_session=" + cookieSession);
             if (body != null) {
                 byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
                 connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
@@ -60,9 +60,8 @@ final class ApiClient {
                 for (Map.Entry<String, List<String>> header : connection.getHeaderFields().entrySet()) {
                     if (!"Set-Cookie".equalsIgnoreCase(header.getKey())) continue;
                     for (String cookie : header.getValue()) {
-                        String first = cookie.split(";", 2)[0];
-                        if (!first.startsWith("bs_session=")) continue;
-                        String value = first.substring(11);
+                        String value = AppRules.sessionCookieValue(cookie);
+                        if (value == null) continue;
                         if (value.isEmpty()) { if (admin) forgetAdminSession(); else forgetSession(); }
                         else if (value.matches("[a-zA-Z0-9_-]{10,200}")) {
                             store.put(admin ? "admin-session" : "session", value);
@@ -80,7 +79,7 @@ final class ApiClient {
         try {
             connection.setInstanceFollowRedirects(false); connection.setConnectTimeout(10000); connection.setReadTimeout(15000);
             // Private draft photos require the partner's session. It is sent only to the fixed HTTPS origin, never on redirects.
-            if (path.startsWith("/uploads/") && !session.isEmpty()) connection.setRequestProperty("Cookie", "bs_session=" + session);
+            if (path.startsWith("/uploads/") && !session.isEmpty()) connection.setRequestProperty("Cookie", "__Host-bs_session=" + session);
             if (connection.getResponseCode() != 200) return null;
             byte[] bytes;
             try (InputStream input = connection.getInputStream()) { bytes = readLimited(input, 8 * 1024 * 1024); }

@@ -66,6 +66,8 @@ public final class MainActivity extends Activity {
     private JSONObject pendingBooking, offerDraft = new JSONObject();
     private String editingOffer = "";
     private boolean partnerMode, passwordChangeRequired;
+    private boolean mutationInFlight;
+    private boolean publicationUncertain;
     boolean adminMode, adminPasswordChangeRequired;
     private AdminScreens admin;
 
@@ -81,19 +83,23 @@ public final class MainActivity extends Activity {
         run(() -> {
             store.initialize(); api.restore();
             String bookings = store.get("bookings"), pending = store.get("pending-booking"), draft = store.get("offer-draft");
+            publicationUncertain = !store.get("publication-uncertain").isEmpty();
             savedBookings = bookings.isEmpty() ? new JSONArray() : new JSONArray(bookings);
             pendingBooking = pending.isEmpty() ? null : new JSONObject(pending);
             offerDraft = draft.isEmpty() ? new JSONObject() : new JSONObject(draft);
             if (!api.hasSession()) return new JSONObject();
             try { return api.request("GET", "/api/partner/auth/me", null, true); }
             catch (java.io.IOException error) { return json("offline", true); }
+            catch (ApiClient.Failure error) { if (error.status >= 500) return json("offline", true); throw error; }
         }, value -> {
             JSONObject auth = (JSONObject) value;
             if (auth.optBoolean("authenticated")) { userRole = auth.optString("userRole"); passwordChangeRequired = auth.optBoolean("passwordChangeRequired"); }
             else if (api.hasSession() && !auth.optBoolean("offline")) api.forgetSession();
             String token = tokenFromIntent(getIntent());
             if (!token.isEmpty()) { selectedTab = "bookings"; showBooking(token, true); }
-            else tab("offers");
+            else if (state != null && state.getBoolean("partnerMode") && api.hasSession()) enterPartner();
+            else if (state != null && state.getBoolean("adminMode") && api.hasAdminSession()) admin.login(false);
+            else tab(state == null ? "offers" : state.getString("visitorTab", "offers"));
         }, null);
     }
 
@@ -161,6 +167,7 @@ public final class MainActivity extends Activity {
     }
 
     private void tab(String key) {
+        if (mutationInFlight) { message("Подождите, сохраняем изменения…"); return; }
         hideKeyboard(); backStack.clear(); selectedTab = key; rebuildNavigation();
         switch (key) {
             case "admin-overview" -> admin.overview(false);
@@ -190,6 +197,7 @@ public final class MainActivity extends Activity {
     }
 
     private void back() {
+        if (mutationInFlight) { message("Подождите, сохраняем изменения…"); return; }
         if (!backStack.isEmpty()) backStack.pop().run();
         else if (adminMode) admin.exitToCustomer();
         else if (partnerMode) new AlertDialog.Builder(this).setTitle("Вернуться к предложениям для покупателей?").setPositiveButton("Перейти", (dialog, which) -> { partnerMode = false; tab("offers"); }).setNegativeButton("Остаться", null).show();
@@ -200,7 +208,7 @@ public final class MainActivity extends Activity {
     // This override is solely the required Android 8–12 fallback, not the gesture path.
     @android.annotation.SuppressLint("GestureBackNavigation")
     @SuppressWarnings("deprecation") @Override public void onBackPressed() { if (Build.VERSION.SDK_INT < 33) back(); }
-    @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); String token = tokenFromIntent(intent); if (!token.isEmpty()) { partnerMode = false; adminMode = false; selectedTab = "bookings"; backStack.clear(); showBooking(token, true); } }
+    @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); String token = tokenFromIntent(intent); if (!token.isEmpty() && !mutationInFlight) { partnerMode = false; adminMode = false; selectedTab = "bookings"; backStack.clear(); showBooking(token, true); } }
     private String tokenFromIntent(Intent intent) { return intent != null && intent.getData() != null ? AppRules.bookingToken(intent.getData().toString()) : ""; }
 
     private void showOffers() {
@@ -275,7 +283,7 @@ public final class MainActivity extends Activity {
         pendingBooking = payload;
         screen("Получаем код брони", () -> submitBooking(payload), false);
         text(column, "Не закрывайте этот экран, пока проверяем наличие.", 16, MUTED);
-        run(() -> {
+        mutate(() -> {
             store.put("pending-booking", payload.toString()); pendingBooking = payload;
             try {
                 JSONObject result = (JSONObject) api.request("POST", "/api/public/bookings", payload, false);
@@ -310,7 +318,7 @@ public final class MainActivity extends Activity {
             LinearLayout row = card(column);
             text(row, item.optString("offerTitle", "Ваша бронь").isEmpty() ? "Ваша бронь" : item.optString("offerTitle"), 21, INK);
             text(row, item.optString("code"), 27, TEAL).setTypeface(null, Typeface.BOLD);
-            text(row, item.optString("date") + " " + item.optString("pickupWindow"), 16, MUTED);
+            text(row, AppRules.friendlyDate(item.optString("date")) + " " + item.optString("pickupWindow"), 16, MUTED);
             button(row, "Открыть бронь", true, () -> showBooking(item.optString("token"), true));
         }
     }
@@ -329,7 +337,7 @@ public final class MainActivity extends Activity {
             text(ticket, booking.optString("offerTitle"), 22, INK);
             details(ticket, "Заведение", booking.optString("partnerName"));
             details(ticket, "Где забрать", booking.optString("address"));
-            details(ticket, "Когда", booking.optString("date") + " · " + booking.optString("pickupWindow"));
+            details(ticket, "Когда", AppRules.friendlyDate(booking.optString("date")) + " · " + booking.optString("pickupWindow"));
             if (booking.optBoolean("termsVerified")) details(ticket, "Цена", money(booking, "price"));
             details(ticket, "Состав", booking.optString("contents"));
             details(ticket, "Аллергены", booking.optString("allergens"));
@@ -338,7 +346,7 @@ public final class MainActivity extends Activity {
                 button(ticket, "Отправить код", false, () -> shareCode(booking));
                 button(column, "Отменить бронь", false, () -> new AlertDialog.Builder(this).setTitle("Отменить эту бронь?")
                     .setMessage("Набор снова смогут заказать другие покупатели.").setNegativeButton("Оставить", null)
-                    .setPositiveButton("Отменить бронь", (dialog, which) -> run(() -> api.request("POST", "/api/public/bookings/" + token + "/cancel", new JSONObject(), false), result -> showBooking(token, false), null)).show());
+                    .setPositiveButton("Отменить бронь", (dialog, which) -> mutate(() -> api.request("POST", "/api/public/bookings/" + token + "/cancel", new JSONObject(), false), result -> showBooking(token, false), null)).show());
             }
             button(column, "Обновить статус", false, () -> showBooking(token, false));
         }, null);
@@ -352,7 +360,7 @@ public final class MainActivity extends Activity {
 
     private void shareCode(JSONObject booking) {
         Intent share = new Intent(Intent.ACTION_SEND); share.setType("text/plain");
-        share.putExtra(Intent.EXTRA_TEXT, "Бери сегодня\nКод: " + booking.optString("code") + "\n" + booking.optString("offerTitle") + "\n" + booking.optString("date") + " " + booking.optString("pickupWindow") + "\n" + booking.optString("address"));
+        share.putExtra(Intent.EXTRA_TEXT, "Бери сегодня\nКод: " + booking.optString("code") + "\n" + booking.optString("offerTitle") + "\n" + AppRules.friendlyDate(booking.optString("date")) + " " + booking.optString("pickupWindow") + "\n" + booking.optString("address"));
         startActivity(Intent.createChooser(share, "Отправить код"));
     }
 
@@ -379,7 +387,7 @@ public final class MainActivity extends Activity {
         submit.setOnClickListener(view -> {
             String user = login.getText().toString().trim(), pass = password.getText().toString();
             if (user.isEmpty() || pass.isEmpty()) { message("Введите логин и пароль"); return; }
-            run(() -> api.request("POST", "/api/partner/auth/login", json("login", user, "password", pass), false), value -> {
+            mutate(() -> api.request("POST", "/api/partner/auth/login", json("login", user, "password", pass), false), value -> {
                 password.setText(""); JSONObject auth = (JSONObject) value;
                 userRole = auth.optString("userRole"); passwordChangeRequired = auth.optBoolean("passwordChangeRequired"); enterPartner();
             }, submit);
@@ -420,7 +428,7 @@ public final class MainActivity extends Activity {
             try {
                 if (!personal.isChecked() || !terms.isChecked()) throw new IllegalArgumentException("Подтвердите согласие и условия подключения");
                 JSONObject data = json("venueName", venue.getText().toString(), "venueType", new String[]{"bakery", "culinary", "buffet", "coffee", "ready_food_cafe", "other"}[type.getSelectedItemPosition()], "city", city.getText().toString(), "firstAddress", address.getText().toString(), "contactName", contact.getText().toString(), "phone", AppRules.phone(phone.getText().toString()), "email", email.getText().toString(), "comment", comment.getText().toString(), "locationsCount", "1", "offerFormats", new JSONArray(), "personalDataConsent", true, "partnerTermsConsent", true);
-                run(() -> api.request("POST", "/api/public/partner-applications", data, false), value -> {
+                mutate(() -> api.request("POST", "/api/public/partner-applications", data, false), value -> {
                     screen("Заявка отправлена", this::showPartnerEntrance, false); text(column, "Спасибо! Свяжемся с вами и обсудим подключение.", 20, INK);
                     button(column, "Готово", true, () -> tab("partner"));
                 }, submit);
@@ -437,6 +445,13 @@ public final class MainActivity extends Activity {
     private void showPartnerOffers() {
         if (!partnerGuard()) return;
         screen("Предложения заведения", this::showPartnerOffers, false);
+        if (publicationUncertain) {
+            LinearLayout warning = card(column); text(warning, "Проверьте последнюю публикацию", 21, INK);
+            text(warning, "Ответ не пришёл. Предложение могло сохраниться. Посмотрите список ниже, прежде чем публиковать снова.", 16, MUTED);
+            button(warning, "Я проверил список", false, () -> new AlertDialog.Builder(this).setTitle("Проверили последнюю публикацию?")
+                .setMessage("Если предложение уже есть в списке, измените его. Не создавайте второй экземпляр.").setNegativeButton("Ещё проверю", null)
+                .setPositiveButton("Проверил", (dialog, which) -> { publicationUncertain = false; store.remove("publication-uncertain"); showPartnerOffers(); }).show());
+        }
         button(column, "Добавить предложение", true, () -> showOfferEditor("", true));
         run(() -> api.request("GET", "/api/partner/offers", null, true), value -> {
             JSONArray offers = (JSONArray) value;
@@ -446,13 +461,13 @@ public final class MainActivity extends Activity {
                 picture(card, offer.optString("image_url"), offer.optString("title"));
                 text(card, offer.optString("title"), 21, INK).setTypeface(null, Typeface.BOLD);
                 text(card, AppRules.status(offer.optString("status")), 16, TEAL);
-                text(card, money(offer, "price") + " · " + offer.optString("date") + " · " + offer.optString("pickup_window"), 16, MUTED);
+                text(card, money(offer, "price") + " · " + AppRules.friendlyDate(offer.optString("date")) + " · " + offer.optString("pickup_window"), 16, MUTED);
                 text(card, "Доступно: " + offer.optInt("remaining_quantity") + " из " + offer.optInt("total_quantity"), 16, MUTED);
                 button(card, "Изменить", false, () -> editExistingOffer(offer));
                 boolean active = "active".equals(offer.optString("status"));
                 button(card, active ? "Снять с витрины" : "Опубликовать", false, () -> new AlertDialog.Builder(this).setTitle(active ? "Снять предложение с витрины?" : "Опубликовать предложение?")
                     .setMessage("Уже оформленные брони сохранятся.").setNegativeButton("Не менять", null)
-                    .setPositiveButton("Подтвердить", (dialog, which) -> run(() -> api.request("PATCH", "/api/partner/offers/" + offer.getString("id") + "/status", json("status", active ? "paused" : "active"), true), result -> showPartnerOffers(), null)).show());
+                    .setPositiveButton("Подтвердить", (dialog, which) -> mutate(() -> api.request("PATCH", "/api/partner/offers/" + offer.getString("id") + "/status", json("status", active ? "paused" : "active"), true), result -> showPartnerOffers(), null)).show());
             }
             button(column, "Обновить", false, this::showPartnerOffers);
         }, null);
@@ -472,7 +487,7 @@ public final class MainActivity extends Activity {
         run(() -> api.request("GET", "/api/partner/addresses", null, true), value -> {
             JSONArray addresses = (JSONArray) value; List<JSONObject> active = new ArrayList<>();
             for (int i = 0; i < addresses.length(); i++) if (addresses.getJSONObject(i).optBoolean("is_active", true)) active.add(addresses.getJSONObject(i));
-            if (active.isEmpty()) { text(form, "Сначала добавьте адрес, где будете выдавать заказы.", 18, MUTED); button(form, "Добавить точку", true, () -> showAddressForm(true)); return; }
+            if (active.isEmpty()) { text(form, "Владелец должен добавить адрес, где вы будете выдавать заказы.", 18, MUTED); if ("owner".equals(userRole)) button(form, "Добавить точку", true, () -> showAddressForm(true)); return; }
             String[] labels = new String[active.size()]; int selected = 0;
             for (int i = 0; i < active.size(); i++) { labels[i] = active.get(i).optString("title") + " · " + active.get(i).optString("address"); if (active.get(i).optString("id").equals(offerDraft.optString("addressId"))) selected = i; }
             text(form, "Где выдавать", 15, INK); Spinner address = choices(form, labels, selected);
@@ -535,12 +550,24 @@ public final class MainActivity extends Activity {
         text(column, data.optString("title"), 24, INK).setTypeface(null, Typeface.BOLD);
         text(column, money(data, "price") + " · наборов: " + data.optInt("totalQuantity"), 21, TEAL);
         details(column, "Состав", data.optString("contents")); details(column, "Аллергены", data.optString("allergens"));
-        details(column, "Выдача", data.optString("date") + " · " + data.optString("pickupWindow"));
+        details(column, "Выдача", AppRules.friendlyDate(data.optString("date")) + " · " + data.optString("pickupWindow"));
         text(column, id.isEmpty() ? "После подтверждения предложение появится у покупателей." : "Условия ранее оформленных броней останутся прежними.", 16, MUTED);
         Button submit = new Button(this); styleButton(submit, id.isEmpty() ? "Опубликовать предложение" : "Сохранить изменения", true); addSpace(column, submit);
-        submit.setOnClickListener(view -> run(() -> api.request(id.isEmpty() ? "POST" : "PATCH", "/api/partner/offers" + (id.isEmpty() ? "" : "/" + id), data, true), value -> {
+        submit.setOnClickListener(view -> {
+            if (id.isEmpty() && publicationUncertain) { message("Сначала проверьте предыдущую публикацию в разделе «Предложения»"); tab("partner-offers"); return; }
+            mutate(() -> {
+                if (id.isEmpty()) { store.put("publication-uncertain", "pending"); publicationUncertain = true; }
+                try {
+                    Object result = api.request(id.isEmpty() ? "POST" : "PATCH", "/api/partner/offers" + (id.isEmpty() ? "" : "/" + id), data, true);
+                    store.remove("publication-uncertain"); publicationUncertain = false; return result;
+                } catch (ApiClient.Failure error) {
+                    if (error.status >= 400 && error.status < 500 && error.status != 429) { store.remove("publication-uncertain"); publicationUncertain = false; }
+                    throw error;
+                }
+            }, value -> {
             offerDraft = new JSONObject(); store.remove("offer-draft"); message("Предложение сохранено"); tab("partner-offers");
-        }, submit));
+            }, submit);
+        });
     }
 
     private EditText draftField(LinearLayout parent, String key, String label, int length, boolean numeric) {
@@ -566,7 +593,7 @@ public final class MainActivity extends Activity {
         Uri uri = data.getData(); String offerId = editingOffer;
         screen("Добавляем фото", () -> showOfferEditor(offerId, false), false);
         text(column, "Уменьшаем фотографию и загружаем её в ваше заведение…", 17, MUTED);
-        run(() -> {
+        mutate(() -> {
             byte[] original;
             try (InputStream input = getContentResolver().openInputStream(uri)) { original = ApiClient.readLimited(input, 20 * 1024 * 1024); }
             BitmapFactory.Options options = new BitmapFactory.Options(); options.inJustDecodeBounds = true;
@@ -625,7 +652,7 @@ public final class MainActivity extends Activity {
         LinearLayout card = card(parent);
         text(card, booking.optString("code"), 32, INK).setTypeface(null, Typeface.BOLD);
         text(card, booking.optString("offerTitle"), 21, INK); text(card, AppRules.status(booking.optString("status")), 17, TEAL);
-        details(card, "Время выдачи", booking.optString("date") + " · " + booking.optString("pickupWindow"));
+        details(card, "Время выдачи", AppRules.friendlyDate(booking.optString("date")) + " · " + booking.optString("pickupWindow"));
         details(card, "Адрес", booking.optString("address"));
         if (!booking.isNull("price") && booking.optBoolean("termsVerified")) details(card, "Стоимость", money(booking, "price"));
         if (!"created".equals(booking.optString("status"))) return;
@@ -637,7 +664,7 @@ public final class MainActivity extends Activity {
     private void confirmStatus(JSONObject booking, String status) {
         new AlertDialog.Builder(this).setTitle(status.equals("issued") ? "Заказ действительно передан?" : status.equals("no_show") ? "Отметить, что покупатель не пришёл?" : "Отменить эту бронь?")
             .setMessage(booking.optString("code") + " · " + booking.optString("offerTitle"))
-            .setNegativeButton("Не менять", null).setPositiveButton("Подтвердить", (dialog, which) -> run(() -> api.request("PATCH", "/api/partner/bookings/" + booking.getString("id") + "/status", json("status", status), true), value -> {
+            .setNegativeButton("Не менять", null).setPositiveButton("Подтвердить", (dialog, which) -> mutate(() -> api.request("PATCH", "/api/partner/bookings/" + booking.getString("id") + "/status", json("status", status), true), value -> {
                 message("Статус сохранён"); showCodes();
             }, null)).show();
     }
@@ -657,16 +684,16 @@ public final class MainActivity extends Activity {
         button(column, "Изменить пароль", false, () -> showChangePassword(true));
         button(column, "Перейти к покупкам", false, () -> { partnerMode = false; tab("offers"); });
         button(column, "Выйти из кабинета", false, () -> new AlertDialog.Builder(this).setTitle("Выйти из кабинета?").setNegativeButton("Остаться", null)
-            .setPositiveButton("Выйти", (dialog, which) -> run(() -> {
+            .setPositiveButton("Выйти", (dialog, which) -> mutate(() -> {
                 try { return api.request("POST", "/api/partner/auth/logout", new JSONObject(), true); }
                 finally { api.forgetSession(); }
-            }, value -> { userRole = ""; passwordChangeRequired = false; offerDraft = new JSONObject(); partnerMode = false; tab("partner"); }, null)).show());
+            }, value -> { userRole = ""; passwordChangeRequired = false; publicationUncertain = false; offerDraft = new JSONObject(); partnerMode = false; tab("partner"); }, null)).show());
     }
 
     private void showAddresses(boolean child) {
         if (!partnerGuard()) return;
         screen("Точки выдачи", () -> showAddresses(false), child);
-        button(column, "Добавить точку", true, () -> showAddressForm(true));
+        if ("owner".equals(userRole)) button(column, "Добавить точку", true, () -> showAddressForm(true));
         run(() -> api.request("GET", "/api/partner/addresses", null, true), value -> {
             JSONArray addresses = (JSONArray) value;
             for (int i = 0; i < addresses.length(); i++) { JSONObject address = addresses.getJSONObject(i); LinearLayout card = card(column); text(card, address.optString("title"), 21, INK); text(card, address.optString("city") + " · " + address.optString("address"), 17, MUTED); text(card, address.optBoolean("is_active", true) ? "Работает" : "Закрыта", 15, TEAL); }
@@ -674,12 +701,13 @@ public final class MainActivity extends Activity {
     }
 
     private void showAddressForm(boolean child) {
+        if (!"owner".equals(userRole)) { message("Точки выдачи добавляет владелец"); return; }
         screen("Новая точка выдачи", () -> showAddressForm(false), child);
         EditText title = field(column, "Название точки", "", InputType.TYPE_CLASS_TEXT, 120);
         EditText city = field(column, "Город", "Армавир", InputType.TYPE_CLASS_TEXT, 80);
         EditText address = field(column, "Адрес", "", InputType.TYPE_CLASS_TEXT, 160);
         Button submit = new Button(this); styleButton(submit, "Сохранить точку", true); addSpace(column, submit);
-        submit.setOnClickListener(view -> run(() -> api.request("POST", "/api/partner/addresses", json("title", title.getText().toString(), "city", city.getText().toString(), "address", address.getText().toString(), "isActive", true), true), value -> { backStack.clear(); showAddresses(false); }, submit));
+        submit.setOnClickListener(view -> mutate(() -> api.request("POST", "/api/partner/addresses", json("title", title.getText().toString(), "city", city.getText().toString(), "address", address.getText().toString(), "isActive", true), true), value -> { backStack.clear(); showAddresses(false); }, submit));
     }
 
     private void showChangePassword(boolean child) {
@@ -692,21 +720,30 @@ public final class MainActivity extends Activity {
         submit.setOnClickListener(view -> {
             String value = next.getText().toString();
             if (value.length() < 12 || !value.equals(confirm.getText().toString())) { message("Нужно не менее 12 символов. Пароли должны совпадать."); return; }
-            run(() -> api.request("POST", "/api/partner/auth/change-password", json("currentPassword", old.getText().toString(), "newPassword", value, "confirmPassword", confirm.getText().toString()), true), result -> {
+            mutate(() -> api.request("POST", "/api/partner/auth/change-password", json("currentPassword", old.getText().toString(), "newPassword", value, "confirmPassword", confirm.getText().toString()), true), result -> {
                 old.setText(""); next.setText(""); confirm.setText(""); passwordChangeRequired = false; message("Пароль изменён"); enterPartner();
             }, submit);
         });
     }
 
     void run(Job job, Result result, Button button) {
+        runTask(job, result, button, false);
+    }
+    void mutate(Job job, Result result, Button button) {
+        if (mutationInFlight) { message("Подождите, сохраняем изменения…"); return; }
+        mutationInFlight = true; runTask(job, result, button, true);
+    }
+    private void runTask(Job job, Result result, Button button, boolean mutation) {
         int expected = generation; if (button != null) button.setEnabled(false);
         worker.execute(() -> {
             try { Object value = job.run(); runOnUiThread(() -> {
+                if (mutation) mutationInFlight = false;
                 if (isFinishing() || isDestroyed()) return;
                 if (button != null) button.setEnabled(true);
                 if (expected != generation) return;
                 try { result.receive(value); } catch (Exception error) { showError(error); }
             }); } catch (Exception error) { runOnUiThread(() -> {
+                if (mutation) mutationInFlight = false;
                 if (isFinishing() || isDestroyed()) return;
                 if (button != null) button.setEnabled(true);
                 if (expected != generation) return;
@@ -788,7 +825,7 @@ public final class MainActivity extends Activity {
     TextView text(LinearLayout parent, String value, int size, int color) { TextView text = new TextView(this); text.setText(value); text.setTextSize(size); text.setTextColor(color); text.setLineSpacing(dp(3), 1); text.setPadding(0, dp(4), 0, dp(4)); parent.addView(text, new LinearLayout.LayoutParams(-1, -2)); return text; }
     void details(LinearLayout parent, String label, String value) { if (value == null || value.isEmpty()) return; text(parent, label, 14, MUTED).setPadding(0, dp(12), 0, 0); text(parent, value, 17, INK); }
     LinearLayout card(LinearLayout parent) { LinearLayout card = vertical(); card.setPadding(dp(16), dp(14), dp(16), dp(14)); card.setBackground(shape(Color.WHITE, 18, 0xffe0e8e3)); addSpace(parent, card); return card; }
-    Button button(LinearLayout parent, String label, boolean primary, Runnable action) { Button button = new Button(this); styleButton(button, label, primary); button.setOnClickListener(view -> action.run()); addSpace(parent, button); return button; }
+    Button button(LinearLayout parent, String label, boolean primary, Runnable action) { Button button = new Button(this); styleButton(button, label, primary); button.setOnClickListener(view -> { if (mutationInFlight) message("Подождите, сохраняем изменения…"); else action.run(); }); addSpace(parent, button); return button; }
     private void styleButton(Button button, String label, boolean primary) { button.setText(label); button.setAllCaps(false); button.setTextSize(16); button.setTypeface(null, Typeface.BOLD); button.setTextColor(primary ? Color.WHITE : TEAL); button.setBackground(shape(primary ? ORANGE : 0xffe9f1ed, 13, 0)); button.setPadding(dp(12), dp(10), dp(12), dp(10)); button.setMinHeight(dp(52)); }
     private void addSpace(LinearLayout parent, View view) { addSpace(parent, view, -2); }
     private void addSpace(LinearLayout parent, View view, int height) { LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, height); params.topMargin = dp(10); parent.addView(view, params); }
@@ -802,5 +839,6 @@ public final class MainActivity extends Activity {
     JSONObject json(Object... items) { JSONObject object = new JSONObject(); try { for (int i = 0; i < items.length; i += 2) object.put((String) items[i], items[i + 1]); } catch (Exception error) { throw new IllegalArgumentException("Не удалось подготовить данные", error); } return object; }
     void openAdminTab(String key) { partnerMode = false; adminMode = true; tab(key); }
     void exitAdmin() { adminMode = false; partnerMode = false; backStack.clear(); tab("partner"); }
+    @Override protected void onSaveInstanceState(Bundle state) { state.putBoolean("partnerMode", partnerMode); state.putBoolean("adminMode", adminMode); state.putString("visitorTab", partnerMode || adminMode ? "offers" : selectedTab); super.onSaveInstanceState(state); }
     @Override protected void onDestroy() { worker.shutdown(); images.shutdown(); super.onDestroy(); }
 }
