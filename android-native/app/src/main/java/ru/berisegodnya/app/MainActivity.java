@@ -82,7 +82,7 @@ public final class MainActivity extends Activity {
         store = new SecureStore(this); api = new ApiClient(store); admin = new AdminScreens(this);
         buildShell();
         if (Build.VERSION.SDK_INT >= 33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::back);
-        text(column, "Открываем приложение…", 18, MUTED);
+        text(column, "Открываем приложение…", 18, MUTED).setTag("api-loading");
         run(() -> {
             store.initialize(); api.restore();
             String bookings = store.get("bookings"), pending = store.get("pending-booking"), draft = store.get("offer-draft");
@@ -236,6 +236,7 @@ public final class MainActivity extends Activity {
             button(warning, "Проверить бронь", true, () -> submitBooking(pendingBooking));
         }
         TextView loading = text(column, "Ищем предложения…", 16, MUTED);
+        loading.setTag("api-loading");
         run(() -> api.request("GET", "/api/public/offers" + (category.isEmpty() ? "" : "?category=" + category), null, false), value -> {
             column.removeView(loading); JSONArray offers = (JSONArray) value;
             if (offers.length() == 0) {
@@ -340,6 +341,7 @@ public final class MainActivity extends Activity {
     private void showBooking(String token, boolean child) {
         screen("Ваша бронь", () -> showBooking(token, false), child);
         TextView loading = text(column, "Проверяем бронь…", 16, MUTED);
+        loading.setTag("api-loading");
         run(() -> {
             JSONObject booking = (JSONObject) api.request("GET", "/api/public/bookings/" + token, null, false);
             rememberBooking(token, booking); return booking;
@@ -699,6 +701,7 @@ public final class MainActivity extends Activity {
         LinearLayout summary = card(column);
         text(summary, "Сегодня", 21, INK).setTypeface(null, Typeface.BOLD);
         TextView loading = text(summary, "Загружаем…", 16, MUTED);
+        loading.setTag("api-loading");
         run(() -> api.request("GET", "/api/partner/dashboard?period=today", null, true), value -> {
             JSONObject data = (JSONObject) value;
             summary.removeView(loading);
@@ -827,6 +830,9 @@ public final class MainActivity extends Activity {
     }
 
     private void showError(Exception error) {
+        removeLoading(column);
+        // Categories only: never log a URL, cookie, token, password, payload or exception message.
+        android.util.Log.w("BeriToday", "Failure type=" + error.getClass().getSimpleName() + " cause=" + (error.getCause() == null ? "none" : error.getCause().getClass().getSimpleName()));
         if (error instanceof ApiClient.Failure failure) {
             if (failure.status == 401 && adminMode) { adminMode = false; backStack.clear(); admin.login(false); message("Войдите как администратор ещё раз"); return; }
             if (failure.status == 401 && partnerMode) { clearPartnerState(); partnerMode = false; selectedTab = "partner"; backStack.clear(); showLogin(false); message("Войдите в кабинет ещё раз"); return; }
@@ -840,6 +846,14 @@ public final class MainActivity extends Activity {
                 : "Нет ответа от сервиса. Проверьте интернет и попробуйте ещё раз.", 17, INK);
         Runnable retry = currentScreen;
         if (retry != null) button(column, "Повторить", false, retry);
+    }
+
+    private void removeLoading(android.view.ViewGroup parent) {
+        for (int i = parent.getChildCount() - 1; i >= 0; i--) {
+            View child = parent.getChildAt(i);
+            if ("api-loading".equals(child.getTag())) parent.removeViewAt(i);
+            else if (child instanceof android.view.ViewGroup group) removeLoading(group);
+        }
     }
 
     // An expired/revoked account must not leave its business draft in memory for the next user.

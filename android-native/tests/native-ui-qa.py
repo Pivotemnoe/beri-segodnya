@@ -83,6 +83,9 @@ for _ in range(12):
         break
     time.sleep(1)
 capture('01-offers', 'Что забрать сегодня')
+if not offers_loaded:
+    (output/'failure-network-types.txt').write_bytes(adb('logcat', '-d', '-s', 'BeriToday:W'))
+    (output/'failure-connectivity.txt').write_bytes(adb('shell', 'dumpsys', 'connectivity'))
 assert offers_loaded, 'Public offers API did not finish successfully; inspect 01-offers before claiming live connectivity'
 tap('Мои брони')
 capture('02-bookings', 'Мои брони')
