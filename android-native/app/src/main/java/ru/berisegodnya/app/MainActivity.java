@@ -12,7 +12,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.media.ExifInterface;
+import androidx.exifinterface.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -102,6 +102,12 @@ public final class MainActivity extends Activity {
         LinearLayout header = horizontal(); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(18), dp(12), dp(18), dp(12));
         ImageView logo = new ImageView(this); logo.setImageResource(R.drawable.brand); logo.setContentDescription("Бери сегодня");
         header.addView(logo, new LinearLayout.LayoutParams(dp(42), dp(42)));
+        logo.setOnClickListener(view -> new AlertDialog.Builder(this).setTitle("Бери сегодня").setMessage("Предложения на сегодня. Бронь в приложении, оплата в магазине.")
+            .setPositiveButton("Понятно", null).setNeutralButton("Лицензии", (dialog, which) -> {
+                try (InputStream license = getResources().openRawResource(R.raw.license_lucide)) {
+                    new AlertDialog.Builder(this).setTitle("Значки Lucide").setMessage(new String(ApiClient.readLimited(license, 16000), java.nio.charset.StandardCharsets.UTF_8)).setPositiveButton("Закрыть", null).show();
+                } catch (Exception error) { message("Не удалось открыть сведения о значках"); }
+            }).show());
         LinearLayout brand = vertical(); brand.setPadding(dp(12), 0, 0, 0);
         text(brand, "Бери сегодня", 21, INK).setTypeface(null, Typeface.BOLD);
         text(brand, "Армавир", 13, MUTED); header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
@@ -470,10 +476,12 @@ public final class MainActivity extends Activity {
             String[] labels = new String[active.size()]; int selected = 0;
             for (int i = 0; i < active.size(); i++) { labels[i] = active.get(i).optString("title") + " · " + active.get(i).optString("address"); if (active.get(i).optString("id").equals(offerDraft.optString("addressId"))) selected = i; }
             text(form, "Где выдавать", 15, INK); Spinner address = choices(form, labels, selected);
+            address.setOnItemSelectedListener(selection(position -> putDraft("addressId", active.get(position).optString("id"))));
             EditText title = draftField(form, "title", "Название предложения", 120, false);
             text(form, "Категория", 15, INK); String[] keys = {"lunch", "bakery", "evening"}; int selectedCategory = 0;
             for (int i = 0; i < keys.length; i++) if (keys[i].equals(offerDraft.optString("category"))) selectedCategory = i;
             Spinner kind = choices(form, new String[]{"Обеды", "Выпечка", "Вечерние наборы"}, selectedCategory);
+            kind.setOnItemSelectedListener(selection(position -> putDraft("category", keys[position])));
             EditText contents = draftField(form, "contents", "Состав набора", 500, false);
             EditText allergens = draftField(form, "allergens", "Аллергены", 240, false);
             EditText price = draftField(form, "price", "Цена, ₽", 8, true);
@@ -548,7 +556,7 @@ public final class MainActivity extends Activity {
     private void pickTimes(EditText target) {
         new TimePickerDialog(this, (picker, hour, minute) -> {
             String start = java.time.LocalTime.of(hour, minute).toString();
-            new TimePickerDialog(this, (endPicker, endHour, endMinute) -> target.setText(start + "–" + java.time.LocalTime.of(endHour, endMinute)), Math.min(hour + 2, 23), minute, true).show();
+            new TimePickerDialog(this, (endPicker, endHour, endMinute) -> target.setText(String.format(java.util.Locale.ROOT, "%s–%s", start, java.time.LocalTime.of(endHour, endMinute))), Math.min(hour + 2, 23), minute, true).show();
         }, 15, 0, true).show();
     }
 
@@ -790,6 +798,7 @@ public final class MainActivity extends Activity {
     void message(String text) { Toast.makeText(this, text == null ? "Проверьте заполненные поля" : text, Toast.LENGTH_LONG).show(); }
     private void hideKeyboard() { View view = getCurrentFocus(); if (view != null) ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(view.getWindowToken(), 0); }
     private TextWatcher watcher(Runnable action) { return new TextWatcher() { public void beforeTextChanged(CharSequence value, int start, int count, int after) { } public void onTextChanged(CharSequence value, int start, int before, int count) { } public void afterTextChanged(Editable value) { action.run(); } }; }
+    private android.widget.AdapterView.OnItemSelectedListener selection(java.util.function.IntConsumer action) { return new android.widget.AdapterView.OnItemSelectedListener() { public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) { action.accept(position); } public void onNothingSelected(android.widget.AdapterView<?> parent) { } }; }
     JSONObject json(Object... items) { JSONObject object = new JSONObject(); try { for (int i = 0; i < items.length; i += 2) object.put((String) items[i], items[i + 1]); } catch (Exception error) { throw new IllegalArgumentException("Не удалось подготовить данные", error); } return object; }
     void openAdminTab(String key) { partnerMode = false; adminMode = true; tab(key); }
     void exitAdmin() { adminMode = false; partnerMode = false; backStack.clear(); tab("partner"); }

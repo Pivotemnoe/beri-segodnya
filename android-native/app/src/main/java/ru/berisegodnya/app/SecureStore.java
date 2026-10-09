@@ -44,5 +44,5 @@ final class SecureStore {
         String encrypted = Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP) + ":" + Base64.encodeToString(cipher.doFinal(value.getBytes(StandardCharsets.UTF_8)), Base64.NO_WRAP);
         if (!preferences.edit().putString(name, encrypted).commit()) throw new IllegalStateException("Не удалось сохранить данные на телефоне");
     }
-    synchronized void remove(String name) { preferences.edit().remove(name).commit(); }
+    synchronized void remove(String name) { preferences.edit().remove(name).apply(); }
 }

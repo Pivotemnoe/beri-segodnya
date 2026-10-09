@@ -24,3 +24,7 @@ android {
     }
     lint { checkReleaseBuilds = true; abortOnError = true }
 }
+dependencies {
+    implementation 'androidx.exifinterface:exifinterface:1.4.2'
+    constraints { implementation 'androidx.annotation:annotation:1.9.1' }
+}

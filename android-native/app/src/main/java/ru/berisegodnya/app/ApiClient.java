@@ -18,8 +18,8 @@ final class ApiClient {
         Failure(int status, String code, String message) { super(message); this.status = status; this.code = code; }
     }
     private final SecureStore store;
-    private String session = "";
-    private String adminSession = "";
+    private volatile String session = "";
+    private volatile String adminSession = "";
     ApiClient(SecureStore store) { this.store = store; }
     void restore() throws Exception { session = store.get("session"); adminSession = store.get("admin-session"); }
     boolean hasSession() { return !session.isEmpty(); }
@@ -79,6 +79,8 @@ final class ApiClient {
         HttpsURLConnection connection = (HttpsURLConnection) new URL(AppRules.ORIGIN + path).openConnection();
         try {
             connection.setInstanceFollowRedirects(false); connection.setConnectTimeout(10000); connection.setReadTimeout(15000);
+            // Private draft photos require the partner's session. It is sent only to the fixed HTTPS origin, never on redirects.
+            if (path.startsWith("/uploads/") && !session.isEmpty()) connection.setRequestProperty("Cookie", "bs_session=" + session);
             if (connection.getResponseCode() != 200) return null;
             byte[] bytes;
             try (InputStream input = connection.getInputStream()) { bytes = readLimited(input, 8 * 1024 * 1024); }
