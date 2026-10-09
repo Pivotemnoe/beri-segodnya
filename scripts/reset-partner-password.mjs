@@ -10,7 +10,7 @@ function requiredEnvironment(name) {
   return value;
 }
 
-function main() {
+async function main() {
   const login = requiredEnvironment("RESET_PARTNER_LOGIN");
   const password = requiredEnvironment("RESET_PARTNER_PASSWORD");
 
@@ -23,7 +23,7 @@ function main() {
   }
 
   const user = matches[0];
-  const updated = patchPartnerUserInput(user.partner_id, user.id, { password });
+  const updated = await patchPartnerUserInput(user.partner_id, user.id, { password });
   if (!updated || updated.must_change_password !== true) {
     throw new Error(`Password reset did not complete for login ${login}`);
   }
@@ -32,7 +32,7 @@ function main() {
 }
 
 try {
-  main();
+  await main();
 } catch (error) {
   console.error(`Partner password reset failed: ${error.message}`);
   process.exitCode = 1;

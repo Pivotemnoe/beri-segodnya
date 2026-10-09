@@ -1,4 +1,4 @@
-import { createPasswordHash } from "../utils/password.mjs";
+import { createPasswordHashAsync } from "../utils/password.mjs";
 import { todayDate } from "../utils/dates.mjs";
 import { allowed, cleanString, enumValue, integerRange, numberRange, validateEmail, validatePhone } from "../utils/validation.mjs";
 import { partnerUploadFolder } from "../storage/imageStore.mjs";
@@ -15,10 +15,17 @@ import {
   deleteCollectionItem,
   deletePartnerPermanently,
   listAdminData,
+  isSessionActive,
   listAdminAuditLog,
   patchCollectionItem,
   setBookingStatus
 } from "../repositories/databaseRepository.mjs";
+
+function requireCurrentAdminSession(session) {
+  if (session && (session.role !== "admin" || !isSessionActive(session))) {
+    throw Object.assign(new Error("Доступ изменился. Войдите снова."), { status: 401, code: "SESSION_REVOKED" });
+  }
+}
 
 function has(input, key) {
   return Object.prototype.hasOwnProperty.call(input, key);
@@ -131,8 +138,9 @@ export function createPartnerInput(input) {
   });
 }
 
-export function onboardPartnerInput(input) {
-  const { hash, salt, iterations } = createPasswordHash(passwordValue(input.password));
+export async function onboardPartnerInput(input, session = null) {
+  const { hash, salt, iterations } = await createPasswordHashAsync(passwordValue(input.password));
+  requireCurrentAdminSession(session);
   return onboardPartner({
     partner: {
       name: cleanString(input.partnerName || input.name, 120, true, "Название партнёра"),
@@ -171,8 +179,9 @@ export function createAddressInput(partnerId, input) {
   });
 }
 
-export function createPartnerUserInput(partnerId, input) {
-  const { hash, salt, iterations } = createPasswordHash(passwordValue(input.password));
+export async function createPartnerUserInput(partnerId, input, session = null) {
+  const { hash, salt, iterations } = await createPasswordHashAsync(passwordValue(input.password));
+  requireCurrentAdminSession(session);
   return createPartnerUser({
     partner_id: partnerId,
     name: cleanString(input.name, 120, true, "Имя"),
@@ -186,12 +195,14 @@ export function createPartnerUserInput(partnerId, input) {
   });
 }
 
-export function patchPartnerUserInput(partnerId, userId, input) {
+export async function patchPartnerUserInput(partnerId, userId, input, session = null) {
+  const user = listAdminData("partnerUsers").find((item) => item.id === userId && item.partner_id === partnerId);
+  if (!user) return null;
   const patch = {};
   if (input.name !== undefined) patch.name = cleanString(input.name, 120, true, "Имя");
   if (input.login !== undefined) patch.login = cleanString(input.login, 80, true, "Логин");
   if (input.password !== undefined) {
-    const { hash, salt, iterations } = createPasswordHash(passwordValue(input.password));
+    const { hash, salt, iterations } = await createPasswordHashAsync(passwordValue(input.password));
     patch.password_hash = hash;
     patch.password_salt = salt;
     patch.password_iterations = iterations;
@@ -200,8 +211,11 @@ export function patchPartnerUserInput(partnerId, userId, input) {
   if (input.role !== undefined) patch.role = enumValue(input.role, allowed.userRoles, "Роль");
   if (input.status !== undefined) patch.status = enumValue(input.status, allowed.userStatuses, "Статус");
 
-  const user = listAdminData("partnerUsers").find((item) => item.id === userId && item.partner_id === partnerId);
-  if (!user) return null;
+  requireCurrentAdminSession(session);
+  const current = listAdminData("partnerUsers").find((item) => item.id === userId && item.partner_id === partnerId);
+  if (JSON.stringify(user) !== JSON.stringify(current)) {
+    throw Object.assign(new Error("Данные сотрудника изменились. Обновите страницу и повторите действие."), { status: 409, code: "RECORD_CHANGED" });
+  }
   const updated = patchCollectionItem("partnerUsers", userId, patch);
   if (!updated) return null;
   const { password_hash, password_salt, password_iterations, ...safe } = updated;

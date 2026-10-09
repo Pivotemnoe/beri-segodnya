@@ -261,7 +261,7 @@ async function handleAdmin(request, response, url) {
   if (request.method === "GET" && parts[0] === "dashboard") return ok(response, admin.dashboard());
   if (request.method === "GET" && parts[0] === "audit-log") return ok(response, admin.auditLog());
 
-  if (parts[0] === "partners") return handleAdminPartners(request, response, parts);
+  if (parts[0] === "partners") return handleAdminPartners(request, response, parts, auth.session);
   if (parts[0] === "offers") return handleAdminOffers(request, response, parts);
   if (parts[0] === "bookings") return handleAdminBookings(request, response, parts, auth.session);
   if (parts[0] === "partner-applications") return handleAdminApplications(request, response, parts);
@@ -270,9 +270,12 @@ async function handleAdmin(request, response, url) {
   return fail(response, 404, "NOT_FOUND", "Действие не найдено. Обновите страницу и попробуйте снова.");
 }
 
-async function handleAdminPartners(request, response, parts) {
+async function handleAdminPartners(request, response, parts, session) {
   const partnerId = parts[1];
-  if (request.method === "POST" && partnerId === "onboard" && !parts[2]) return ok(response, admin.onboardPartnerInput(await readBody(request)), 201);
+  if (request.method === "POST" && partnerId === "onboard" && !parts[2]) {
+    if (!allowPasswordChange(session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много операций с паролями. Попробуйте через 10 минут.");
+    return ok(response, await admin.onboardPartnerInput(await readBody(request), session), 201);
+  }
   if (request.method === "GET" && !partnerId) return ok(response, listAdminData("partners"));
   if (request.method === "POST" && !partnerId) return ok(response, admin.createPartnerInput(await readBody(request)), 201);
   if (request.method === "PATCH" && partnerId && !parts[2]) return ok(response, admin.patchPartnerInput(partnerId, await readBody(request)));
@@ -282,8 +285,15 @@ async function handleAdminPartners(request, response, parts) {
   if (request.method === "PATCH" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, admin.patchAddressInput(partnerId, parts[3], await readBody(request)));
   if (request.method === "DELETE" && partnerId && parts[2] === "addresses" && parts[3]) return ok(response, { deleted: admin.deleteItem("partnerAddresses", parts[3]) });
   if (request.method === "GET" && partnerId && parts[2] === "users") return ok(response, listAdminData("partnerUsers").filter((item) => item.partner_id === partnerId).map(({ password_hash, password_salt, password_iterations, ...safe }) => safe));
-  if (request.method === "POST" && partnerId && parts[2] === "users") return ok(response, admin.createPartnerUserInput(partnerId, await readBody(request)), 201);
-  if (request.method === "PATCH" && partnerId && parts[2] === "users" && parts[3]) return ok(response, admin.patchPartnerUserInput(partnerId, parts[3], await readBody(request)));
+  if (request.method === "POST" && partnerId && parts[2] === "users") {
+    if (!allowPasswordChange(session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много операций с паролями. Попробуйте через 10 минут.");
+    return ok(response, await admin.createPartnerUserInput(partnerId, await readBody(request), session), 201);
+  }
+  if (request.method === "PATCH" && partnerId && parts[2] === "users" && parts[3]) {
+    const input = await readBody(request);
+    if (input.password !== undefined && !allowPasswordChange(session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много операций с паролями. Попробуйте через 10 минут.");
+    return ok(response, await admin.patchPartnerUserInput(partnerId, parts[3], input, session));
+  }
   if (request.method === "DELETE" && partnerId && parts[2] === "users" && parts[3]) return ok(response, { deleted: admin.deletePartnerUser(partnerId, parts[3]) });
   return fail(response, 404, "NOT_FOUND", "Раздел партнёра не найден. Обновите страницу.");
 }

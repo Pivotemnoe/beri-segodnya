@@ -5,6 +5,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { once } from "node:events";
+import { spawnSync } from "node:child_process";
 import { canonicalIp, requestIdentity } from "../backend/utils/requestIdentity.mjs";
 import { createPasswordHash, createPasswordHashAsync, verifyPasswordAsync, LEGACY_PASSWORD_ITERATIONS } from "../backend/utils/password.mjs";
 
@@ -16,6 +17,7 @@ process.env.ADMIN_APP_LOGIN = "boundary-admin";
 process.env.TRUST_PROXY = "true";
 const password = "isolated-correct-password";
 const replacement = "isolated-next-password";
+const reviewBaseline = process.argv.includes("--baseline-review");
 const credentials = createPasswordHash(password);
 process.env.ADMIN_APP_PASSWORD_HASH = credentials.hash;
 process.env.ADMIN_APP_PASSWORD_SALT = credentials.salt;
@@ -31,6 +33,7 @@ fs.writeFileSync(process.env.DB_FILE, JSON.stringify(blank), { mode: 0o600 });
 const repository = await import("../backend/repositories/databaseRepository.mjs");
 const { readDb, updateDb } = await import("../backend/storage/jsonStore.mjs");
 const auth = await import("../backend/services/authService.mjs");
+const adminService = await import("../backend/services/adminService.mjs");
 const { handleApiRequest } = await import("../backend/routes/apiRouter.mjs");
 const server = http.createServer((req, res) => handleApiRequest(req, res, new URL(req.url, "http://127.0.0.1")));
 let checks = 0;
@@ -177,7 +180,61 @@ try {
   updateDb((db) => db.partnerUsers.push({ id: "legacy-owner", login: "legacy-owner", partner_id: "boundary-partner", role: "owner", status: "active", must_change_password: true, ...fields(legacy) }));
   check(Boolean(await auth.partnerLogin("legacy-owner", password)), true);
   check([repository.findPartnerUser("legacy-owner").password_iterations, repository.findPartnerUser("legacy-owner").must_change_password], [600000, true]);
-  console.log(`Auth boundaries passed (${checks} checks): trusted proxy identity, independent visitor budgets, all-role password limits, bounded KDFs, stale auth races and legitimate rotation/rehash`);
+  const onlineAdmin = repository.createSession("admin", null, "admin:boundary-admin", "admin");
+  const adminCookie = `bs_session=${onlineAdmin.id}`;
+  let syncCalls = 0;
+  const originalSync = crypto.pbkdf2Sync;
+  crypto.pbkdf2Sync = (...args) => { syncCalls += 1; return originalSync(...args); };
+  try {
+    const rejected = await request("/api/admin/partners/boundary-partner/users/missing-user", {
+      method: "PATCH", cookie: adminCookie, client: "203.0.113.50", body: { password: replacement }
+    });
+    check([rejected.status, syncCalls], reviewBaseline ? [200, 1] : [429, 0], "Admin reset cannot bypass exhausted password-work budget");
+  } finally { crypto.pbkdf2Sync = originalSync; }
+  updateDb((db) => db.partnerUsers.push({ id: "parallel-legacy", login: "parallel-legacy", partner_id: "boundary-partner", role: "owner", status: "active", must_change_password: true, ...fields(legacy) }));
+  pauseKdfs();
+  try {
+    const parallel = Promise.all([auth.partnerLogin("parallel-legacy", password), auth.partnerLogin("parallel-legacy", password)]);
+    await drain();
+    check((await parallel).map(Boolean), reviewBaseline ? [true, false] : [true, true], "Both correct concurrent legacy logins succeed");
+  } finally { crypto.pbkdf2 = originalPbkdf2; }
+  if (!reviewBaseline) {
+    for (const route of ["/api/admin/partners/onboard", "/api/admin/partners/boundary-partner/users"]) {
+      check((await request(route, { method: "POST", cookie: adminCookie, client: "203.0.113.51", body: { password: replacement } })).status, 429, "All online password operations share actor budget");
+    }
+    repository.upsertAdminUserPassword("boundary-operator-2", credentials);
+    const operator = repository.createSession("admin", null, "admin:boundary-operator-2", "admin");
+    const operatorSession = repository.getSession(operator.id);
+    const cookie = `bs_session=${operator.id}`;
+    const reset = await request("/api/admin/partners/boundary-partner/users/boundary-manager", { method: "PATCH", cookie, client: "203.0.113.60", body: { password: replacement } });
+    check([reset.status, reset.json.data.must_change_password, reset.json.data.password_hash], [200, true, undefined]);
+    const created = await request("/api/admin/partners/boundary-partner/users", { method: "POST", cookie, client: "203.0.113.60", body: { name: "Тестовый сотрудник", login: "boundary-created", role: "seller", password: replacement } });
+    check([created.status, created.json.data.must_change_password, created.json.data.role], [201, true, "seller"]);
+    const onboardInput = { partnerName: "Тестовая пекарня", address: "Тестовая, 1", userName: "Тестовый сотрудник", login: "boundary-onboard", password: replacement };
+    check((await request("/api/admin/partners/onboard", { method: "POST", cookie, client: "203.0.113.60", body: onboardInput })).status, 201);
+    pauseKdfs();
+    try {
+      const missing = await adminService.patchPartnerUserInput("boundary-partner", "missing-user", { password: replacement }, operatorSession);
+      check([missing, deferred.length], [null, 0], "Unknown staff must be rejected before KDF");
+    } finally { crypto.pbkdf2 = originalPbkdf2; }
+    await race(() => adminService.patchPartnerUserInput("boundary-partner", "boundary-manager", { password: password }, operatorSession), () => updateDb((db) => { db.partnerUsers.find((user) => user.id === "boundary-manager").name = "Изменённое имя"; }), { error: "RECORD_CHANGED" });
+    for (const operation of [
+      (session) => adminService.onboardPartnerInput({ ...onboardInput, login: "revoked-onboard" }, session),
+      (session) => adminService.createPartnerUserInput("boundary-partner", { name: "Тестовый сотрудник", login: "revoked-staff", password: replacement }, session),
+      (session) => adminService.patchPartnerUserInput("boundary-partner", "boundary-manager", { password: password }, session)
+    ]) {
+      const token = repository.createSession("admin", null, "admin:boundary-operator-2", "admin");
+      await race(() => operation(repository.getSession(token.id)), () => repository.deleteSession(token.id), { error: "SESSION_REVOKED" });
+    }
+    updateDb((db) => db.partnerUsers.push({ id: "reset-legacy", login: "reset-legacy", partner_id: "boundary-partner", role: "owner", status: "active", must_change_password: true, ...fields(legacy) }));
+    await race(() => auth.partnerLogin("reset-legacy", password), () => repository.updatePartnerUserPassword("reset-legacy", createPasswordHash(replacement)), { value: null });
+    const cli = spawnSync(process.execPath, [new URL("./reset-partner-password.mjs", import.meta.url).pathname], {
+      env: { ...process.env, RESET_PARTNER_LOGIN: "boundary-created", RESET_PARTNER_PASSWORD: password }, encoding: "utf8"
+    });
+    check(cli.status, 0, `Offline reset compatibility: ${cli.stderr}`);
+    check(repository.findPartnerUser("boundary-created").must_change_password, true);
+  }
+  console.log(`${reviewBaseline ? "Review baseline reproduced" : "Auth boundaries passed"} (${checks} checks): trusted proxy identity, independent visitor budgets, all-role password limits, bounded KDFs, stale auth races and legitimate rotation/rehash`);
 } finally {
   crypto.pbkdf2 = originalPbkdf2;
   if (server.listening) await new Promise((resolve) => server.close(resolve));

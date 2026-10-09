@@ -152,7 +152,17 @@ export async function partnerLogin(login, password) {
   if (passwordNeedsRehash(iterations)) {
     next = await createPasswordHashAsync(password);
   }
-  if (!sameCredentials(user, findPartnerUser(login))) return null;
+  const current = findPartnerUser(login);
+  if (!sameCredentials(user, current)) {
+    // A concurrent login may have completed transparent rehash. Authenticate
+    // against the current hash again; never infer validity from a changed hash.
+    const sameAccount = current && ["id", "login", "status", "role", "partner_id", "must_change_password"]
+      .every((key) => user[key] === current[key]);
+    if (!passwordNeedsRehash(iterations) || !sameAccount || passwordNeedsRehash(current.password_iterations) ||
+        !await verifyPasswordAsync(password, current.password_hash, current.password_salt, current.password_iterations) ||
+        !sameCredentials(current, findPartnerUser(login))) return null;
+    return createSession("partner", current.partner_id, current.id, current.role);
+  }
   if (next) updatePartnerUserPassword(user.id, next, "rehash_partner_password");
   return createSession("partner", user.partner_id, user.id, user.role);
 }
