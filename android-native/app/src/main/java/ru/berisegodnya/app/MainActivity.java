@@ -91,11 +91,15 @@ public final class MainActivity extends Activity {
             if (!api.hasSession()) return new JSONObject();
             try { return api.request("GET", "/api/partner/auth/me", null, true); }
             catch (java.io.IOException error) { return json("offline", true); }
-            catch (ApiClient.Failure error) { if (error.status >= 500) return json("offline", true); throw error; }
+            catch (ApiClient.Failure error) {
+                if (error.status == 401) return new JSONObject();
+                if (error.status >= 500) return json("offline", true);
+                throw error;
+            }
         }, value -> {
             JSONObject auth = (JSONObject) value;
             if (auth.optBoolean("authenticated")) { userRole = auth.optString("userRole"); passwordChangeRequired = auth.optBoolean("passwordChangeRequired"); }
-            else if (api.hasSession() && !auth.optBoolean("offline")) api.forgetSession();
+            else if (!auth.optBoolean("offline")) { api.forgetSession(); clearPartnerState(); }
             String token = tokenFromIntent(getIntent());
             if (!token.isEmpty()) { selectedTab = "bookings"; showBooking(token, true); }
             else if (state != null && state.getBoolean("partnerMode") && api.hasSession()) enterPartner();
@@ -402,13 +406,13 @@ public final class MainActivity extends Activity {
         if (userRole.isEmpty()) {
             run(() -> api.request("GET", "/api/partner/auth/me", null, true), value -> {
                 JSONObject auth = (JSONObject) value;
-                if (!auth.optBoolean("authenticated")) { api.forgetSession(); showLogin(false); return; }
+                if (!auth.optBoolean("authenticated")) { api.forgetSession(); clearPartnerState(); showLogin(false); return; }
                 userRole = auth.optString("userRole"); passwordChangeRequired = auth.optBoolean("passwordChangeRequired"); enterPartner();
             }, null);
             return;
         }
         partnerMode = true; backStack.clear();
-        if (!"owner".equals(userRole) && !"manager".equals(userRole) && !"seller".equals(userRole)) { api.forgetSession(); userRole = ""; partnerMode = false; showLogin(false); message("Доступ изменён. Войдите заново или обратитесь к администратору."); return; }
+        if (!"owner".equals(userRole) && !"manager".equals(userRole) && !"seller".equals(userRole)) { api.forgetSession(); clearPartnerState(); partnerMode = false; showLogin(false); message("Доступ изменён. Войдите заново или обратитесь к администратору."); return; }
         if (passwordChangeRequired) { selectedTab = "account"; showChangePassword(false); }
         else tab("seller".equals(userRole) ? "codes" : "partner-offers");
     }
@@ -441,7 +445,7 @@ public final class MainActivity extends Activity {
     }
 
     private boolean partnerGuard() {
-        if (!api.hasSession()) { partnerMode = false; selectedTab = "partner"; showLogin(false); return false; }
+        if (!api.hasSession()) { clearPartnerState(); partnerMode = false; selectedTab = "partner"; showLogin(false); return false; }
         if (passwordChangeRequired) { showChangePassword(false); return false; }
         return true;
     }
@@ -510,7 +514,7 @@ public final class MainActivity extends Activity {
             if (!id.isEmpty()) { quantity.setEnabled(false); text(form, "Количество уже размещённого предложения здесь не меняется, чтобы не затронуть брони.", 14, MUTED); }
             String dateValue = offerDraft.optString("date", AppRules.today());
             if (dateValue.isEmpty()) dateValue = AppRules.today(); putDraft("date", dateValue);
-            Button date = button(form, "Дата: " + dateValue, false, () -> {
+            Button date = button(form, "Дата: " + AppRules.friendlyDate(dateValue), false, () -> {
                 LocalDate initial;
                 try { initial = LocalDate.parse(offerDraft.optString("date", AppRules.today())); } catch (Exception error) { initial = LocalDate.parse(AppRules.today()); }
                 new DatePickerDialog(this, (picker, year, month, day) -> { putDraft("date", LocalDate.of(year, month + 1, day).toString()); showOfferEditor(id, false); }, initial.getYear(), initial.getMonthValue() - 1, initial.getDayOfMonth()).show();
@@ -704,7 +708,7 @@ public final class MainActivity extends Activity {
                 catch (ApiClient.Failure error) { /* A revoked or unreachable server must not keep the local cabinet open. */ }
                 finally { api.forgetSession(); }
                 return new JSONObject();
-            }, value -> { userRole = ""; passwordChangeRequired = false; publicationUncertain = false; offerDraft = new JSONObject(); partnerMode = false; tab("partner"); }, null)).show());
+            }, value -> { clearPartnerState(); partnerMode = false; tab("partner"); }, null)).show());
     }
 
     private void showAddresses(boolean child) {
@@ -815,13 +819,24 @@ public final class MainActivity extends Activity {
     private void showError(Exception error) {
         if (error instanceof ApiClient.Failure failure) {
             if (failure.status == 401 && adminMode) { adminMode = false; backStack.clear(); admin.login(false); message("Войдите как администратор ещё раз"); return; }
-            if (failure.status == 401 && partnerMode) { partnerMode = false; userRole = ""; selectedTab = "partner"; backStack.clear(); showLogin(false); message("Войдите в кабинет ещё раз"); return; }
+            if (failure.status == 401 && partnerMode) { clearPartnerState(); partnerMode = false; selectedTab = "partner"; backStack.clear(); showLogin(false); message("Войдите в кабинет ещё раз"); return; }
             if ("PASSWORD_CHANGE_REQUIRED".equals(failure.code)) { if (adminMode) { adminPasswordChangeRequired = true; admin.password(false); } else { passwordChangeRequired = true; showChangePassword(false); } return; }
             text(column, failure.getMessage(), 17, INK);
         } else if (error instanceof IllegalArgumentException) text(column, error.getMessage(), 17, INK);
-        else text(column, "Не удалось связаться с сервисом. Проверьте интернет и попробуйте ещё раз. Если оформляли бронь, проверьте её в разделе «Предложения».", 17, INK);
+        else text(column, publicationUncertain
+            ? "Ответ не пришёл. Предложение могло сохраниться. Откройте «Предложения» и проверьте список."
+            : pendingBooking != null
+                ? "Ответ не пришёл. Бронь могла оформиться. Откройте «Предложения» и нажмите «Проверить бронь»."
+                : "Нет ответа от сервиса. Проверьте интернет и попробуйте ещё раз.", 17, INK);
         Runnable retry = currentScreen;
         if (retry != null) button(column, "Повторить", false, retry);
+    }
+
+    // An expired/revoked account must not leave its business draft in memory for the next user.
+    private void clearPartnerState() {
+        userRole = ""; passwordChangeRequired = false; publicationUncertain = false;
+        offerDraft = new JSONObject(); editingOffer = "";
+        store.remove("offer-draft"); store.remove("publication-uncertain");
     }
 
     private void picture(LinearLayout parent, String path, String description) {
