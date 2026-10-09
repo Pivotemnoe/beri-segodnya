@@ -217,7 +217,12 @@ public final class MainActivity extends Activity {
     // This override is solely the required Android 8–12 fallback, not the gesture path.
     @android.annotation.SuppressLint("GestureBackNavigation")
     @SuppressWarnings("deprecation") @Override public void onBackPressed() { if (Build.VERSION.SDK_INT < 33) back(); }
-    @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); String token = tokenFromIntent(intent); if (!token.isEmpty() && !mutationInFlight) { partnerMode = false; adminMode = false; selectedTab = "bookings"; backStack.clear(); showBooking(token, true); } }
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent); setIntent(intent); String token = tokenFromIntent(intent);
+        if (token.isEmpty()) return;
+        if (mutationInFlight) { message("Дождитесь сохранения и откройте ссылку на бронь ещё раз"); return; }
+        partnerMode = false; adminMode = false; selectedTab = "bookings"; backStack.clear(); showBooking(token, true);
+    }
     private String tokenFromIntent(Intent intent) { return intent != null && intent.getData() != null ? AppRules.bookingToken(intent.getData().toString()) : ""; }
 
     private void showOffers() {

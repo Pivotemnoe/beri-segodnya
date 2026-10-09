@@ -86,6 +86,10 @@ capture('01-offers', 'Что забрать сегодня')
 assert offers_loaded, 'Public offers API did not finish successfully; inspect 01-offers before claiming live connectivity'
 tap('Мои брони')
 capture('02-bookings', 'Мои брони')
+# A rejected link must reuse the activity, not spawn a second in-memory booking/draft store.
+adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-d', 'https://berisegodnya.ru/booking/invalid', '-n', 'ru.berisegodnya.app/.MainActivity')
+time.sleep(.6)
+capture('02b-single-activity', 'Мои брони')
 tap('Партнёрам')
 capture('03-partner-entry', 'Партнёрам')
 tap('Войти в кабинет')
@@ -119,5 +123,5 @@ capture('09-application-back', 'Партнёрам')
 assert node('Предложения', True)[0] is not None, 'Bottom navigation not restored after closing keyboard'
 crashes = adb('logcat', '-b', 'crash', '-d').decode()
 assert 'ru.berisegodnya.app' not in crashes, 'Application crash recorded'
-(output/'summary.json').write_text(json.dumps({'scope':'read-only cloud Android 13 native release UI', 'realTecnoAccepted':False, 'productionCredentialUsed':False, 'apiMutations':False, 'checks':['native focus/no WebView','public offers API loaded successfully','visitor tabs','visible partner/admin entrances','native forms','inline password eye','Android back','fixed +7 phone','keyboard hides bottom navigation and restores it','no recorded app crash']}, ensure_ascii=False, indent=2))
+(output/'summary.json').write_text(json.dumps({'scope':'read-only cloud Android 13 native release UI', 'realTecnoAccepted':False, 'productionCredentialUsed':False, 'apiMutations':False, 'checks':['native focus/no WebView','public offers API loaded successfully','visitor tabs','single activity rejects malformed booking link without restarting workspace','visible partner/admin entrances','native forms','inline password eye','Android back','fixed +7 phone','keyboard hides bottom navigation and restores it','no recorded app crash']}, ensure_ascii=False, indent=2))
 print('Native cloud UI QA: PASS (physical partner/booking/handover checks still required)')
