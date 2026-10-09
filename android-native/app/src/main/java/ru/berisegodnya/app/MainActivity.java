@@ -853,11 +853,17 @@ public final class MainActivity extends Activity {
     EditText passwordField(LinearLayout parent, String label) {
         EditText input = field(parent, label, "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, 120);
         input.setAutofillHints(View.AUTOFILL_HINT_PASSWORD); input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES);
-        Button toggle = button(parent, "Показать пароль", false, () -> { });
+        parent.removeView(input); input.setBackgroundColor(Color.TRANSPARENT);
+        LinearLayout row = horizontal(); row.setGravity(Gravity.CENTER_VERTICAL); row.setBackground(shape(Color.WHITE, 12, 0xffccd8d6));
+        row.addView(input, new LinearLayout.LayoutParams(0, -2, 1));
+        android.widget.ImageButton toggle = new android.widget.ImageButton(this);
+        toggle.setImageResource(R.drawable.ic_eye); toggle.setContentDescription("Показать пароль"); toggle.setBackground(shape(0xffe9f1ed, 12, 0)); toggle.setPadding(dp(12), dp(12), dp(12), dp(12));
+        row.addView(toggle, new LinearLayout.LayoutParams(dp(48), dp(52))); addSpace(parent, row);
         toggle.setOnClickListener(view -> {
             boolean hidden = input.getTransformationMethod() instanceof android.text.method.PasswordTransformationMethod;
             input.setTransformationMethod(hidden ? null : android.text.method.PasswordTransformationMethod.getInstance());
-            toggle.setText(hidden ? "Скрыть пароль" : "Показать пароль"); input.setSelection(input.getText().length());
+            toggle.setImageResource(hidden ? R.drawable.ic_eye_off : R.drawable.ic_eye);
+            toggle.setContentDescription(hidden ? "Скрыть пароль" : "Показать пароль"); input.setSelection(input.getText().length());
         });
         return input;
     }
