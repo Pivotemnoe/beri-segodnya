@@ -137,6 +137,16 @@ export function deleteSession(id) {
   });
 }
 
+export function isSessionActive(session) {
+  if (!session || (!session.id_hash && !session.id)) return false;
+  return readDb().sessions.some((item) =>
+    ((session.id_hash && item.id_hash === session.id_hash) || (session.id && item.id === session.id)) &&
+    item.role === session.role && item.user_id === session.user_id &&
+    item.partner_id === session.partner_id && item.user_role === session.user_role &&
+    new Date(item.expires_at).getTime() > Date.now()
+  );
+}
+
 export function deleteSessionsForUser(userId) {
   if (!userId) return 0;
   return updateDb((db) => {

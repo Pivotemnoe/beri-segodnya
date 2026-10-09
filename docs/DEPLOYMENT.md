@@ -35,7 +35,7 @@ PM2 example for the pinned app-specific runtime:
 
 ```bash
 BERI_SEGODNYA_NODE=/opt/beri-segodnya/node-v24.19.0-linux-x64/bin/node \
-  pm2 startOrReload ecosystem.config.cjs --only beri-segodnya --update-env
+  pm2 startOrReload ecosystem.config.cjs --only beri-segodnya --env production --update-env
 pm2 save
 ```
 
@@ -48,6 +48,7 @@ systemd can also run `node server.mjs` from the project directory with env loade
 Proxy:
 
 - Nginx or Caddy proxies the domain to `http://127.0.0.1:3010`.
+- The production PM2 profile enables `TRUST_PROXY=true`; use it only after confirming a single local proxy replaces client-supplied forwarding headers and the backend listens only on loopback. Local/direct runs retain the default `false`. Header parsing alone cannot distinguish visitors if the deployment never enables the verified proxy profile.
 - Keep `/admin` and `/partner/*` behind their app login, HttpOnly session and role checks. Keep the public preview behind Basic Auth while staging is closed.
 
 HTTPS:

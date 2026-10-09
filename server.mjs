@@ -31,7 +31,7 @@ const config = {
   appName: readEnv("NEXT_PUBLIC_APP_NAME", "Бери сегодня"),
   appCity: readEnv("NEXT_PUBLIC_APP_CITY", "Армавир"),
   demoMode: readEnv("NEXT_PUBLIC_DEMO_MODE", "true") === "true",
-  supportEmail: readEnv("PUBLIC_SUPPORT_EMAIL", "hello@berisegodnya.ru"),
+  supportEmail: readEnv("PUBLIC_SUPPORT_EMAIL", "support@berisegodnya.ru"),
   supportPhone: readEnv("PUBLIC_SUPPORT_PHONE", ""),
   legal: legalConfig()
 };

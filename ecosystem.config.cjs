@@ -12,6 +12,8 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
+      // The production listener must stay behind the verified local proxy.
+      env_production: { TRUST_PROXY: "true" },
       kill_timeout: 5_000,
       listen_timeout: 10_000
     }
