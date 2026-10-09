@@ -241,7 +241,7 @@ function header(pathname) {
     </nav>
     <div class="header-actions">
       <a class="last-booking-link" href="#" data-last-booking hidden>Моя бронь</a>
-      <a class="header-login" href="/partner/login">Войти в кабинет</a>
+      <a class="header-login" href="/partner/login">Вход для партнёра</a>
       <a class="button button-primary header-cta" href="/partners#partner-application">Для заведений</a>
     </div>
     <details class="mobile-menu">
@@ -249,7 +249,7 @@ function header(pathname) {
       <nav aria-label="Мобильная навигация">
         ${nav.map((item) => `<a href="${item.href}">${item.label}</a>`).join("")}
         <a data-last-booking href="#" hidden>Моя бронь</a>
-        <a href="/partner/login">Войти в кабинет</a>
+        <a href="/partner/login">Вход для партнёра</a>
         <a href="/partners#partner-application">Для заведений</a>
       </nav>
     </details>
@@ -653,7 +653,7 @@ function partnersPage() {
       <p>Есть готовая еда, которую вы хотите продать сегодня? Разместите её на сайте. Покупатель забронирует заказ, придёт к вам с кодом и оплатит при получении.</p>
       <div class="actions">
         <a class="button button-primary" href="${html(applicationHref)}">${html(applicationLabel)}</a>
-        <a class="button button-outline" href="/partner/login">Войти в кабинет</a>
+        <a class="button button-outline" href="/partner/login">Вход для партнёра</a>
         <a class="text-link" href="/how-it-works">Как это работает</a>
       </div>
     </div>
@@ -1150,7 +1150,7 @@ function adminPage() {
 
 function partnerLoginPage() {
   return `<section class="section app-panel" data-partner-login-app>
-    ${sectionTitle("Кабинет партнёра", "Вход партнёра", "Введите логин и пароль, которые вам передали при подключении.")}
+    ${sectionTitle("Кабинет партнёра", "Вход для партнёра", "Введите логин и пароль, которые вам передали при подключении.")}
     <div class="access-layout">
       <div class="access-intro">
         <p class="kicker">Для заведения</p>
@@ -1159,13 +1159,13 @@ function partnerLoginPage() {
         <ul class="access-points"><li>Фото текущей партии</li><li>Предложения и остатки</li><li>Коды для выдачи</li></ul>
       </div>
       <div class="auth-box">
-        <h3>Войти в кабинет</h3>
+        <h3>Вход для партнёра</h3>
         <p>Доступ выдаёт администратор сервиса. При первом входе задайте свой постоянный пароль.</p>
         <form class="smart-form auth-form" method="post" data-partner-login-form>
           <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
           <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
           <p class="form-error" role="alert" aria-live="polite" hidden></p>
-          <button class="button button-primary" type="submit">Войти в кабинет</button>
+          <button class="button button-primary" type="submit">Войти</button>
         </form>
       </div>
     </div>
@@ -1312,7 +1312,7 @@ function renderPage(pathname) {
     "/terms": "Правила сервиса",
     "/partner-terms": "Условия партнёров",
     "/admin": "Админ",
-    "/partner/login": "Вход партнёра",
+    "/partner/login": "Вход для партнёра",
     "/partner/dashboard": "Мой кабинет"
   };
   const isAppPage = pathname === "/admin" || pathname.startsWith("/partner/");
