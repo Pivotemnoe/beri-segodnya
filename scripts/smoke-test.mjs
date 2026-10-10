@@ -240,7 +240,7 @@ async function runScenario(port) {
   assert(partnersPage.text.includes('placeholder="Название заведения"') && partnersPage.text.includes('placeholder="Улица и номер дома"'), "Partner application is missing neutral field hints");
   assert(!partnersPage.text.includes("Например: Заведение 1") && !partnersPage.text.includes("Например: ул. Тестовая, 1"), "Old partner application examples are still rendered");
   const androidPage = await request(port, "/android");
-  assert(androidPage.status === 200 && androidPage.text.includes("Приложение «Бери сегодня»") && androidPage.text.includes('src="/icons/android-download-qr-native-v2.svg"') && androidPage.text.includes('href="/downloads/beri-segodnya-android-0.2.0-native-pilot.apk"') && !androidPage.text.includes('href="/downloads/beri-segodnya-android-0.1.0-pilot.apk"') && androidPage.text.includes("Скачать приложение"), "Native Android download page is unavailable or incomplete");
+  assert(androidPage.status === 200 && androidPage.text.includes("Приложение «Бери сегодня»") && androidPage.text.includes('src="/icons/android-download-qr-native-v3.svg"') && androidPage.text.includes('href="/downloads/beri-segodnya-android-0.3.0-native-pilot.apk"') && !androidPage.text.includes('href="/downloads/beri-segodnya-android-0.2.0-native-pilot.apk"') && !androidPage.text.includes('href="/downloads/beri-segodnya-android-0.1.0-pilot.apk"') && androidPage.text.includes("Скачать приложение"), "Native Android download page is unavailable or incomplete");
   for (const technicalCopy of ["Официальная тестовая сборка", "Версия 0.1.0-pilot", "Проверить SHA-256", "Как установить приложение", "Что важно знать"]) {
     assert(!androidPage.text.includes(technicalCopy), `Android download page still exposes technical copy: ${technicalCopy}`);
   }
@@ -256,7 +256,7 @@ async function runScenario(port) {
   assert(nativeApk.headers["cache-control"]?.includes("immutable"), "Versioned native APK is not immutable");
   const nativeChecksum = await request(port, `/downloads/${nativeRelease.apkName}.sha256`);
   assert(nativeChecksum.status === 200 && nativeChecksum.text.trim() === `${nativeRelease.sha256}  ${nativeRelease.apkName}`, "Native checksum endpoint is inconsistent");
-  const nativeQr = await request(port, "/icons/android-download-qr-native-v2.svg");
+  const nativeQr = await request(port, "/icons/android-download-qr-native-v3.svg");
   assert(nativeQr.status === 200 && nativeQr.headers["content-type"].includes("image/svg+xml"), "Native download QR asset failed");
   const injectionMarker = `<img src=x onerror=alert-${suffix}>`;
   const reflectedQuery = await request(port, `/contacts?type=${encodeURIComponent(injectionMarker)}`);

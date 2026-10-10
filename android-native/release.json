@@ -1,15 +1,15 @@
 {
   "package": "ru.berisegodnya.app",
-  "versionCode": 2,
-  "versionName": "0.2.0-native-pilot",
+  "versionCode": 3,
+  "versionName": "0.3.0-native-pilot",
   "minSdk": 26,
   "targetSdk": 36,
-  "apkName": "beri-segodnya-android-0.2.0-native-pilot.apk",
-  "bytes": 309633,
-  "sha256": "aee9d4b51f6006c38ffe960552e68aebf1622e07a39f4124a1a50b997add8127",
-  "unsignedSha256": "dd33a8ec35f37f3c8ec7cea3a21e0bff41e76f2f6fef36262eeec9a1b2b7df5f",
+  "apkName": "beri-segodnya-android-0.3.0-native-pilot.apk",
+  "bytes": 313785,
+  "sha256": "14b138908a4b792fa1ac39d8f38e947ebf0a25637b3fd8fc64b502fe8c32a508",
+  "unsignedSha256": "8e40734d387592f0454b8ea40960307a2a4832373784d30439ed481f26006b50",
   "certificateSha256": "4d9ba67c2c99f4d894d6e3ca2bd02225c76aa519e625ed5dcdde77249f2bf105",
-  "sourceCommit": "bb5c528891e56601b7dafc353b8e29a86161938e",
-  "cloudVerificationCommit": "70afe515d8dd3a8705a0828d86fcd871b73c1294",
-  "cloudUiRun": "https://github.com/Pivotemnoe/beri-segodnya/actions/runs/37928678111"
+  "sourceCommit": "bb848e62fcbb8e4e09acf193398cca24f02685fa",
+  "cloudVerificationCommit": "bb848e62fcbb8e4e09acf193398cca24f02685fa",
+  "cloudUiRun": "https://github.com/Pivotemnoe/beri-segodnya/actions/runs/38027321508"
 }
