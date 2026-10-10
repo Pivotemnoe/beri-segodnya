@@ -59,6 +59,7 @@ public final class MainActivity extends Activity {
     private SecureStore store;
     ApiClient api;
     private LinearLayout root, navigation;
+    private ScrollView scroll;
     LinearLayout column;
     private TextView heading;
     private android.widget.ProgressBar progress;
@@ -136,7 +137,7 @@ public final class MainActivity extends Activity {
         progress = new android.widget.ProgressBar(this); progress.setContentDescription("Сохраняем изменения"); progress.setVisibility(View.GONE);
         header.addView(progress, new LinearLayout.LayoutParams(dp(28), dp(28)));
         root.addView(header);
-        ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setClipToPadding(false);
+        scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setClipToPadding(false);
         column = vertical(); column.setPadding(dp(18), dp(8), dp(18), dp(22)); scroll.addView(column);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         navigation = horizontal(); navigation.setBackgroundColor(Color.WHITE); navigation.setElevation(dp(6)); navigation.setPadding(dp(6), dp(7), dp(6), dp(7)); root.addView(navigation);
@@ -211,6 +212,10 @@ public final class MainActivity extends Activity {
         currentScreen = refresh; generation++; column.removeAllViews();
         if (!backStack.isEmpty()) button(column, "Назад", false, this::back);
         heading = text(column, title, 28, INK); heading.setTypeface(null, Typeface.BOLD); heading.setPadding(0, dp(12), 0, dp(14));
+        // The shell is reused by all roles, but a new screen must not inherit the previous page's offset.
+        final int screenGeneration = generation;
+        scroll.scrollTo(0, 0);
+        scroll.post(() -> { if (generation == screenGeneration) scroll.scrollTo(0, 0); });
         rebuildNavigation();
         if (android.animation.ValueAnimator.areAnimatorsEnabled()) {
             column.animate().cancel(); column.setAlpha(0); column.setTranslationY(dp(10));
