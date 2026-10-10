@@ -50,7 +50,9 @@ def scroll(direction):
     x1, y1, x2, y2 = map(int, re.findall(r'\d+', target.get('bounds')))
     low, high = y1+(y2-y1)*3//4, y1+(y2-y1)//4
     start, end = (low, high) if direction == 'up' else (high, low)
-    adb('shell', 'input', 'swipe', str((x1+x2)//2), str(start), str(end), '300')
+    # Keep the gesture away from the card's image centre; slow drag works on real TECNO as well.
+    x = x1+(x2-x1)//6
+    adb('shell', 'input', 'swipe', str(x), str(start), str(x), str(end), '700')
     time.sleep(.4)
     return True
 
@@ -64,22 +66,18 @@ def tap(label, scrolling=False):
             time.sleep(.6)
             return
         if scrolling:
-            _, current = tree()
-            scroll = next((e for e in current.iter('node') if e.get('scrollable') == 'true'), None)
-            assert scroll is not None, 'No scrollable form'
-            x1, y1, x2, y2 = map(int, re.findall(r'\d+', scroll.get('bounds')))
-            x = (x1+x2)//2
-            adb('shell', 'input', 'swipe', str(x), str(y1+(y2-y1)*3//4), str(x), str(y1+(y2-y1)//4), '300')
+            assert scroll('up'), 'No scrollable form'
     raise AssertionError('Visible clickable node missing: '+label)
 
 
 def capture(name, expected):
     source, current = tree()
+    # Preserve the actual failing screen too, not only successful screenshots.
+    (output/(name+'.xml')).write_text(source)
+    (output/(name+'.png')).write_bytes(adb('exec-out', 'screencap', '-p'))
     texts = [e.get('text', '') for e in current.iter('node')]
     assert expected in texts, 'Expected native heading missing: '+expected
     assert not any('WebView' in e.get('class', '') for e in current.iter('node')), 'WebView in native core UI'
-    (output/(name+'.xml')).write_text(source)
-    (output/(name+'.png')).write_bytes(adb('exec-out', 'screencap', '-p'))
     return current
 
 
@@ -89,6 +87,7 @@ for _ in range(30):
         break
     time.sleep(1)
 time.sleep(4)
+capture('01-offers', 'Что забрать сегодня')
 offers_loaded = False
 for _ in range(12):
     if node('Обновить', True)[0] is not None:
@@ -97,12 +96,10 @@ for _ in range(12):
     # A populated catalogue puts Refresh below the first screen. It is not a network failure.
     scroll('up')
     time.sleep(1)
-if offers_loaded:
-    for _ in range(12):
-        if node('Что забрать сегодня')[0] is not None:
-            break
-        assert scroll('down'), 'Cannot return to catalogue heading'
-capture('01-offers', 'Что забрать сегодня')
+# Keep catalogue scrolled to the actual Refresh proof. The next tab does not depend on scroll position.
+source, _ = tree()
+(output/'01-offers-refresh.xml').write_text(source)
+(output/'01-offers-refresh.png').write_bytes(adb('exec-out', 'screencap', '-p'))
 if not offers_loaded:
     (output/'failure-network-types.txt').write_bytes(adb('logcat', '-d', '-s', 'BeriToday:W'))
     (output/'failure-connectivity.txt').write_bytes(adb('shell', 'dumpsys', 'connectivity'))
