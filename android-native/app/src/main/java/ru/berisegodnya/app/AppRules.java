@@ -24,6 +24,13 @@ public final class AppRules {
         parent.run();
     }
     public static String today() { return LocalDate.now(ZoneId.of("Europe/Moscow")).toString(); }
+    /** Display a cached code only; it is never evidence of the current server status. */
+    public static String savedBookingCode(String token, java.util.Map<String, String> guestCodes, java.util.Map<String, String> customerCodes, boolean customerSignedIn) {
+        if (token == null || token.isEmpty()) return "";
+        String guest = guestCodes.get(token);
+        if (guest != null && !guest.isEmpty()) return guest;
+        return customerSignedIn ? customerCodes.getOrDefault(token, "") : "";
+    }
     /** Editing text/photo must never replay a stale stock or publication snapshot. */
     public static final java.util.Set<String> PRESERVED_OFFER_FIELDS = java.util.Collections.unmodifiableSet(new java.util.HashSet<>(java.util.Arrays.asList("id", "addressId", "totalQuantity", "remainingQuantity", "status")));
     public static String friendlyDate(String value) {

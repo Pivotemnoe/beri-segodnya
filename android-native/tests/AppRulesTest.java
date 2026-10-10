@@ -6,6 +6,15 @@ public final class AppRulesTest {
         equal("9991234567", AppRules.phoneDigits("+7 (999) 123-45-67"));
         equal("8991234567", AppRules.phoneDigits("8991234567"));
         equal("+79991234567", AppRules.phone("9991234567"));
+        var guests = java.util.Map.of("guest-token", "BS-1001", "shared-token", "BS-1002");
+        var customers = java.util.Map.of("customer-token", "BS-2001", "shared-token", "BS-2002");
+        equal("BS-1001", AppRules.savedBookingCode("guest-token", guests, customers, false));
+        equal("BS-2001", AppRules.savedBookingCode("customer-token", guests, customers, true));
+        equal("", AppRules.savedBookingCode("customer-token", guests, customers, false));
+        equal("BS-1002", AppRules.savedBookingCode("shared-token", guests, customers, true));
+        equal("", AppRules.savedBookingCode("unknown-token", guests, customers, true));
+        equal("", AppRules.savedBookingCode("", guests, customers, true));
+        equal("", AppRules.savedBookingCode(null, guests, customers, true));
         var history = new java.util.ArrayDeque<Runnable>();
         int[] parentCalls = {0};
         Runnable grandparent = () -> { };

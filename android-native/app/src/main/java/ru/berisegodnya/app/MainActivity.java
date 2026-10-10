@@ -492,12 +492,17 @@ public final class MainActivity extends Activity {
             }
             button(column, "Обновить статус", false, () -> showBooking(token, false));
         }, null);
-        for (int i = 0; i < savedBookings.length(); i++) {
-            JSONObject saved = savedBookings.optJSONObject(i);
-            if (saved != null && token.equals(saved.optString("token"))) {
-                text(column, "Сохранённый код: " + saved.optString("code") + ". Сам по себе код не подтверждает, что бронь ещё действует.", 14, MUTED); break;
-            }
+        String savedCode = AppRules.savedBookingCode(token, bookingCodes(savedBookings), bookingCodes(customerBookings), api.hasCustomerSession());
+        if (!savedCode.isEmpty()) text(column, "Сохранённый код: " + savedCode + ". Сам по себе код не подтверждает, что бронь ещё действует.", 14, MUTED);
+    }
+
+    private java.util.Map<String, String> bookingCodes(JSONArray rows) {
+        java.util.Map<String, String> codes = new java.util.HashMap<>();
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject row = rows.optJSONObject(i);
+            if (row != null) codes.put(row.optString("token", row.optString("publicToken")), row.optString("code"));
         }
+        return codes;
     }
 
     private void shareCode(JSONObject booking) {
