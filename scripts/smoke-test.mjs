@@ -14,6 +14,7 @@ import { runPilotHardeningScenario } from "./pilot-hardening-scenario.mjs";
 import { runClientPhotoChecks } from "./client-photo-checks.mjs";
 import { runClientPhoneChecks } from "./client-phone-checks.mjs";
 import { runClientWorkspaceChecks } from "./client-workspace-checks.mjs";
+import { runClientPwaChecks } from "./client-pwa-checks.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
@@ -107,6 +108,7 @@ async function waitForServer(port, child, logs) {
 }
 
 async function runScenario(port) {
+  runClientPwaChecks(ROOT);
   assert(validatePhone("+7 (900) 123-45-67") === "+7 (900) 123-45-67", "Canonical Russian phone was changed unexpectedly");
   assert(validatePhone("8 900 123-45-67") === "+7 (900) 123-45-67", "Phone beginning with 8 was not normalized to +7");
   assert(validatePhone("9001234567") === "+7 (900) 123-45-67", "Ten-digit phone was not normalized to +7");
@@ -127,6 +129,7 @@ async function runScenario(port) {
   );
   const manifest = await request(port, "/manifest.webmanifest", { auth: null });
   assert(manifest.status === 200 && manifest.json.display === "standalone" && manifest.json.scope === "/", "PWA manifest is unavailable or incomplete");
+  assert(manifest.json.start_url === "/app?source=pwa" && manifest.json.id === "/" && manifest.json.shortcuts.every(item => item.url.startsWith("/app")), "PWA launch/upgrade identity or shortcuts regressed");
   assert(manifest.headers["content-type"]?.includes("application/manifest+json"), "PWA manifest has the wrong content type");
   const serviceWorker = await request(port, "/sw.js", { auth: null });
   assert(serviceWorker.status === 200 && serviceWorker.headers["service-worker-allowed"] === "/", "Service worker is unavailable at the application scope");
@@ -229,7 +232,26 @@ async function runScenario(port) {
   assertFormsUsePost(publicHome.text, "Public home");
   assert(publicHome.text.includes('role="dialog" aria-modal="true" aria-label="Карточка предложения"'), "Offer dialog semantics are missing");
   assert(publicHome.text.includes('aria-label="Закрыть форму бронирования"'), "Booking dialog close button has no accessible label");
-  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes('class="footer-app-status" href="/android"') && publicHome.text.includes('href="/android">Приложение</a>') && publicHome.text.includes('class="button button-outline home-app-button" href="/android">Скачать приложение</a>') && !publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "Android application links or PWA status are inconsistent");
+  assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes('class="footer-app-status" href="/install"') && publicHome.text.includes('href="/install">Приложение</a>') && publicHome.text.includes('class="button button-outline home-app-button" href="/install">Установить приложение</a>') && !publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "Application install links or PWA status are inconsistent");
+  const pwaApp = await request(port, "/app");
+  assert(pwaApp.status === 200 && pwaApp.text.includes('page-pwa') && pwaApp.text.includes('aria-label="Разделы приложения"') && pwaApp.text.includes('href="/app/bookings"') && !pwaApp.text.includes('<footer class="site-footer"') && !pwaApp.text.includes('<header class="site-header"'), "Separate app shell is missing or contains website chrome");
+  assert(pwaApp.text.includes('id="offer-drawer"') && pwaApp.text.includes('id="booking-form"') && pwaApp.text.includes('viewport-fit=cover'), "PWA offer/guest booking/safe-area contracts are missing");
+  assertFormsUsePost(pwaApp.text, "PWA catalog");
+  const pwaProfile = await request(port, "/app/profile");
+  assert(pwaProfile.status === 200 && pwaProfile.text.includes('data-customer-page') && pwaProfile.text.includes('data-pwa-tour-start') && pwaProfile.text.includes('забронировать без регистрации'), "PWA profile, optional login or replayable onboarding is missing");
+  assertFormsUsePost(pwaProfile.text, "PWA profile");
+  const pwaBookings = await request(port, "/app/bookings");
+  assert(pwaBookings.status === 200 && pwaBookings.text.includes('data-pwa-bookings') && pwaBookings.text.includes('data-pwa-guest-bookings'), "Account and guest booking sections are missing");
+  const pwaPartners = await request(port, "/app/partners");
+  assert(pwaPartners.status === 200 && pwaPartners.text.includes('href="/partner/login?app=1"') && pwaPartners.text.includes('href="/admin?app=1"'), "Visible partner/admin app entrances are missing");
+  const install = await request(port, "/install");
+  assert(install.status === 200 && install.text.includes('href="/iphone"') && install.text.includes('src="/icons/install-qr.svg"') && install.text.includes('href="/downloads/beri-segodnya-android-0.3.0-native-pilot.apk"'), "Unified Android/iPhone install page is incomplete");
+  const iphone = await request(port, "/iphone");
+  assert(iphone.status === 200 && iphone.text.includes('href="/app?install=iphone"') && iphone.text.includes('На экран') && !iphone.text.includes('SHA-256'), "Human iPhone instructions are missing");
+  for (const route of ["/pwa-shell.js", "/pwa-shell.css", "/icons/ui/user.svg", "/icons/ui/refresh-cw.svg", "/icons/install-qr.svg"]) assert((await request(port, route, { auth: null })).status === 200, `PWA asset missing: ${route}`);
+  assert((await request(port, "/app", { auth: null })).status === 401, "App shell bypassed the closed preview gate");
+  const pwaAdmin = await request(port, "/admin?app=1");
+  assert(pwaAdmin.status === 200 && pwaAdmin.text.includes('data-admin-login-form') && !pwaAdmin.text.includes('aria-label="Разделы приложения"'), "App-mode admin must still require its own login");
   assert(publicHome.text.includes('class="offer-row-mobile-pickup"'), "Mobile pickup window is missing from offer rows");
   assert(publicHome.text.includes("Пример брони"), "Synthetic booking preview is not identified as an example");
   assert(!publicHome.text.includes("Фото сделано сегодня") && !publicHome.text.includes("Фото сегодня"), "Public home claims that a photo was made today without evidence");

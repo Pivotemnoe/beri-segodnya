@@ -10,6 +10,16 @@
   const isAppleMobile = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isMobile = () => window.matchMedia("(max-width: 820px)").matches;
 
+  // Already-installed website shortcuts migrate to the app shell; ordinary browser visits do not.
+  if (isStandalone()) {
+    if (location.pathname === "/") { location.replace("/app?source=pwa"); return; }
+    if (location.pathname === "/customer") { location.replace("/app/profile"); return; }
+    if (/^\/(?:booking|partner)(?:\/|$)/.test(location.pathname) || location.pathname === "/admin") {
+      const url = new URL(location.href);
+      if (url.searchParams.get("app") !== "1") { url.searchParams.set("app", "1"); location.replace(url.pathname + url.search + url.hash); return; }
+    }
+  }
+
   function setInstallVisible(visible) {
     installButtons.forEach((button) => { button.hidden = !visible || isStandalone(); });
   }
@@ -24,7 +34,7 @@
     returnFocus = trigger || document.activeElement;
     if (dialogText) {
       dialogText.textContent = isAppleMobile()
-        ? "Нажмите «Поделиться», выберите «На экран Домой», затем подтвердите добавление."
+        ? "Откройте в Safari. Нажмите «Поделиться» → «На экран Домой». Если есть «Открыть как веб-приложение», включите его. Затем нажмите «Добавить»."
         : "Откройте меню браузера и выберите «Установить приложение» или «Добавить на главный экран».";
     }
     dialog.hidden = false;

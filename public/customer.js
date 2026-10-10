@@ -18,6 +18,7 @@
   }
   function profile(value) {
     window.bsCustomer = value;
+    window.dispatchEvent(new CustomEvent("bs-customer-change", { detail: { authenticated: Boolean(value) } }));
     document.querySelectorAll("[data-customer-link]").forEach(node => { node.textContent = value ? "Мой кабинет" : "Вход для покупателя"; });
     if (!page) return;
     find("login").hidden = Boolean(value); find("account").hidden = !value;

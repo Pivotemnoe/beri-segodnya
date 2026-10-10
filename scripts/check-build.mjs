@@ -40,6 +40,13 @@ const requiredContracts = [
   "/offline.css",
   "/offline.js",
   "/android",
+  "/app/bookings",
+  "/app/profile",
+  "/app/partners",
+  "/install",
+  "/iphone",
+  "/pwa-shell.js",
+  "/pwa-shell.css",
   "/icons/android-download-qr-native-v3.svg",
   "/downloads/beri-segodnya-android-0.3.0-native-pilot.apk",
   "/downloads/beri-segodnya-android-0.2.0-native-pilot.apk",
@@ -59,7 +66,7 @@ for (const contract of requiredContracts) {
 
 const manifestPath = path.join(root, "public", "manifest.webmanifest");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-if (manifest.display !== "standalone" || manifest.scope !== "/" || !Array.isArray(manifest.icons)) {
+if (manifest.display !== "standalone" || manifest.scope !== "/" || manifest.id !== "/" || manifest.start_url !== "/app?source=pwa" || !Array.isArray(manifest.icons)) {
   console.error("PWA manifest is missing standalone installability contracts");
   process.exit(1);
 }
@@ -103,7 +110,7 @@ for (const asset of ["icon-192.png", "icon-512.png", "maskable-512.png", "apple-
   }
 }
 
-for (const asset of ["manifest.webmanifest", "sw.js", "pwa.js", "offline.html", "offline.css", "offline.js"]) {
+for (const asset of ["manifest.webmanifest", "sw.js", "pwa.js", "pwa-shell.js", "pwa-shell.css", "icons/install-qr.svg", "icons/ui/user.svg", "icons/ui/refresh-cw.svg", "offline.html", "offline.css", "offline.js"]) {
   if (!fs.existsSync(path.join(root, "public", asset))) {
     console.error(`PWA asset is missing: ${asset}`);
     process.exit(1);

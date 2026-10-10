@@ -11,6 +11,7 @@ import { customerAuthEnabled } from "./backend/services/customerService.mjs";
 import { partnerUploadFolder, resolveUploadedImage } from "./backend/storage/imageStore.mjs";
 import { legalConfig } from "./backend/utils/legal.mjs";
 import { streamFile } from "./backend/utils/httpFile.mjs";
+import { pwaHeader, pwaNavigation, pwaPage, installPage, iphonePage } from "./backend/views/pwaPages.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 loadEnvFile(".env.local");
@@ -174,7 +175,7 @@ function sendFile(response, filePath, contentType, cacheControl = "public, max-a
 const nav = [
   { href: "/#offers", path: "/", label: "Предложения сегодня" },
   { href: "/how-it-works", path: "/how-it-works", label: "Как это работает" },
-  { href: "/android", path: "/android", label: "Приложение" }
+  { href: "/install", path: "/install", label: "Приложение" }
 ];
 
 const icon = {
@@ -196,6 +197,8 @@ const icon = {
   package: "package-check",
   stats: "chart-column-increasing",
   smartphone: "smartphone",
+  user: "user",
+  refresh: "refresh-cw",
   today: "calendar-clock",
   bakery: "croissant",
   coffee: "coffee",
@@ -285,7 +288,7 @@ function footer() {
     <div class="footer-contacts">
       <a href="mailto:${html(config.supportEmail)}">${html(config.supportEmail)}</a>
       <a href="/contacts">Написать команде</a>
-      <a class="footer-app-status" href="/android">Приложение для Android</a>
+      <a class="footer-app-status" href="/install">Установить приложение</a>
     </div>
     <nav class="footer-legal" aria-label="Юридические документы">
       <a href="/privacy">Политика обработки ПДн</a>
@@ -520,6 +523,14 @@ function offerRowMarkup(offer) {
   </button>`;
 }
 
+function offerDrawer() {
+  return `<div class="offer-drawer-backdrop" data-close-offer-drawer hidden></div>
+  <aside class="offer-drawer" id="offer-drawer" role="dialog" aria-modal="true" aria-label="Карточка предложения" aria-hidden="true" tabindex="-1" hidden>
+    <button class="drawer-close" type="button" data-close-offer-drawer aria-label="Закрыть" title="Закрыть">${uiIcon("close", "button-icon")}</button>
+    <div data-offer-drawer-content></div>
+  </aside>`;
+}
+
 function homePage() {
   const pageOffers = getPageOffers();
   const today = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Moscow" }).format(new Date()).replace(" г.", "");
@@ -528,7 +539,7 @@ function homePage() {
       <p class="kicker">Еда на сегодня · Армавир</p>
       <h1>Заберите готовую еду дешевле — сегодня</h1>
       <p>Выберите предложение заведения, получите код и оплатите заказ в заведении при получении. Без регистрации и звонков.</p>
-      <div class="actions"><a class="button button-primary" href="#offers">Выбрать предложение</a><a class="button button-outline" href="/how-it-works">Как это работает</a><a class="button button-outline home-app-button" href="/android">Скачать приложение</a></div>
+      <div class="actions"><a class="button button-primary" href="#offers">Выбрать предложение</a><a class="button button-outline" href="/how-it-works">Как это работает</a><a class="button button-outline home-app-button" href="/install">Установить приложение</a></div>
       <ul class="customer-trust"><li>Бронь по коду</li><li>Самовывоз сегодня</li><li>Оплата в заведении</li></ul>
     </div>
     ${codePreview()}
@@ -563,18 +574,14 @@ function homePage() {
       { q: "Кто отвечает за состав и качество?", a: "Предложение готовит и выдаёт указанное заведение. Состав и аллергены проверяйте в карточке и уточняйте у сотрудника." }
     ])}
   </section>
-  <div class="offer-drawer-backdrop" data-close-offer-drawer hidden></div>
-  <aside class="offer-drawer" id="offer-drawer" role="dialog" aria-modal="true" aria-label="Карточка предложения" aria-hidden="true" tabindex="-1" hidden>
-    <button class="drawer-close" type="button" data-close-offer-drawer aria-label="Закрыть" title="Закрыть">${uiIcon("close", "button-icon")}</button>
-    <div data-offer-drawer-content></div>
-  </aside>`;
+  ${offerDrawer()}`;
 }
 
 function howItWorksPage() {
   return `<section class="hero split-hero">
     <div class="hero-copy">
       <h1>Как работает Бери сегодня</h1>
-      <p>Сервис помогает быстро забронировать выгодные предложения еды на сегодня. Пользоваться им можно на сайте или в приложении для Android.</p>
+      <p>Выберите готовую еду на сегодня, забронируйте и оплатите в магазине. Пользоваться можно на сайте, в приложении для Android или с иконки на iPhone.</p>
       <div class="actions">
         <a class="button button-primary" href="/#offers">Смотреть предложения</a>
       </div>
@@ -594,7 +601,7 @@ function howItWorksPage() {
   <section class="section">
     ${sectionTitle("", "Для покупателя")}
     <div class="info-grid">
-      ${featureCard("Приложение для Android", "Скачайте приложение с сайта «Бери сегодня» и пользуйтесь сервисом с телефона.", "smartphone")}
+      ${featureCard("С телефона", "Для Android можно скачать приложение, а на iPhone — добавить его на экран «Домой».", "smartphone")}
       ${featureCard("Только актуальные предложения", "Видите только то, что доступно сегодня здесь и сейчас.", "today")}
       ${featureCard("Оплата в заведении", "Оплачивайте заказ непосредственно в заведении при получении.", "wallet")}
       ${featureCard("Быстро и понятно", "Несколько шагов — и ваш заказ забронирован. Всё просто и прозрачно.", "bolt")}
@@ -603,7 +610,7 @@ function howItWorksPage() {
   <section class="section">
     ${sectionTitle("", "Частые вопросы")}
     ${faq([
-      { q: "Где скачать приложение?", a: "Откройте страницу «Приложение» в меню сайта и нажмите кнопку скачивания." },
+      { q: "Где скачать приложение?", a: "Нажмите «Приложение» в меню сайта и выберите Android или iPhone." },
       { q: "Как происходит оплата?", a: "Оплата происходит в заведении при получении заказа. Сервис на старте не принимает онлайн-оплату." },
       { q: "Можно ли отменить бронь?", a: "Да. Откройте страницу своей брони и подтвердите отмену — набор снова станет доступен, если время выдачи ещё не закончилось." },
       { q: "Что если я не успел забрать заказ?", a: "Предложения действуют только в указанное время. Если клиент не приходит, бронь считается неиспользованной." },
@@ -1287,6 +1294,9 @@ function bookingPage(pathname) {
 }
 
 function renderBody(pathname) {
+  if (pathname === "/app" || pathname.startsWith("/app/")) return pwaPage(pathname, { grid: offerGridSection, drawer: offerDrawer, profile: customerPage, icon: uiIcon });
+  if (pathname === "/install") return installPage(uiIcon);
+  if (pathname === "/iphone") return iphonePage();
   if (pathname === "/customer") return customerPage();
   if (pathname === "/") return homePage();
   if (pathname === "/how-it-works") return howItWorksPage();
@@ -1309,11 +1319,11 @@ function customerPage() {
     <p class="kicker">Для покупателей</p><h1>Мой кабинет</h1>
     <p>Войдите по почте, чтобы видеть свои брони на сайте и в приложении. Имя и телефон достаточно сохранить один раз.</p>
     <p class="form-error" role="status" aria-live="polite" data-customer-message>Загружаем кабинет…</p>
-    <div data-customer-login hidden><form class="booking-form" data-customer-email-form>
+    <div data-customer-login hidden><form class="booking-form" method="post" data-customer-email-form>
       <label>Ваша почта<input name="email" type="email" autocomplete="email" required maxlength="120" /></label>
       <label class="consent"><input name="personalDataConsent" type="checkbox" required /><span>Я согласен на <a href="/personal-data-consent" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="/privacy" target="_blank" rel="noopener">политику конфиденциальности</a>.</span></label>
       <button class="button button-primary" type="submit">Получить код на почту</button>
-    </form><form class="booking-form" data-customer-code-form hidden>
+    </form><form class="booking-form" method="post" data-customer-code-form hidden>
       <label>Код из письма<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required /></label>
       <button class="button button-primary" type="submit">Войти</button>
       <button class="button button-outline" type="button" data-customer-resend>Отправить код ещё раз</button>
@@ -1321,7 +1331,7 @@ function customerPage() {
     </form><p>Пароль не нужен. Можно также <a href="/#offers">забронировать без регистрации</a>.</p></div>
     <div data-customer-account hidden>
       <p>Вы вошли как <strong data-customer-email></strong></p>
-      <form class="booking-form" data-customer-profile-form>
+      <form class="booking-form" method="post" data-customer-profile-form>
         <label>Ваше имя<input name="name" autocomplete="given-name" required maxlength="80" /></label>
         <label>Телефон для связи по заказу<input name="phone" autocomplete="tel" type="tel" inputmode="tel" data-russian-phone required maxlength="19" placeholder="+7 (___) ___-__-__" /></label>
         <button class="button button-primary" type="submit">Сохранить</button>
@@ -1334,13 +1344,19 @@ function customerPage() {
   </section>`;
 }
 
-function renderPage(pathname) {
+function renderPage(pathname, appMode = false) {
   const titles = {
     "/": "Бери сегодня",
     "/how-it-works": "Как это работает",
     "/partners": "Партнёрам",
     "/contacts": "Контакты",
     "/android": "Приложение для Android",
+    "/install": "Установить приложение",
+    "/iphone": "Приложение на iPhone",
+    "/app": "Предложения",
+    "/app/bookings": "Мои брони",
+    "/app/profile": "Профиль",
+    "/app/partners": "Партнёрам",
     "/customer": "Мой кабинет",
     "/privacy": "Политика",
     "/personal-data-consent": "Согласие на обработку ПДн",
@@ -1351,11 +1367,14 @@ function renderPage(pathname) {
     "/partner/dashboard": "Мой кабинет"
   };
   const isAppPage = pathname === "/admin" || pathname.startsWith("/partner/");
+  const isPwaPage = pathname === "/app" || pathname.startsWith("/app/") || appMode;
+  const isInstallPage = ["/install", "/iphone"].includes(pathname);
+  const showVisitorNav = isPwaPage && (!isAppPage || pathname === "/partner/login");
   return `<!doctype html>
   <html lang="ru">
     <head>
       <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       <meta name="robots" content="noindex,nofollow" />
       <title>${pathname === "/" ? "Бери сегодня" : `${pathname.startsWith("/booking/") ? "Моя бронь" : (titles[pathname] || "Бери сегодня")} · Бери сегодня`}</title>
       <meta name="description" content="Выгодные наборы еды из заведений Армавира на сегодня. Бронь по коду, самовывоз и оплата при получении." />
@@ -1369,16 +1388,19 @@ function renderPage(pathname) {
       <link rel="icon" type="image/png" sizes="64x64" href="/icons/favicon-64.png" />
       <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
       <link rel="stylesheet" href="/styles.css" />
+      ${isPwaPage || isInstallPage ? '<link rel="stylesheet" href="/pwa-shell.css" />' : ""}
       <script src="/page-config.js"></script>
     </head>
-    <body class="${pathname === "/" ? "page-home" : "page-inner"}${isAppPage ? " page-app" : ""}">
-      ${isAppPage ? workspaceHeader(pathname) : header(pathname)}
+    <body class="${pathname === "/" ? "page-home" : "page-inner"}${isAppPage ? " page-app" : ""}${isPwaPage ? " page-pwa" : ""}${pathname === "/app/profile" ? " page-pwa-profile" : ""}">
+      ${isPwaPage || isInstallPage ? pwaHeader(config.appCity, html, isInstallPage) : isAppPage ? workspaceHeader(pathname) : header(pathname)}
       <main>${renderBody(pathname)}</main>
-      ${isAppPage ? "" : footer()}
+      ${isAppPage || isPwaPage || isInstallPage ? "" : footer()}
+      ${showVisitorNav ? pwaNavigation(pathname, uiIcon) : ""}
       ${isAppPage ? "" : bookingModal()}
       ${isAppPage ? `<script src="/app.js"></script>` : `<script src="/public.js"></script>`}
       ${isAppPage ? "" : '<script src="/customer.js"></script>'}
-      ${isAppPage ? "" : `<script src="/pwa.js"></script>`}
+      ${isPwaPage ? '<script src="/pwa-shell.js"></script>' : ""}
+      ${isAppPage && !isPwaPage ? "" : `<script src="/pwa.js"></script>`}
     </body>
   </html>`;
 }
@@ -1421,6 +1443,7 @@ const PUBLIC_JS = `
   var offers = window.DEFAULT_OFFERS || [];
   var selectedOffer = null;
   var publicConfig = window.PUBLIC_CONFIG || {};
+  var publicAppMode = document.body?.classList?.contains("page-pwa") === true;
   window.bsCustomerReady = !publicConfig.customerAuthEnabled;
   var drawerReturnFocus = null;
   var modalReturnFocus = null;
@@ -1593,7 +1616,7 @@ const PUBLIC_JS = `
       var expires = new Date(booking.expiresAt || 0).getTime();
       if (booking.status === "created" && expires > Date.now()) saveLatestBooking(latest);
       else clearLatestBooking(latest);
-    }).catch(function () { clearLatestBooking(latest); });
+    }).catch(function (error) { if ([400, 404, 410].includes(error.status)) clearLatestBooking(latest); });
   }
 
   function photoTime(offer) {
@@ -1847,8 +1870,9 @@ function bookingRequestId(form, offerId, data) {
         document.getElementById("booking-code").textContent = result.code;
         delete bookingForm.bookingAttempt;
         var bookingLink = document.getElementById("booking-page-link");
-        if (bookingLink) bookingLink.href = result.bookingUrl;
+        if (bookingLink) bookingLink.href = result.bookingUrl + (publicAppMode ? "?app=1" : "");
         saveLatestBooking(result.bookingUrl);
+        if (!bookingForm.dataset.bookingOwner) window.bsRememberGuestBooking?.(result.bookingUrl);
         selectedOffer.remaining = Math.max(0, Number(selectedOffer.remaining || 0) - 1);
         refreshOffers().catch(function () {});
         document.querySelector('[data-booking-step="form"]').hidden = true;
@@ -1954,10 +1978,13 @@ function bookingRequestId(form, offerId, data) {
         });
       });
     };
-    api("/api/public/bookings/" + encodeURIComponent(publicToken)).then(renderBooking).catch(function () {
-      clearLatestBooking("/booking/" + publicToken);
-      content.innerHTML = '<div class="empty-state"><h2>Бронь не найдена</h2><p>Проверьте ссылку или выберите новое предложение.</p><a class="button button-primary" href="/#offers">Смотреть предложения</a></div>';
-      if (bookingHelp) bookingHelp.innerHTML = '<h2>Что можно сделать</h2><p>Вернитесь к предложениям и создайте новую бронь.</p>';
+    api("/api/public/bookings/" + encodeURIComponent(publicToken)).then(renderBooking).catch(function (error) {
+      var missing = [400, 404, 410].includes(error.status);
+      if (missing) clearLatestBooking("/booking/" + publicToken);
+      content.innerHTML = missing
+        ? '<div class="empty-state"><h2>Бронь не найдена</h2><p>Проверьте ссылку или выберите новое предложение.</p><a class="button button-primary" href="/#offers">Смотреть предложения</a></div>'
+        : '<div class="empty-state"><h2>Не удалось загрузить бронь</h2><p>Проверьте интернет и обновите страницу. Сохранённая ссылка не удалена; повторно бронировать пока не нужно.</p><a class="button button-outline" href="' + escapeHtml(window.location.pathname + window.location.search) + '">Обновить страницу</a></div>';
+      if (bookingHelp) bookingHelp.innerHTML = missing ? '<h2>Что можно сделать</h2><p>Вернитесь к предложениям и создайте новую бронь.</p>' : '<h2>Пока нет связи</h2><p>Код и статус покажем, когда восстановится соединение.</p>';
     });
   }
   setupRussianPhoneInputs();
@@ -2688,12 +2715,12 @@ async function setupPartnerLogin() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const error = form.querySelector(".form-error");
-    try { await api("/api/partner/auth/login", { method: "POST", body: formObject(form) }); location.href = "/partner/dashboard"; }
+    try { await api("/api/partner/auth/login", { method: "POST", body: formObject(form) }); location.href = "/partner/dashboard" + (document.body.classList.contains("page-pwa") ? "?app=1" : ""); }
     catch (err) { error.textContent = err.message; error.hidden = false; }
   });
   try {
     const session = await api("/api/partner/auth/me");
-    if (session.authenticated) location.href = "/partner/dashboard";
+    if (session.authenticated) location.href = "/partner/dashboard" + (document.body.classList.contains("page-pwa") ? "?app=1" : "");
   } catch {}
 }
 
@@ -3220,7 +3247,7 @@ async function setupPartnerDashboard() {
       activateTabs("overview", true);
     } catch (err) { error.textContent = err.message; error.hidden = false; }
   });
-  document.querySelector("[data-partner-logout]")?.addEventListener("click", async () => { try { localStorage.removeItem(WIZARD_DRAFT_KEY); } catch {} await api("/api/partner/auth/logout", { method: "POST" }); location.href = "/partner/login"; });
+  document.querySelector("[data-partner-logout]")?.addEventListener("click", async () => { try { localStorage.removeItem(WIZARD_DRAFT_KEY); } catch {} await api("/api/partner/auth/logout", { method: "POST" }); location.href = "/partner/login" + (document.body.classList.contains("page-pwa") ? "?app=1" : ""); });
   const refreshPartnerBookingRows = () => renderBookingRows(document.querySelector("[data-partner-booking-search]")?.value || "", document.querySelector("[data-partner-booking-status]")?.value || "");
   document.querySelector("[data-partner-booking-search]")?.addEventListener("input", refreshPartnerBookingRows);
   document.querySelector("[data-partner-booking-status]")?.addEventListener("change", refreshPartnerBookingRows);
@@ -5433,6 +5460,8 @@ async function handleRequest(request, response) {
 
   const pwaAsset = {
     "/customer.js": ["customer.js", "text/javascript; charset=utf-8", "no-store"],
+    "/pwa-shell.js": ["pwa-shell.js", "text/javascript; charset=utf-8", "no-store"],
+    "/pwa-shell.css": ["pwa-shell.css", "text/css; charset=utf-8", "no-cache"],
     "/.well-known/assetlinks.json": [".well-known/assetlinks.json", "application/json; charset=utf-8", "public, max-age=300"],
     "/manifest.webmanifest": ["manifest.webmanifest", "application/manifest+json; charset=utf-8", "no-cache"],
     "/sw.js": ["sw.js", "text/javascript; charset=utf-8", "no-cache"],
@@ -5564,7 +5593,7 @@ async function handleRequest(request, response) {
     return;
   }
 
-  const knownRoutes = new Set(["/", "/customer", "/how-it-works", "/partners", "/contacts", "/android", "/privacy", "/personal-data-consent", "/terms", "/partner-terms", "/admin", "/partner/login", "/partner/dashboard"]);
+  const knownRoutes = new Set(["/", "/customer", "/app", "/app/bookings", "/app/profile", "/app/partners", "/install", "/iphone", "/how-it-works", "/partners", "/contacts", "/android", "/privacy", "/personal-data-consent", "/terms", "/partner-terms", "/admin", "/partner/login", "/partner/dashboard"]);
   const isBookingRoute = url.pathname.startsWith("/booking/") && url.pathname.length > "/booking/".length;
 
   if (!knownRoutes.has(url.pathname) && !isBookingRoute) {
@@ -5572,7 +5601,7 @@ async function handleRequest(request, response) {
     return;
   }
 
-  sendText(response, 200, renderPage(url.pathname), { ...securityHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+  sendText(response, 200, renderPage(url.pathname, url.searchParams.get("app") === "1"), { ...securityHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
 }
 
 const server = http.createServer((request, response) => {
