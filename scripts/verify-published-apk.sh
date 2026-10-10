@@ -60,8 +60,9 @@ grep -Fq "launchable-activity: name='ru.berisegodnya.app.LauncherActivity'" <<<"
 
 printf 'Published APK verified: %s\n' "${APK_NAME}"
 
-# Keep the immutable TWA rollback above verified as well as the current native release.
-APK_NAME="beri-segodnya-android-0.2.0-native-pilot.apk"
+# Keep both immutable rollbacks verified as well as the current buyer-account release.
+for NATIVE_VERSION in 2 3; do
+APK_NAME="beri-segodnya-android-0.${NATIVE_VERSION}.0-native-pilot.apk"
 APK_PATH="${APK_DIR}/${APK_NAME}"
 [[ -f "${APK_PATH}" && -f "${APK_PATH}.sha256" ]] || fail "Native signed release or checksum is missing"
 (
@@ -75,9 +76,10 @@ grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' <<<"${signat
 actual_fingerprint="$(printf '%s\n' "${signature_info}" | awk -F': ' '/certificate SHA-256 digest:/{print $2; exit}')"
 [[ "$(canonical_fingerprint "${actual_fingerprint}")" == "$(canonical_fingerprint "${expected_fingerprint}")" ]] || fail "Native certificate does not match the existing pilot and App Links"
 badging="$("${BUILD_TOOLS_DIR}/aapt2" dump badging "${APK_PATH}")" || fail "Unable to inspect native manifest"
-grep -Fq "package: name='ru.berisegodnya.app' versionCode='2' versionName='0.2.0-native-pilot'" <<<"${badging}" || fail "Native package or version is incorrect"
+grep -Fq "package: name='ru.berisegodnya.app' versionCode='${NATIVE_VERSION}' versionName='0.${NATIVE_VERSION}.0-native-pilot'" <<<"${badging}" || fail "Native package or version is incorrect"
 grep -Fq "minSdkVersion:'26'" <<<"${badging}" || fail "Native minSdk is incorrect"
 grep -Fq "targetSdkVersion:'36'" <<<"${badging}" || fail "Native targetSdk is incorrect"
 grep -Fq "launchable-activity: name='ru.berisegodnya.app.MainActivity'" <<<"${badging}" || fail "Native launcher is incorrect"
 if grep -Fq 'application-debuggable' <<<"${badging}"; then fail "Native release is debuggable"; fi
 printf 'Published APK verified: %s\n' "${APK_NAME}"
+done
