@@ -42,6 +42,19 @@ def node(label, clickable=False):
     return None, None
 
 
+def scroll(direction):
+    _, current = tree()
+    target = next((e for e in current.iter('node') if e.get('scrollable') == 'true' and e.get('class') == 'android.widget.ScrollView'), None)
+    if target is None:
+        return False
+    x1, y1, x2, y2 = map(int, re.findall(r'\d+', target.get('bounds')))
+    low, high = y1+(y2-y1)*3//4, y1+(y2-y1)//4
+    start, end = (low, high) if direction == 'up' else (high, low)
+    adb('shell', 'input', 'swipe', str((x1+x2)//2), str(start), str(end), '300')
+    time.sleep(.4)
+    return True
+
+
 def tap(label, scrolling=False):
     for _ in range(7 if scrolling else 1):
         entry, bounds = node(label, True)
@@ -81,12 +94,19 @@ for _ in range(12):
     if node('Обновить', True)[0] is not None:
         offers_loaded = True
         break
+    # A populated catalogue puts Refresh below the first screen. It is not a network failure.
+    scroll('up')
     time.sleep(1)
+if offers_loaded:
+    for _ in range(12):
+        if node('Что забрать сегодня')[0] is not None:
+            break
+        assert scroll('down'), 'Cannot return to catalogue heading'
 capture('01-offers', 'Что забрать сегодня')
 if not offers_loaded:
     (output/'failure-network-types.txt').write_bytes(adb('logcat', '-d', '-s', 'BeriToday:W'))
     (output/'failure-connectivity.txt').write_bytes(adb('shell', 'dumpsys', 'connectivity'))
-assert offers_loaded, 'Public offers API did not finish successfully; inspect 01-offers before claiming live connectivity'
+assert offers_loaded, 'Public offers Refresh control was not reachable; inspect UI/network before claiming live connectivity'
 tap('Мои брони')
 capture('02-bookings', 'Мои брони')
 tap('Профиль')
