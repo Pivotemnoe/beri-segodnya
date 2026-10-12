@@ -1,11 +1,15 @@
 (() => {
   const page = document.querySelector("[data-customer-page]");
   const config = window.PUBLIC_CONFIG || {};
-  let challenge = null, email = "", resendAt = 0, busy = false;
+  let challenge = null, email = "", resendAt = 0, busy = false, refreshPending = null, accountRevision = 0;
   const find = name => page?.querySelector(`[data-customer-${name}]`);
   function message(text) { const node = find("message"); if (node) node.textContent = text; }
   async function api(path, method = "GET", body) {
-    const response = await fetch(`/api/customer/${path}`, { method, credentials: "same-origin", cache: "no-store", headers: { "X-BS-Request": "1", "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const controller = new AbortController();
+    const timeout = method === "GET" ? window.setTimeout(() => controller.abort(), 12000) : null;
+    let response;
+    try { response = await fetch(`/api/customer/${path}`, { method, credentials: "same-origin", cache: "no-store", signal: controller.signal, headers: { "X-BS-Request": "1", "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
+    finally { if (timeout) window.clearTimeout(timeout); }
     const result = await response.json();
     if (!result.ok) throw new Error(result.error?.message || "Не удалось выполнить действие. Попробуйте позже.");
     return result.data;
@@ -17,6 +21,7 @@
     finally { busy = false; page?.querySelectorAll("button").forEach(node => { node.disabled = false; }); }
   }
   function profile(value) {
+    accountRevision++;
     window.bsCustomer = value;
     window.dispatchEvent(new CustomEvent("bs-customer-change", { detail: { authenticated: Boolean(value) } }));
     document.querySelectorAll("[data-customer-link]").forEach(node => { node.textContent = value ? "Мой кабинет" : "Вход для покупателя"; });
@@ -27,6 +32,9 @@
       find("profile-form").elements.name.value = value.name;
       find("profile-form").elements.phone.value = value.phone;
       find("delete").disabled = Boolean(value.deletionRequestedAt);
+    } else {
+      find("email").textContent = ""; find("profile-form").reset();
+      find("bookings").replaceChildren(); find("claim").hidden = true;
     }
   }
   function guestToken() {
@@ -38,7 +46,9 @@
   }
   async function bookings() {
     if (!page) return;
+    const ownerId = window.bsCustomer?.id;
     const rows = await api("bookings");
+    if (!ownerId || ownerId !== window.bsCustomer?.id) return;
     const container = find("bookings"); container.replaceChildren();
     if (!rows.length) { const empty = document.createElement("p"); empty.textContent = "Здесь появятся ваши брони. Выберите предложение на главной странице."; container.append(empty); }
     for (const row of rows) {
@@ -50,14 +60,24 @@
     }
     const token = guestToken(); find("claim").hidden = !token || rows.some(row => row.publicToken === token);
   }
-  async function refresh() {
-    const state = await api("auth/me"); window.bsCustomerReady = true; profile(state.profile);
+  async function refreshAccount() {
+    const revision = accountRevision;
+    const state = await api("auth/me");
+    if (revision !== accountRevision) return { enabled: state.enabled, authenticated: Boolean(window.bsCustomer), profile: window.bsCustomer };
+    window.bsCustomerReady = true; profile(state.profile);
     if (page) {
       message(state.enabled ? "" : "Вход по почте пока недоступен. Можно забронировать без регистрации.");
       if (!state.enabled) find("login").hidden = true;
-      if (state.authenticated) await bookings();
+      if (state.authenticated && !page.closest("[data-pwa-view]")?.hidden) await bookings();
     }
+    return state;
   }
+  function refresh() {
+    if (!refreshPending) refreshPending = refreshAccount().finally(() => { refreshPending = null; });
+    return refreshPending;
+  }
+  window.bsCustomerRefresh = refresh;
+  window.addEventListener("bs-pwa-view-change", event => { if (event.detail?.pathname === "/app/profile") refresh().catch(() => message("Не удалось загрузить кабинет. Проверьте интернет и обновите страницу.")); });
   async function sendCode() {
     if (Date.now() < resendAt) { message("Подождите минуту перед повторной отправкой."); return; }
     challenge = await api("auth/request-code", "POST", { email, personalDataConsent: true });

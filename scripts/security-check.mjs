@@ -79,7 +79,7 @@ for (const header of ["Content-Security-Policy", "Cross-Origin-Embedder-Policy",
 }
 requireText(server, "form-action 'self'", "Content Security Policy must restrict form submissions");
 if (/Content-Security-Policy[^\n]+unsafe-inline/.test(server)) fail("Content Security Policy still permits inline scripts or styles");
-for (const fragment of ['<script src="/page-config.js"></script>', '<script src="/public.js"></script>']) {
+for (const fragment of ['<script defer src="/page-config.js"></script>', "<script defer src=\"${assetHref('/public.js')}\"></script>"]) {
   requireText(server, fragment, `External browser script contract is missing: ${fragment}`);
 }
 requireText(server, 'readEnv("SITE_ACCESS_ENABLED", "false")', "Preview access must default to closed configuration");
