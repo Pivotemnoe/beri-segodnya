@@ -32,10 +32,44 @@
     if (/^\/(?:booking|partner)(?:\/|$)/.test(url.pathname) || ["/admin", "/partners", "/how-it-works"].includes(url.pathname)) url.searchParams.set("app", "1");
     return url.pathname + url.search + url.hash;
   }
+  const shell = document.querySelector("[data-pwa-app-shell]");
+  if (shell) shell.dataset.documentStarted = String(window.performance?.timeOrigin || Date.now());
+  const views = new Map([...document.querySelectorAll("[data-pwa-view]")].map(view => [view.dataset.pwaView, view]));
+  const scrollPositions = new Map();
+  function showView(pathname, focus = true) {
+    if (!shell || !views.has(pathname)) return false;
+    const started = window.performance?.now() ?? Date.now();
+    const current = [...views].find(([, view]) => !view.hidden)?.[0];
+    if (current) scrollPositions.set(current, window.scrollY);
+    views.forEach((view, path) => { view.hidden = path !== pathname; });
+    document.querySelectorAll(".pwa-bottom-nav a").forEach(link => {
+      if (new URL(link.href).pathname === pathname) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    });
+    document.body.classList.toggle("page-pwa-profile", pathname === "/app/profile");
+    const heading = views.get(pathname).querySelector("h1");
+    document.title = `${heading?.textContent || "Бери сегодня"} · Бери сегодня`;
+    window.dispatchEvent(new CustomEvent("bs-pwa-view-change", { detail: { pathname } }));
+    if (focus && heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
+    window.scrollTo(0, focus ? 0 : (scrollPositions.get(pathname) || 0));
+    // Ephemeral, non-personal diagnostic only; no network telemetry or persisted data.
+    shell.dataset.switchMs = ((window.performance?.now() ?? Date.now()) - started).toFixed(2);
+    return true;
+  }
+  function navigate(value) {
+    const url = new URL(value, location.origin);
+    if (url.origin !== location.origin || !views.has(url.pathname)) return false;
+    if (url.href !== location.href) history.pushState({ pwa: true }, "", url.pathname + url.search + url.hash);
+    return showView(url.pathname);
+  }
+  window.addEventListener("popstate", () => showView(location.pathname, false));
   document.addEventListener("click", event => {
     const link = event.target.closest?.("a[href]");
     if (!link || link.hasAttribute("download") || link.target === "_blank" || !/^https?:$/.test(new URL(link.href).protocol)) return;
     link.href = appHref(link.href);
+    if (!event.defaultPrevented && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (!link.target || link.target === "_self") && shell && views.has(new URL(link.href).pathname)) {
+      event.preventDefault(); navigate(link.href);
+    }
   }, true);
 
   const viewport = window.visualViewport;
@@ -95,11 +129,12 @@
     account.replaceChildren(); guest.replaceChildren(); find("guest-section").hidden = true; find("profile-note").hidden = true;
     try {
       let state = null, incomplete = false, shown = 0;
-      try { state = await api("/api/customer/auth/me"); } catch { incomplete = true; }
+      try { state = window.bsCustomerRefresh ? await window.bsCustomerRefresh() : await api("/api/customer/auth/me"); } catch { incomplete = true; }
       const accountTokens = new Set();
       if (state?.authenticated) {
         try {
           const rows = await api("/api/customer/bookings");
+          if (window.bsCustomer?.id !== state.profile?.id) return;
           for (const row of rows) { const card = bookingCard(row); if (card) { account.append(card); accountTokens.add(row.publicToken); shown++; } }
         } catch { incomplete = true; }
       }
@@ -116,7 +151,12 @@
     } finally { loading = false; refresh.disabled = false; }
   }
   root?.querySelector("[data-pwa-bookings-refresh]").addEventListener("click", loadBookings);
-  if (root) loadBookings();
+  if (root && (!shell || location.pathname === "/app/bookings")) loadBookings();
+  window.addEventListener("bs-pwa-view-change", event => { if (event.detail?.pathname === "/app/bookings") loadBookings(); });
+  function refreshActiveView() { if (shell) showView(location.pathname, false); }
+  window.addEventListener("pageshow", event => { if (event.persisted) refreshActiveView(); });
+  window.addEventListener("online", refreshActiveView);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshActiveView(); });
 
   // Optional, repeatable guidance. Only the local dismissal marker is persisted.
   let tourDialog = null;
@@ -142,7 +182,7 @@
       dialog.querySelector("[data-tour-next]").textContent = step === steps.length - 1 ? "Выбрать предложение" : "Дальше";
       document.querySelectorAll(".pwa-bottom-nav a").forEach(link => link.classList.toggle("pwa-tour-highlight", new URL(link.href).pathname === href));
     }
-    dialog.querySelector("[data-tour-next]").onclick = () => { if (++step < steps.length) render(); else { dialog.close(); location.assign("/app"); } };
+    dialog.querySelector("[data-tour-next]").onclick = () => { if (++step < steps.length) render(); else { dialog.close(); if (!shell || !navigate("/app")) location.assign("/app"); } };
     dialog.querySelector("[data-tour-close]").onclick = () => dialog.close();
     dialog.addEventListener("close", () => {
       rememberTour(); document.querySelectorAll(".pwa-tour-highlight").forEach(node => node.classList.remove("pwa-tour-highlight"));
@@ -159,6 +199,12 @@
     document.querySelector("main").prepend(invite);
   }
   document.querySelectorAll("[data-pwa-tour-start]").forEach(node => node.addEventListener("click", event => startTour(event.currentTarget)));
-  window.addEventListener("bs-customer-change", event => { offerTour(event.detail?.authenticated); if (!event.detail?.authenticated) document.querySelector("[data-pwa-tour-invite]")?.remove(); });
+  window.addEventListener("bs-customer-change", event => {
+    offerTour(event.detail?.authenticated);
+    if (!event.detail?.authenticated) {
+      document.querySelector("[data-pwa-tour-invite]")?.remove();
+      root?.querySelector("[data-pwa-account-bookings]")?.replaceChildren();
+    }
+  });
   offerTour(Boolean(window.bsCustomer));
 })();

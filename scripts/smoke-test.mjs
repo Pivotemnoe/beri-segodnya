@@ -234,6 +234,14 @@ async function runScenario(port) {
   assert(publicHome.text.includes('aria-label="Закрыть форму бронирования"'), "Booking dialog close button has no accessible label");
   assert(publicHome.text.includes('rel="manifest" href="/manifest.webmanifest"') && publicHome.text.includes('class="footer-app-status" href="/install"') && publicHome.text.includes('href="/install">Приложение</a>') && publicHome.text.includes('class="button button-outline home-app-button" href="/install">Установить приложение</a>') && !publicHome.text.includes("Приложение в разработке") && !publicHome.text.includes('data-pwa-install'), "Application install links or PWA status are inconsistent");
   const pwaApp = await request(port, "/app");
+  assert(pwaApp.text.includes('data-pwa-app-shell') && (pwaApp.text.match(/class="pwa-view" data-pwa-view=/g) || []).length === 4 && (pwaApp.text.match(/class="pwa-view" data-pwa-view="[^"]+" hidden/g) || []).length === 3, "App tabs must share one document with exactly one visible view");
+  const versionedCss = pwaApp.text.match(/href="(\/styles.css\?v=[a-f0-9]{16})"/)?.[1];
+  assert(versionedCss && pwaApp.text.includes('<script defer src="/page-config.js">'), "Static versioning or non-blocking config is missing");
+  const cachedCss = await request(port, versionedCss, { auth: null });
+  assert(cachedCss.headers["cache-control"] === "public, max-age=31536000, immutable", "Versioned CSS cannot be reused between documents");
+  const revalidatedCss = await request(port, versionedCss, { auth: null, headers: { "If-None-Match": cachedCss.headers.etag } });
+  assert(revalidatedCss.status === 304, "Unchanged CSS must support HTTP revalidation");
+  assert(pwaApp.headers["cache-control"] === "no-store", "App documents must not become cacheable");
   assert(pwaApp.status === 200 && pwaApp.text.includes('page-pwa') && pwaApp.text.includes('aria-label="Разделы приложения"') && pwaApp.text.includes('href="/app/bookings"') && !pwaApp.text.includes('<footer class="site-footer"') && !pwaApp.text.includes('<header class="site-header"'), "Separate app shell is missing or contains website chrome");
   assert(pwaApp.text.includes('id="offer-drawer"') && pwaApp.text.includes('id="booking-form"') && pwaApp.text.includes('viewport-fit=cover'), "PWA offer/guest booking/safe-area contracts are missing");
   assertFormsUsePost(pwaApp.text, "PWA catalog");

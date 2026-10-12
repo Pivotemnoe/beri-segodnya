@@ -1,4 +1,4 @@
-const CACHE_VERSION = "beri-segodnya-static-v2";
+const CACHE_VERSION = "beri-segodnya-static-v3";
 const STATIC_ASSETS = [
   "/offline.html",
   "/offline.css",

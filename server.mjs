@@ -11,6 +11,7 @@ import { customerAuthEnabled } from "./backend/services/customerService.mjs";
 import { partnerUploadFolder, resolveUploadedImage } from "./backend/storage/imageStore.mjs";
 import { legalConfig } from "./backend/utils/legal.mjs";
 import { streamFile } from "./backend/utils/httpFile.mjs";
+import { textAsset, sendTextAsset } from "./backend/utils/textAssets.mjs";
 import { pwaHeader, pwaNavigation, pwaPage, installPage, iphonePage } from "./backend/views/pwaPages.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -1369,6 +1370,8 @@ function renderPage(pathname, appMode = false) {
   const isAppPage = pathname === "/admin" || pathname.startsWith("/partner/");
   const isPwaPage = pathname === "/app" || pathname.startsWith("/app/") || appMode;
   const isInstallPage = ["/install", "/iphone"].includes(pathname);
+  const tabPaths = ["/app", "/app/bookings", "/app/profile", "/app/partners"];
+  const isTabPage = tabPaths.includes(pathname);
   const showVisitorNav = isPwaPage && (!isAppPage || pathname === "/partner/login");
   return `<!doctype html>
   <html lang="ru">
@@ -1387,20 +1390,20 @@ function renderPage(pathname, appMode = false) {
       <link rel="manifest" href="/manifest.webmanifest" />
       <link rel="icon" type="image/png" sizes="64x64" href="/icons/favicon-64.png" />
       <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-      <link rel="stylesheet" href="/styles.css" />
-      ${isPwaPage || isInstallPage ? '<link rel="stylesheet" href="/pwa-shell.css" />' : ""}
-      <script src="/page-config.js"></script>
+      <link rel="stylesheet" href="${assetHref('/styles.css')}" />
+      ${isPwaPage || isInstallPage ? `<link rel="stylesheet" href="${assetHref('/pwa-shell.css')}" />` : ""}
+      <script defer src="/page-config.js"></script>
     </head>
     <body class="${pathname === "/" ? "page-home" : "page-inner"}${isAppPage ? " page-app" : ""}${isPwaPage ? " page-pwa" : ""}${pathname === "/app/profile" ? " page-pwa-profile" : ""}">
       ${isPwaPage || isInstallPage ? pwaHeader(config.appCity, html, isInstallPage) : isAppPage ? workspaceHeader(pathname) : header(pathname)}
-      <main>${renderBody(pathname)}</main>
+      <main${isTabPage ? ' data-pwa-app-shell' : ''}>${isTabPage ? tabPaths.map(route => `<section class="pwa-view" data-pwa-view="${route}"${route === pathname ? '' : ' hidden'}>${renderBody(route)}</section>`).join('') : renderBody(pathname)}</main>
       ${isAppPage || isPwaPage || isInstallPage ? "" : footer()}
       ${showVisitorNav ? pwaNavigation(pathname, uiIcon) : ""}
       ${isAppPage ? "" : bookingModal()}
-      ${isAppPage ? `<script src="/app.js"></script>` : `<script src="/public.js"></script>`}
-      ${isAppPage ? "" : '<script src="/customer.js"></script>'}
-      ${isPwaPage ? '<script src="/pwa-shell.js"></script>' : ""}
-      ${isAppPage && !isPwaPage ? "" : `<script src="/pwa.js"></script>`}
+      ${isAppPage ? `<script defer src="${assetHref('/app.js')}"></script>` : `<script defer src="${assetHref('/public.js')}"></script>`}
+      ${isAppPage ? "" : `<script defer src="${assetHref('/customer.js')}"></script>`}
+      ${isPwaPage ? `<script defer src="${assetHref('/pwa-shell.js')}"></script>` : ""}
+      ${isAppPage && !isPwaPage ? "" : `<script defer src="${assetHref('/pwa.js')}"></script>`}
     </body>
   </html>`;
 }
@@ -1989,7 +1992,11 @@ function bookingRequestId(form, offerId, data) {
   }
   setupRussianPhoneInputs();
   restoreLatestBooking();
-  refreshOffers().catch(showMarketplaceError);
+  window.addEventListener("bs-pwa-view-change", function (event) {
+    closeOfferDrawer(false); closeBookingModal(false);
+    if (event.detail?.pathname === "/app") refreshOffers().catch(showMarketplaceError);
+  });
+  if (!document.querySelector('[data-pwa-view="/app"]')?.hidden) refreshOffers().catch(showMarketplaceError);
 })();
 `;
 
@@ -5430,6 +5437,14 @@ body { background: var(--color-bg); }
 }
 `;
 
+const TEXT_ASSETS = new Map([
+  ["/styles.css", textAsset(STYLES, "text/css; charset=utf-8")],
+  ["/app.js", textAsset(APP_JS, "text/javascript; charset=utf-8")],
+  ["/public.js", textAsset(PUBLIC_JS, "text/javascript; charset=utf-8")],
+  ...["customer.js", "pwa-shell.js", "pwa.js", "pwa-shell.css"].map(name => ["/" + name, textAsset(fs.readFileSync(path.join(ROOT, "public", name)), name.endsWith(".css") ? "text/css; charset=utf-8" : "text/javascript; charset=utf-8")])
+]);
+function assetHref(pathname) { return `${pathname}?v=${TEXT_ASSETS.get(pathname).version}`; }
+
 async function handleRequest(request, response) {
   let url;
   try {
@@ -5443,18 +5458,9 @@ async function handleRequest(request, response) {
     return;
   }
 
-  if (url.pathname === "/styles.css") {
-    sendText(response, 200, STYLES, { ...securityHeaders, "Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-store" });
-    return;
-  }
-
-  if (url.pathname === "/app.js") {
-    sendText(response, 200, APP_JS, { ...securityHeaders, "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" });
-    return;
-  }
-
-  if (url.pathname === "/public.js") {
-    sendText(response, 200, PUBLIC_JS, { ...securityHeaders, "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" });
+  const staticText = TEXT_ASSETS.get(url.pathname);
+  if (staticText && ["GET", "HEAD"].includes(request.method)) {
+    sendTextAsset(request, response, url, staticText, securityHeaders);
     return;
   }
 
