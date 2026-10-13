@@ -10,6 +10,8 @@ data/db.json
 
 The file is ignored by Git. Seed/migration scripts are committed.
 
+Atomic JSON replacement preserves the existing file UID/GID and `0600` mode, including offline migrations executed as root. The service account must retain access; do not solve an ownership error by making the database public-readable.
+
 ## Collections
 
 - `adminUsers`

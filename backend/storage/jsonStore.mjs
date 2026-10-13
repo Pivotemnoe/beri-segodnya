@@ -49,9 +49,13 @@ export function readDb() {
 export function writeDb(data) {
   const DB_PATH = dbPath();
   const TMP_PATH = DB_PATH.replace(/\.json$/, ".tmp.json");
+  // An offline migration may run as root. Atomic rename must not take the
+  // database away from the service account that owns the existing file.
+  const previous = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH) : null;
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true, mode: 0o700 });
   fs.writeFileSync(TMP_PATH, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
   fs.chmodSync(TMP_PATH, 0o600);
+  if (previous) fs.chownSync(TMP_PATH, previous.uid, previous.gid);
   fs.renameSync(TMP_PATH, DB_PATH);
   fs.chmodSync(DB_PATH, 0o600);
 }

@@ -23,7 +23,7 @@ blank.adminUsers.push({ id: "admin:admin", login: "admin", status: "active", mus
 blank.partners.push({ id: "training", name: "Тестовая пекарня", status: "active" });
 blank.bookings.push({ id: "preserved-training-booking" });
 fs.writeFileSync(process.env.DB_FILE, JSON.stringify(blank), { mode: 0o600 });
-const { readDb, updateDb } = await import("../backend/storage/jsonStore.mjs");
+const { readDb, updateDb, writeDb } = await import("../backend/storage/jsonStore.mjs");
 const repository = await import("../backend/repositories/databaseRepository.mjs");
 const auth = await import("../backend/services/authService.mjs");
 const accounts = await import("../backend/services/adminAccountService.mjs");
@@ -68,6 +68,13 @@ async function race(operation, mutation, code) {
 }
 
 try {
+  const originalOwner = fs.statSync(process.env.DB_FILE);
+  // Root-only rehearsal on the VPS exercises a genuinely different service UID.
+  if (process.getuid?.() === 0) fs.chownSync(process.env.DB_FILE, 65534, 65534);
+  const expectedOwner = fs.statSync(process.env.DB_FILE);
+  writeDb(JSON.parse(fs.readFileSync(process.env.DB_FILE, "utf8")));
+  check([fs.statSync(process.env.DB_FILE).uid, fs.statSync(process.env.DB_FILE).gid, fs.statSync(process.env.DB_FILE).mode & 0o777], [expectedOwner.uid, expectedOwner.gid, 0o600], "Atomic write preserves the service UID/GID and private mode");
+  if (process.getuid?.() === 0) fs.chownSync(process.env.DB_FILE, originalOwner.uid, originalOwner.gid);
   server.listen(0, "127.0.0.1"); await once(server, "listening");
   const legacy = await login("admin"); check(legacy.status, 200);
   check((await request("/api/admin/administrators", { cookie: legacy.cookie })).status, 403, "Legacy admin is not silently owner");
