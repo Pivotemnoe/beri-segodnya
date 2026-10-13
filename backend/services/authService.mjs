@@ -2,6 +2,8 @@ import {
   createSession,
   deleteSession,
   findAdminUser,
+  findAdminUserById,
+  hasStoredAdminUsers,
   findPartnerUser,
   findPartnerUserById,
   getSession,
@@ -115,6 +117,8 @@ export function sessionFromRequest(request) {
 function adminCredentials(login) {
   const stored = findAdminUser(login);
   if (stored) return stored;
+  // Never resurrect a renamed/archived account through the environment password.
+  if (hasStoredAdminUsers()) return null;
   const expectedLogin = process.env.ADMIN_APP_LOGIN || "admin";
   if (login !== expectedLogin) return null;
   return {
@@ -123,6 +127,25 @@ function adminCredentials(login) {
     password_salt: process.env.ADMIN_APP_PASSWORD_SALT,
     password_iterations: Number(process.env.ADMIN_APP_PASSWORD_ITERATIONS || LEGACY_PASSWORD_ITERATIONS)
   };
+}
+
+export function adminUserForSession(session) {
+  const stored = findAdminUserById(session?.user_id);
+  if (stored) return stored;
+  const bootstrap = adminCredentials(process.env.ADMIN_APP_LOGIN || "admin");
+  return bootstrap?.id === session?.user_id ? bootstrap : null;
+}
+
+export function adminUserRole(user) {
+  return user?.role === undefined ? "admin" : user.role;
+}
+
+export function adminSessionView(session) {
+  const user = adminUserForSession(session);
+  return { authenticated: true, role: "admin", userId: user.id, login: user.login,
+    name: user.name || user.login, userRole: adminUserRole(user),
+    canManageAdministrators: adminUserRole(user) === "owner",
+    passwordChangeRequired: adminPasswordChangeRequired(session) };
 }
 
 function sameCredentials(before, after) {
@@ -139,9 +162,9 @@ function requireCurrentSession(session, before, after) {
 export async function adminLogin(login, password) {
   const normalized = String(login || "").trim();
   const stored = adminCredentials(normalized);
-  if (!stored || !await verifyPasswordAsync(password, stored.password_hash, stored.password_salt, stored.password_iterations)) return null;
+  if (!stored || stored.status !== "active" || !["owner", "admin"].includes(adminUserRole(stored)) || !await verifyPasswordAsync(password, stored.password_hash, stored.password_salt, stored.password_iterations)) return null;
   if (!sameCredentials(stored, adminCredentials(normalized))) return null;
-  return createSession("admin", null, stored.id, "admin");
+  return createSession("admin", null, stored.id, adminUserRole(stored));
 }
 
 export async function partnerLogin(login, password) {
@@ -188,9 +211,8 @@ function requireDifferentPassword(currentPassword, nextPassword) {
 }
 
 export function adminPasswordChangeRequired(session) {
-  if (!session?.user_id) return true;
-  const login = String(session.user_id).replace(/^admin:/, "");
-  return !findAdminUser(login);
+  const user = findAdminUserById(session?.user_id);
+  return !user || Boolean(user.must_change_password);
 }
 
 export function partnerPasswordChangeRequired(session) {
@@ -198,8 +220,7 @@ export function partnerPasswordChangeRequired(session) {
 }
 
 export async function changeAdminPassword(session, currentPassword, nextPassword) {
-  const login = String(session?.user_id || "").replace(/^admin:/, "");
-  const stored = adminCredentials(login);
+  const stored = adminUserForSession(session);
   if (!stored || !await verifyPasswordAsync(currentPassword, stored.password_hash, stored.password_salt, stored.password_iterations)) {
     const error = new Error("Текущий пароль указан неверно");
     error.status = 401;
@@ -209,9 +230,12 @@ export async function changeAdminPassword(session, currentPassword, nextPassword
   const next = passwordValue(nextPassword);
   requireDifferentPassword(currentPassword, next);
   const credentials = await createPasswordHashAsync(next);
-  requireCurrentSession(session, stored, adminCredentials(login));
-  const user = upsertAdminUserPassword(login, credentials);
-  return createSession("admin", null, user.id, "admin");
+  requireCurrentSession(session, stored, adminUserForSession(session));
+  if (stored.status !== "active" || adminUserRole(stored) !== session.user_role) {
+    throw Object.assign(new Error("Доступ изменился. Войдите снова."), { status: 401, code: "SESSION_REVOKED" });
+  }
+  const user = upsertAdminUserPassword(stored.login, credentials);
+  return createSession("admin", null, user.id, adminUserRole(user));
 }
 
 export async function changePartnerPassword(session, currentPassword, nextPassword) {
@@ -242,6 +266,12 @@ export function requireRole(request, role) {
   if (!session) return { ok: false, status: 401, code: "UNAUTHORIZED", message: "Требуется вход" };
   if (session.role !== role) return { ok: false, status: 403, code: "FORBIDDEN", message: "Недостаточно прав" };
   if (!session.user_id) return { ok: false, status: 401, code: "SESSION_REVOKED", message: "Войдите снова" };
+  if (role === "admin") {
+    const user = adminUserForSession(session);
+    if (!user || user.status !== "active" || !["owner", "admin"].includes(adminUserRole(user)) || adminUserRole(user) !== session.user_role) {
+      return { ok: false, status: 401, code: "SESSION_REVOKED", message: "Доступ изменён. Войдите снова" };
+    }
+  }
   if (role === "partner") {
     const user = findPartnerUserById(session.user_id);
     if (!user || user.status !== "active" || user.partner_id !== session.partner_id || user.role !== session.user_role) {

@@ -31,3 +31,19 @@ export async function sendCustomerCode(email, code) {
     throw Object.assign(new Error("Не удалось отправить код. Подождите немного и попробуйте снова."), { status: 503, code: "MAIL_DELIVERY_FAILED", expose: true });
   } finally { transport.close(); }
 }
+
+export async function sendAdminPasswordReset(email, link) {
+  const config = mailConfiguration();
+  const transport = nodemailer.createTransport(config);
+  try {
+    const result = await transport.sendMail({
+      from: { name: "Бери сегодня", address: config.auth.user }, to: { address: email },
+      subject: "Новый пароль администратора Бери сегодня",
+      text: `Вы запросили новый пароль для панели администратора «Бери сегодня».\n\nОткройте ссылку и задайте свой пароль:\n${link}\n\nСсылка действует 20 минут и подходит только для одного восстановления. После сохранения нового пароля старые входы в этот аккаунт закроются.\n\nЕсли вы не запрашивали восстановление, ничего делать не нужно — ваш пароль не изменён. Никому не пересылайте это письмо.\n\nБери сегодня`,
+      disableFileAccess: true, disableUrlAccess: true
+    });
+    if (!result.accepted?.includes(email)) throw new Error("RECIPIENT_NOT_ACCEPTED");
+  } catch {
+    throw Object.assign(new Error("Письмо не удалось отправить."), { status: 503, code: "MAIL_DELIVERY_FAILED" });
+  } finally { transport.close(); }
+}

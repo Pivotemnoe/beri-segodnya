@@ -77,6 +77,8 @@ http://localhost:3010/admin
 
 Access: one internal app login through `POST /api/admin/auth/login`.
 
+The service owner and assistants have separate email logins. Owner-only administrator management and email password recovery: [ADMIN_ACCOUNTS.md](ADMIN_ACCOUNTS.md). Owner settings are not partner-owner rights.
+
 Environment variables:
 
 - `ADMIN_APP_LOGIN`

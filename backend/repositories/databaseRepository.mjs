@@ -181,7 +181,15 @@ export function deleteSessionsForRole(role) {
 
 export function findAdminUser(login) {
   const normalized = String(login || "").trim().toLowerCase();
-  return readDb().adminUsers.find((item) => item.login.toLowerCase() === normalized && item.status === "active") || null;
+  return readDb().adminUsers.find((item) => item.login.toLowerCase() === normalized) || null;
+}
+
+export function findAdminUserById(id) {
+  return readDb().adminUsers.find((item) => item.id === id) || null;
+}
+
+export function hasStoredAdminUsers() {
+  return readDb().adminUsers.length > 0;
 }
 
 export function upsertAdminUserPassword(login, { hash, salt, iterations }) {
@@ -200,7 +208,8 @@ export function upsertAdminUserPassword(login, { hash, salt, iterations }) {
       must_change_password: false,
       updated_at: time
     });
-    db.sessions = db.sessions.filter((item) => item.role !== "admin");
+    db.sessions = db.sessions.filter((item) => item.role !== "admin" || item.user_id !== user.id);
+    db.adminPasswordResets = db.adminPasswordResets.filter((item) => item.user_id !== user.id);
     addAudit(db, "admin", user.id, "change_admin_password", "admin_user", user.id);
     return user;
   });
@@ -451,8 +460,10 @@ export function listAdminAuditLog() {
   const db = readDb();
   const references = new Map();
   const actorNames = new Map((db.partnerUsers || []).map((user) => [user.id, typeof user.name === "string" ? user.name.trim().slice(0, 80) || null : null]));
+  for (const user of db.adminUsers) actorNames.set(user.id, String(user.name || user.login).slice(0, 80));
   const referenceFields = { bookings: ["booking", "code"], partners: ["partner", "name"], offers: ["offer", "title"], partnerAddresses: ["partner_address", "title"], partnerUsers: ["partner_user", "name"], offerTemplates: ["offer_template", "title"], partnerApplications: ["partner_application", "venue_name"], contactRequests: ["contact_request", "name"] };
   const entityAliases = {};
+  for (const user of db.adminUsers) references.set("admin_user:" + user.id, String(user.name || user.login).slice(0, 160));
   for (const [collection, [entityType, field]] of Object.entries(referenceFields)) {
     entityAliases[collection] = entityType;
     for (const record of db[collection] || []) references.set(entityType + ":" + record.id, typeof record[field] === "string" ? record[field].slice(0, 160) : null);
@@ -470,13 +481,13 @@ export function listAdminAuditLog() {
     const patchEvent = String(row.action).startsWith("patch_");
     return {
       actorRole: row.actor_role,
-      actorName: row.actor_role === "partner" ? actorNames.get(row.actor_id) || null : null,
+      actorName: ["partner", "admin"].includes(row.actor_role) ? actorNames.get(row.actor_id) || null : null,
       action: row.action,
       entityType,
       createdAt: row.created_at,
       referenceLabel: references.get(entityType + ":" + row.entity_id) || null,
-      previousStatus: bookingStatusEvent ? safeStatus(metadata.from) : null,
-      status: bookingStatusEvent ? safeStatus(metadata.to) : patchEvent ? safeStatus(metadata.status) : null,
+      previousStatus: bookingStatusEvent || row.action === "set_administrator_status" ? safeStatus(metadata.from) : null,
+      status: bookingStatusEvent || row.action === "set_administrator_status" ? safeStatus(metadata.to) : patchEvent ? safeStatus(metadata.status) : null,
       reason: row.action === "correct_booking_status" && entityType === "booking" && typeof metadata.reason === "string" ? metadata.reason.slice(0, 500) : null
     };
   });

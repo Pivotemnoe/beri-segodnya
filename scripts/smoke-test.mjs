@@ -324,7 +324,7 @@ async function runScenario(port) {
   assert(appScript.text.includes('wizard.querySelectorAll("[data-wizard-photo-input]").forEach((input) => input.addEventListener("change"'), "Only one photo source is wired to preparation");
   const passwordInputCount = [adminPage.text, partnerLoginPage.text, partnerDashboardPage.text]
     .reduce((count, markup) => count + (markup.match(/type="password"/g) || []).length, 0);
-  assert(passwordInputCount === 14, `Expected 14 password inputs to receive visibility controls, found ${passwordInputCount}`);
+  assert(passwordInputCount === 18, `Expected 18 password inputs to receive visibility controls, found ${passwordInputCount}`);
   const anonymousAdminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic" });
   assert(anonymousAdminMe.status === 200 && anonymousAdminMe.json.data.authenticated === false, "Anonymous admin session probe failed");
   const anonymousPartnerMe = await request(port, "/api/partner/auth/me", { auth: "partnerBasic" });
@@ -342,7 +342,7 @@ async function runScenario(port) {
   let adminCookie = cookieFrom(adminLogin);
   const adminMe = await request(port, "/api/admin/auth/me", { auth: "adminBasic", cookie: adminCookie });
   assert(adminMe.status === 200 && adminMe.json.data.authenticated === true && adminMe.json.data.passwordChangeRequired === true, "Admin session probe failed");
-  assert(adminMe.json.data.login === adminApp.login && Object.keys(adminMe.json.data).sort().join(",") === "authenticated,login,passwordChangeRequired,role", "Admin session identity missing or unsafe fields exposed");
+  assert(adminMe.json.data.login === adminApp.login && Object.keys(adminMe.json.data).sort().join(",") === "authenticated,canManageAdministrators,login,name,passwordChangeRequired,role,userId,userRole", "Admin session identity missing or unsafe fields exposed");
   const gatedAdminDashboard = await request(port, "/api/admin/dashboard", { auth: "adminBasic", cookie: adminCookie });
   assert(gatedAdminDashboard.status === 403 && gatedAdminDashboard.json.error.code === "PASSWORD_CHANGE_REQUIRED", "Admin bypassed required password change");
   const changedAdminPassword = "smoke-admin-permanent-password";

@@ -1078,7 +1078,7 @@ function mobileWorkspaceNavigation(kind) {
     ? [["overview", "Обзор", "dashboard"], ["partners", "Заведения", "shop"], ["bookings", "Брони", "ticket"]]
     : [["offers", "Предложения", "bag"], ["bookings", "Коды", "ticket"], ["overview", "Кабинет", "shop"]];
   const secondary = admin
-    ? [["offers", "Все предложения"], ["partner-applications", "Заявки заведений"], ["contact-requests", "Обращения"], ["audit", "История действий"], ["settings", "Пароль и настройки"]]
+    ? [["offers", "Все предложения"], ["partner-applications", "Заявки заведений"], ["contact-requests", "Обращения"], ["administrators", "Администраторы"], ["audit", "История действий"], ["settings", "Пароль и настройки"]]
     : [["addresses", "Точки выдачи"], ["profile", "Профиль заведения"], ["security", "Изменить пароль"], ["help", "Как работать"]];
   const link = ([key, title, iconName]) => `<a data-tab-link="${key}" href="${path}?tab=${key}">${iconName ? uiIcon(iconName) : ""}<span>${title}</span></a>`;
   return `<nav class="workspace-mobile-nav" aria-label="Разделы ${admin ? "администратора" : "кабинета"}">
@@ -1104,14 +1104,32 @@ function adminPage() {
       </div>
       <div class="auth-box">
         <h3>Вход администратора</h3>
-        <p>Введите свой логин и пароль. При первом входе сайт попросит заменить временный пароль.</p>
+        <p>Владелец входит по своей почте и паролю от «Бери сегодня». Помощники — по выданному им логину. Пароль от почтового ящика здесь не нужен.</p>
         <form class="smart-form auth-form" method="post" data-admin-login-form>
-          <label>Логин<input name="login" required maxlength="80" autocomplete="username" placeholder="Введите логин" /></label>
+          <label>Почта или логин<input name="login" required maxlength="80" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Введите почту или логин" /></label>
           <label>Пароль<input name="password" required maxlength="120" type="password" autocomplete="current-password" placeholder="Введите пароль" /></label>
           <p class="form-error" role="alert" aria-live="polite" hidden></p>
           <button class="button button-primary" type="submit">Войти в панель</button>
         </form>
+        <button class="button button-outline" type="button" data-admin-forgot-password>Забыли пароль?</button>
       </div>
+    </div>
+    <div class="auth-box" data-admin-recovery hidden>
+      <h3>Задать новый пароль</h3><p>Укажите почту, с которой входите в админку. Мы пришлём ссылку для нового пароля. Пароль от почты вводить не нужно.</p>
+      <form class="smart-form auth-form" method="post" data-admin-recovery-form>
+        <label>Ваша почта<input name="email" type="email" required maxlength="80" autocomplete="email" autocapitalize="none" spellcheck="false" /></label>
+        <p class="form-error" role="alert" hidden></p><p data-admin-recovery-message role="status" hidden></p>
+        <button class="button button-primary" type="submit">Получить ссылку на почту</button>
+      </form><button class="button button-outline" type="button" data-admin-back-login>Вернуться ко входу</button>
+    </div>
+    <div class="auth-box" data-admin-reset-password hidden>
+      <h3>Новый пароль для админки</h3><p>Придумайте пароль от «Бери сегодня» длиной от 12 символов. Не используйте пароль от почты. После сохранения откроется ваш кабинет.</p>
+      <form class="smart-form auth-form" method="post" data-admin-recovery-complete>
+        <label>Новый пароль<input name="newPassword" type="password" required minlength="12" maxlength="120" autocomplete="new-password" /></label>
+        <label>Повторите новый пароль<input name="confirmPassword" type="password" required minlength="12" maxlength="120" autocomplete="new-password" /></label>
+        <p class="form-error" role="alert" hidden></p><button class="button button-primary" type="submit">Сохранить пароль и войти</button>
+      </form><button class="button button-outline" type="button" data-admin-forgot-password>Получить новую ссылку</button>
+      <button class="button button-outline" type="button" data-admin-back-login>Вернуться ко входу</button>
     </div>
     <div class="access-layout password-gate" data-admin-password-gate hidden>
       <div class="access-intro"><p class="kicker">Первый вход</p><h3>Задайте свой постоянный пароль</h3><p>Временный пароль больше не понадобится после сохранения нового.</p><ul class="access-points"><li>Не менее 12 символов</li><li>Не используйте пароль от почты</li><li>Активные входы будут обновлены</li></ul></div>
@@ -1128,11 +1146,34 @@ function adminPage() {
         <a data-tab-link="partner-applications" href="/admin?tab=partner-applications">Заявки заведений</a>
         <a data-tab-link="contact-requests" href="/admin?tab=contact-requests">Обращения</a>
         <a data-tab-link="audit" href="/admin?tab=audit">Журнал действий</a>
+        <a data-tab-link="administrators" href="/admin?tab=administrators">Администраторы</a>
         <a data-tab-link="settings" href="/admin?tab=settings">Настройки</a>
       </nav>
-      <label class="mobile-tab-select">Раздел админки<select data-tab-select="admin"><option value="overview">Обзор</option><option value="partners">Партнёры</option><option value="offers">Предложения</option><option value="bookings">Брони и коды</option><option value="partner-applications">Заявки партнёров</option><option value="contact-requests">Обращения</option><option value="audit">Журнал действий</option><option value="settings">Настройки</option></select></label>
+      <label class="mobile-tab-select">Раздел админки<select data-tab-select="admin"><option value="overview">Обзор</option><option value="partners">Партнёры</option><option value="offers">Предложения</option><option value="bookings">Брони и коды</option><option value="partner-applications">Заявки партнёров</option><option value="contact-requests">Обращения</option><option value="administrators">Администраторы</option><option value="audit">Журнал действий</option><option value="settings">Настройки</option></select></label>
       <p class="admin-period-note">Брони, выдачи и сумма — за всё время. Предложения и новые сообщения — на момент обновления.</p><div class="stats-row admin-stats" data-admin-stats></div>
       <div class="admin-grid">
+        <article class="panel-card tab-panel" data-tab-panel="administrators">
+          <h3>Администраторы сервиса</h3>
+          <p>Это доступ ко всем заведениям, предложениям и броням, не кабинет отдельного магазина. Добавляйте только тех, кому доверяете. Каждый помощник входит под своим логином.</p>
+          <p class="permission-note">Только владелец добавляет администраторов и управляет их доступом. Владельца нельзя отключить или перенести в архив.</p>
+          <div class="staff-booking-list" data-admin-accounts></div>
+          <div class="settings-grid">
+            <section><h4>Добавить администратора</h4><form class="mini-form labelled-form" method="post" data-admin-create-account>
+              <label>Имя<input name="name" required maxlength="120" autocomplete="off" /></label>
+              <label>Почта администратора<input name="login" type="email" required maxlength="80" autocomplete="off" autocapitalize="none" spellcheck="false" /></label>
+              <label>Временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label>
+              <p>Передайте вход лично. При первом входе помощник заменит временный пароль своим.</p>
+              <button class="button button-primary" type="submit">Добавить администратора</button>
+            </form></section>
+            <section><h4>Забытый пароль</h4><form class="mini-form labelled-form" method="post" data-admin-reset-account>
+              <label>Администратор<select name="userId" required data-admin-account-reset-select><option value="">Выберите администратора</option></select></label>
+              <label>Новый временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label>
+              <p>Старые входы этого человека закроются. При следующем входе он задаст свой пароль.</p>
+              <button class="button button-outline" type="submit">Сбросить пароль администратора</button>
+            </form></section>
+          </div>
+          <p>«Отключить» временно закрывает доступ. «В архив» сохраняет человека в истории и закрывает его вход. Вернуть доступ можно кнопкой «Восстановить доступ». Записи не удаляются.</p>
+        </article>
         <article class="panel-card tab-panel" data-tab-panel="overview"><h3>Основные задачи</h3><div class="admin-workflow"><button type="button" data-admin-go-tab="partner-applications"><b>1</b><span>Проверить заявки</span></button><button type="button" data-admin-go-tab="partners"><b>2</b><span>Подключить партнёра</span></button><button type="button" data-admin-go-tab="bookings"><b>3</b><span>Проверить брони и выдачу</span></button></div><div class="table-wrap" data-admin-service></div></article>
         <article class="panel-card tab-panel onboarding-panel" data-tab-panel="partners">
           <div class="panel-heading"><div><h3>Подключить нового партнёра</h3><p>Заполните данные заведения и первой точки. После создания передайте владельцу ссылку на кабинет, логин и временный пароль. При первом входе он задаст свой пароль.</p></div></div>
@@ -2096,7 +2137,11 @@ const AUDIT_ACTION_LABELS = {
   revoke_user_sessions: "Закрыты сеансы сотрудника", revoke_partner_sessions: "Закрыты сеансы партнёра", revoke_role_sessions: "Закрыты активные входы", rehash_partner_password: "Обновлена защита пароля",
   change_partner_password: "Партнёр сменил пароль", change_admin_password: "Администратор сменил пароль", archive_partner: "Партнёр перенесён в архив", delete_partner: "Партнёр удалён",
   patch_contactRequests: "Изменён статус обращения", patch_partnerApplications: "Изменён статус заявки", patch_partners: "Изменены данные партнёра", patch_partnerAddresses: "Изменена точка получения", patch_partnerUsers: "Изменены данные сотрудника", patch_offers: "Изменено предложение", patch_offerTemplates: "Изменён шаблон",
-  delete_contactRequests: "Удалено обращение", delete_partnerApplications: "Удалена заявка партнёра"
+  delete_contactRequests: "Удалено обращение", delete_partnerApplications: "Удалена заявка партнёра",
+  create_administrator: "Добавлен администратор", set_administrator_status: "Изменён доступ администратора",
+  reset_administrator_password: "Сброшен пароль администратора", configure_service_owner: "Настроен вход владельца",
+  admin_recovery_email_sent: "Отправлена ссылка для нового пароля", admin_recovery_email_failed: "Письмо восстановления не отправлено",
+  recover_administrator_password: "Пароль восстановлен по почте"
 };
 
 const AUDIT_ENTITY_LABELS = {
@@ -2447,10 +2492,17 @@ function setupTabs(rootSelector, validTabs) {
 
 async function setupAdmin() {
   if (!document.querySelector("[data-admin-app]")) return;
+  let adminResetToken = new URLSearchParams(location.hash.slice(1)).get("token") || "";
+  let showingAdminReset = Boolean(adminResetToken) && new URLSearchParams(location.search).get("reset") === "1";
+  if (adminResetToken) history.replaceState(null, "", location.pathname + location.search);
   const loginBox = document.querySelector("[data-admin-login]");
+  const recoveryBox = document.querySelector("[data-admin-recovery]");
+  const resetBox = document.querySelector("[data-admin-reset-password]");
   const passwordGate = document.querySelector("[data-admin-password-gate]");
   const dashboard = document.querySelector("[data-admin-dashboard]");
-  const activateTabs = setupTabs("[data-admin-app]", ["overview", "partners", "offers", "bookings", "partner-applications", "contact-requests", "audit", "settings"]);
+  const adminTabs = ["overview", "partners", "offers", "bookings", "partner-applications", "contact-requests", "audit", "settings", "administrators"];
+  const activateTabs = setupTabs("[data-admin-app]", adminTabs);
+  let currentAdminSession = null;
   let applicationCache = [];
   let contactCache = [];
   let partnerCache = [];
@@ -2500,8 +2552,16 @@ async function setupAdmin() {
   });
 
   const render = async () => {
+    currentAdminSession = await api("/api/admin/auth/me");
+    if (!currentAdminSession.authenticated) { loginBox.hidden = false; passwordGate.hidden = true; dashboard.hidden = true; throw new Error("Вход завершён. Войдите снова."); }
+    const canManage = currentAdminSession.canManageAdministrators === true;
+    const ownerTabIndex = adminTabs.indexOf("administrators");
+    if (canManage && ownerTabIndex < 0) adminTabs.push("administrators");
+    if (!canManage && ownerTabIndex >= 0) adminTabs.splice(ownerTabIndex, 1);
+    document.querySelectorAll('[data-admin-app] [data-tab-link="administrators"], [data-tab-select="admin"] option[value="administrators"]').forEach(node => { node.hidden = !canManage; });
+    document.querySelector("[data-admin-session]").textContent = (canManage ? "Владелец сервиса: " : "Администратор: ") + currentAdminSession.login;
     const data = await api("/api/admin/dashboard");
-    loginBox.hidden = true; passwordGate.hidden = true; dashboard.hidden = false;
+    loginBox.hidden = true; passwordGate.hidden = true;
     document.querySelector("[data-admin-stats]").innerHTML = [
       ["Активные предложения", data.activeOffersCount], ["Броней за всё время", data.bookingsCount], ["Выдано заказов", data.issuedBookingsCount], ["Новые заявки", data.newPartnerApplicationsCount], ["Новые обращения", data.newContactRequestsCount], ["Выдано на сумму", data.estimatedPartnerRevenue + " ₽"]
     ].map(([label, value]) => '<span><small>' + label + '</small><b>' + value + '</b></span>').join('') + (data.unknownIssuedAmountsCount ? '<p class="permission-note">У ' + Number(data.unknownIssuedAmountsCount) + ' старых выдач цена не сохранена. Они не включены в сумму.</p>' : '');
@@ -2516,6 +2576,14 @@ async function setupAdmin() {
     const addresses = (await Promise.all(partners.map(async (partner) => (await api("/api/admin/partners/" + partner.id + "/addresses")).map((item) => ({ ...item, partnerName: partner.name }))))).flat();
     const users = (await Promise.all(partners.map(async (partner) => (await api("/api/admin/partners/" + partner.id + "/users")).map((item) => ({ ...item, partnerName: partner.name }))))).flat();
     userCache = users;
+    const accounts = canManage ? await api("/api/admin/administrators") : [];
+    document.querySelector("[data-admin-accounts]").innerHTML = accounts.map(row => {
+      const next = row.status === "active" ? "disabled" : "active";
+      const label = row.status === "active" ? "Отключить" : row.status === "archived" ? "Восстановить доступ" : "Включить";
+      const actions = row.role === "owner" ? '<span class="maintenance-note">Защищённый аккаунт владельца</span>' : '<button type="button" class="table-action" data-confirm-action data-confirm-label="' + escapeHtml(label + ' — ' + row.name + '?') + '" data-admin-account-status="' + escapeHtml(row.id) + '" data-status="' + next + '">' + label + '</button> ' + (row.status === "archived" ? '' : '<button type="button" class="table-action" data-confirm-action data-confirm-label="' + escapeHtml('В архив — ' + row.name + '?') + '" data-admin-account-status="' + escapeHtml(row.id) + '" data-status="archived">В архив</button>');
+      return '<article class="staff-booking-card"><header><strong>' + escapeHtml(row.name) + '</strong><span>' + (row.role === "owner" ? 'Владелец сервиса' : 'Администратор') + '</span></header><dl><div><dt>Почта</dt><dd>' + escapeHtml(row.login) + '</dd></div><div><dt>Доступ</dt><dd>' + escapeHtml(statusLabel(row.status)) + '</dd></div></dl><footer>' + actions + '</footer></article>';
+    }).join('');
+    setSelectOptions(document.querySelector("[data-admin-account-reset-select]"), accounts.filter(row => row.role !== "owner"), "Выберите администратора", "id", row => row.name + " · " + row.login);
     const partnerById = Object.fromEntries(partners.map((item) => [item.id, item]));
     const addressById = Object.fromEntries(addresses.map((item) => [item.id, item]));
     document.querySelectorAll("[data-admin-partner-select]").forEach((select) => setSelectOptions(select, partners, "Выберите партнёра", "id", (item) => item.name));
@@ -2548,6 +2616,7 @@ async function setupAdmin() {
     activateTabs(null, true);
     document.querySelector("[data-admin-updated]").textContent = "Обновлено в " + new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date());
     document.querySelector("[data-admin-load-error]").hidden = true;
+    dashboard.hidden = false;
   };
   let mutationInFlight = false;
   const mutate = async (task, successMessage) => {
@@ -2569,6 +2638,7 @@ async function setupAdmin() {
   };
 
   const start = async () => {
+    if (showingAdminReset) { loginBox.hidden = true; passwordGate.hidden = true; dashboard.hidden = true; recoveryBox.hidden = true; resetBox.hidden = false; return; }
     const session = await api("/api/admin/auth/me");
     if (!session.authenticated) {
       loginBox.hidden = false; passwordGate.hidden = true; dashboard.hidden = true;
@@ -2602,6 +2672,39 @@ async function setupAdmin() {
     } catch (err) { error.textContent = err.message; error.hidden = false; }
   }));
   document.querySelector("[data-admin-refresh]")?.addEventListener("click", () => mutate(async () => {}, "Данные обновлены"));
+  document.querySelectorAll("[data-admin-forgot-password]").forEach(button => button.addEventListener("click", () => {
+    loginBox.hidden = true; dashboard.hidden = true; passwordGate.hidden = true; resetBox.hidden = true; recoveryBox.hidden = false;
+    recoveryBox.querySelector('input[name="email"]').focus({ preventScroll: true });
+  }));
+  document.querySelectorAll("[data-admin-back-login]").forEach(button => button.addEventListener("click", async () => {
+    showingAdminReset = false; adminResetToken = ""; recoveryBox.hidden = true; resetBox.hidden = true; await start();
+  }));
+  document.querySelector("[data-admin-recovery-form]").addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget; const button = form.querySelector('button[type="submit"]');
+    if (button.disabled) return; button.disabled = true;
+    const notice = form.querySelector("[data-admin-recovery-message]"); const error = form.querySelector(".form-error"); error.hidden = true; notice.hidden = true;
+    try { const result = await api("/api/admin/auth/request-password-reset", { method: "POST", body: formObject(form) }); notice.textContent = result.message; notice.hidden = false; }
+    catch (failure) { error.textContent = failure.message; error.hidden = false; }
+    finally { button.disabled = false; }
+  });
+  document.querySelector("[data-admin-recovery-complete]").addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget; const button = form.querySelector('button[type="submit"]');
+    if (button.disabled) return; button.disabled = true; const error = form.querySelector(".form-error"); error.hidden = true;
+    try { await api("/api/admin/auth/reset-password", { method: "POST", body: { ...formObject(form), token: adminResetToken } });
+      form.reset(); adminResetToken = ""; showingAdminReset = false; resetBox.hidden = true; recoveryBox.hidden = true;
+      const params = new URLSearchParams(location.search); params.delete("reset"); history.replaceState(null, "", location.pathname + "?" + params.toString());
+      await start(); notify("Пароль сохранён. Вы вошли в свой кабинет.");
+    } catch (failure) { error.textContent = failure.message; error.hidden = false; }
+    finally { button.disabled = false; }
+  });
+  document.querySelector("[data-admin-create-account]")?.addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget;
+    await mutate(async () => { await api("/api/admin/administrators", { method: "POST", body: formObject(form) }); form.reset(); }, "Администратор добавлен. Передайте ему логин и временный пароль лично.");
+  });
+  document.querySelector("[data-admin-reset-account]")?.addEventListener("submit", async event => {
+    event.preventDefault(); const form = event.currentTarget;
+    await mutate(async () => { const input = formObject(form); await api("/api/admin/administrators/" + encodeURIComponent(input.userId) + "/reset-password", { method: "POST", body: { password: input.password } }); form.reset(); }, "Временный пароль сохранён. Старые входы этого администратора закрыты.");
+  });
   document.querySelector("[data-admin-logout]")?.addEventListener("click", async () => { await api("/api/admin/auth/logout", { method: "POST" }); location.reload(); });
   document.querySelector("[data-admin-onboard-partner]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -2652,6 +2755,7 @@ async function setupAdmin() {
     const partnerDelete = event.target.closest("[data-admin-partner-delete]");
     const addressStatus = event.target.closest("[data-admin-address-status]");
     const userStatus = event.target.closest("[data-admin-user-status]");
+    const accountStatus = event.target.closest("[data-admin-account-status]");
     const offerStatus = event.target.closest("[data-admin-offer-status]");
     const goTab = event.target.closest("[data-admin-go-tab]");
     const clearApplication = event.target.closest("[data-clear-application]");
@@ -2704,6 +2808,7 @@ async function setupAdmin() {
     if (deleteContact) await mutate(() => api("/api/admin/contact-requests/" + deleteContact.dataset.deleteContact, { method: "DELETE" }), "Обращение удалено");
     if (addressStatus) await mutate(() => api("/api/admin/partners/" + addressStatus.dataset.partnerId + "/addresses/" + addressStatus.dataset.adminAddressStatus, { method: "PATCH", body: { isActive: addressStatus.dataset.status === "true" } }), "Статус точки обновлён");
     if (userStatus) await mutate(() => api("/api/admin/partners/" + userStatus.dataset.partnerId + "/users/" + userStatus.dataset.adminUserStatus, { method: "PATCH", body: { status: userStatus.dataset.status } }), "Доступ сотрудника обновлён");
+    if (accountStatus) await mutate(() => api("/api/admin/administrators/" + encodeURIComponent(accountStatus.dataset.adminAccountStatus) + "/status", { method: "PATCH", body: { status: accountStatus.dataset.status } }), "Доступ администратора обновлён. История сохранена.");
     if (offerStatus) await mutate(() => api("/api/admin/offers/" + offerStatus.dataset.adminOfferStatus, { method: "PATCH", body: { status: offerStatus.dataset.status } }), "Статус предложения обновлён");
   });
   try {
@@ -5138,6 +5243,8 @@ body { background: var(--color-bg); }
 .access-layout .auth-box h3 { margin: 0; color: #062f3d; font-size: 26px; }
 .access-layout .auth-box > p { margin: 8px 0 24px; color: #687d84; }
 .access-layout .auth-box .button { width: 100%; }
+:is([data-admin-recovery], [data-admin-reset-password]) > .button,
+[data-admin-login] [data-admin-forgot-password] { margin-top: 12px; width: 100%; }
 .page-app .tab-nav a.active { border-color: #073b4c; background: #073b4c; }
 .page-app .stats-row small { color: #0b646a; }
 .page-app .data-table button { color: #0b646a; }

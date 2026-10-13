@@ -8,6 +8,7 @@
 - Backend API: `/api/public/*`, `/api/customer/*`, `/api/admin/*`, `/api/partner/*`.
 - Optional customer account: `/customer`, email OTP, profile and owner-scoped history; guest booking remains available.
 - Admin panel: `/admin`.
+- Administrative ownership: one protected service owner plus individual assistant email logins, owner-only access/archive management and one-use SMTP password recovery. See `ADMIN_ACCOUNTS.md`.
 - Partner dashboard: `/partner/login`, `/partner/dashboard`.
 - Native Android 0.2: `android-native`, platform Views, role-aware bottom navigation and the same protected API; accepted on TECNO/Android 13. Release identity: `android-native/release.json`, evidence: `ANDROID_NATIVE_DEVICE_QA_2026-10-09.md`. Immutable `android-twa` 0.1 APK remains available only as a rollback version.
 - Storage: server-side JSON in `data/db.json` and partner media in `data/uploads/`.
