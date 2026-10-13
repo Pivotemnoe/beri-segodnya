@@ -2,6 +2,7 @@ import { createPasswordHashAsync } from "../utils/password.mjs";
 import { todayDate } from "../utils/dates.mjs";
 import { allowed, cleanString, enumValue, integerRange, numberRange, validateEmail, validatePhone } from "../utils/validation.mjs";
 import { partnerUploadFolder } from "../storage/imageStore.mjs";
+import { adminUserForSession, adminUserRole } from "./authService.mjs";
 import {
   adminDashboard,
   createAddress,
@@ -22,7 +23,8 @@ import {
 } from "../repositories/databaseRepository.mjs";
 
 function requireCurrentAdminSession(session) {
-  if (session && (session.role !== "admin" || !isSessionActive(session))) {
+  const user = session && adminUserForSession(session);
+  if (session && (session.role !== "admin" || !isSessionActive(session) || user?.status !== "active" || adminUserRole(user) !== session.user_role)) {
     throw Object.assign(new Error("Доступ изменился. Войдите снова."), { status: 401, code: "SESSION_REVOKED" });
   }
 }

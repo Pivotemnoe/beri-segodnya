@@ -1,5 +1,15 @@
 # API
 
+## Administrator accounts
+
+- Owner-only `GET/POST /api/admin/administrators`: safe account list / create assistant (name, login=email, temporary password).
+- Owner-only `PATCH /api/admin/administrators/:id/status`: active/disabled/archived, never the owner.
+- Owner-only `POST /api/admin/administrators/:id/reset-password`: temporary password; never the owner.
+- Public `POST /api/admin/auth/request-password-reset`: email, generic response, persistent budgets.
+- Public `POST /api/admin/auth/reset-password`: one-use token, newPassword, confirmPassword; revokes target sessions and returns a fresh staff cookie.
+
+All state requests retain Origin/X-BS-Request checks. No credentials or recovery tokens appear in account DTOs. See [ADMIN_ACCOUNTS.md](ADMIN_ACCOUNTS.md).
+
 All responses use:
 
 ```json

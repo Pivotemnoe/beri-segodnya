@@ -19,6 +19,7 @@
     "test:api": "node scripts/smoke-test.mjs",
     "test:request-boundaries": "node scripts/request-boundary-test.mjs",
     "test:auth-boundaries": "node scripts/auth-boundary-test.mjs",
+    "test:admin-accounts": "node scripts/admin-accounts-test.mjs",
     "test:customer-auth": "node scripts/customer-auth-test.mjs",
     "test:upload-quota": "node scripts/upload-quota-test.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",

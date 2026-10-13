@@ -111,7 +111,9 @@ export async function runPilotHardeningScenario(port, request, { adminCookie, pa
   const correctionAudit = audit.json.data.find((row) => row.action === "correct_booking_status" && row.referenceLabel === record.code);
   const handoverAudit = audit.json.data.find((row) => row.action === "set_booking_status" && row.referenceLabel === record.code && row.status === "issued");
   assert.equal(handoverAudit?.actorName, "Тестовый продавец", "Admin audit does not name the actual staff user");
-  assert.equal(correctionAudit?.actorName, null, "Missing actor identity was fabricated");
+  const currentAdministrator = persisted.adminUsers.find(row => row.id === corrected.json.data.corrections[0].actor_id);
+  assert.ok(currentAdministrator, "Correction actor must resolve to the actual stored administrator");
+  assert.equal(correctionAudit?.actorName, currentAdministrator.name || currentAdministrator.login, "Audit must name the stored administrator, not invent a metadata identity");
   assert.equal(correctionAudit?.previousStatus, "issued");
   assert.equal(correctionAudit?.status, "no_show");
   assert.equal(correctionAudit?.reason, correctionInput.reason);

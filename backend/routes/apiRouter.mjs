@@ -12,6 +12,7 @@ import {
   adminLogin,
   allowPasswordChange,
   adminPasswordChangeRequired,
+  adminSessionView,
   changeAdminPassword,
   changePartnerPassword,
   cookieForSession,
@@ -24,6 +25,8 @@ import {
   requireRole
 } from "../services/authService.mjs";
 import * as admin from "../services/adminService.mjs";
+import * as administrators from "../services/adminAccountService.mjs";
+import { adminRecovery } from "../services/adminRecoveryService.mjs";
 import * as partner from "../services/partnerService.mjs";
 import { savePartnerImages } from "../storage/imageStore.mjs";
 
@@ -259,18 +262,24 @@ async function handlePublic(request, response, url) {
 async function handleAdmin(request, response, url) {
   const parts = routeParts(url.pathname, "/api/admin/");
 
+  if (request.method === "POST" && parts.join("/") === "auth/request-password-reset") return ok(response, await adminRecovery.request(await readBody(request), ip(request)));
+  if (request.method === "POST" && parts.join("/") === "auth/reset-password") {
+    const session = await adminRecovery.complete(await readBody(request), ip(request));
+    return ok(response, { changed: true }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
+  }
+
   if (request.method === "POST" && parts.join("/") === "auth/login") {
     if (!rateLimit(`${ip(request)}:admin-login`)) return fail(response, 429, "RATE_LIMIT", "Слишком много попыток входа");
     const input = await readBody(request);
     const session = await adminLogin(input.login, input.password);
     if (!session) return fail(response, 401, "BAD_CREDENTIALS", "Неверный логин или пароль");
-    return ok(response, { role: "admin", passwordChangeRequired: adminPasswordChangeRequired(session) }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
+    return ok(response, adminSessionView(session), 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
 
   if (request.method === "GET" && parts.join("/") === "auth/me") {
     const auth = requireAdmin(request);
     return ok(response, auth.ok
-      ? { authenticated: true, role: "admin", login: String(auth.session.user_id).replace(/^admin:/, ""), passwordChangeRequired: adminPasswordChangeRequired(auth.session) }
+      ? adminSessionView(auth.session)
       : { authenticated: false });
   }
 
@@ -290,6 +299,23 @@ async function handleAdmin(request, response, url) {
     return ok(response, { changed: true, passwordChangeRequired: false }, 200, { "Set-Cookie": cookieForSession(session, secureCookie()) });
   }
   if (adminPasswordChangeRequired(auth.session)) return fail(response, 403, "PASSWORD_CHANGE_REQUIRED", "Сначала задайте новый постоянный пароль");
+
+  if (parts[0] === "administrators") {
+    // Explicit owner gate before body parsing or password work. Hiding a menu is not authorization.
+    if (!adminSessionView(auth.session).canManageAdministrators) return fail(response, 403, "OWNER_REQUIRED", "Управлять администраторами может только владелец сервиса.");
+    const id = parts[1];
+    if (request.method === "GET" && !id) return ok(response, administrators.listAdministrators(auth.session));
+    if (request.method === "POST" && !id) {
+      if (!allowPasswordChange(auth.session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много операций с паролями. Попробуйте через 10 минут.");
+      return ok(response, await administrators.createAdministrator(auth.session, await readBody(request)), 201);
+    }
+    if (request.method === "PATCH" && id && parts.length === 3 && parts[2] === "status") return ok(response, administrators.setAdministratorStatus(auth.session, id, await readBody(request)));
+    if (request.method === "POST" && id && parts.length === 3 && parts[2] === "reset-password") {
+      if (!allowPasswordChange(auth.session, ip(request))) return fail(response, 429, "RATE_LIMIT", "Слишком много операций с паролями. Попробуйте через 10 минут.");
+      return ok(response, await administrators.resetAdministratorPassword(auth.session, id, await readBody(request)));
+    }
+    return fail(response, 404, "NOT_FOUND", "Действие с администратором не найдено.");
+  }
 
   if (request.method === "GET" && parts[0] === "dashboard") return ok(response, admin.dashboard());
   if (request.method === "GET" && parts[0] === "audit-log") return ok(response, admin.auditLog());

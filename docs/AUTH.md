@@ -10,7 +10,7 @@ The whole MVP can be closed with Basic Auth:
 
 ## Admin
 
-Admin uses one app login through `POST /api/admin/auth/login`. A successful login creates an HttpOnly `bs_session` with role `admin`; every protected admin endpoint checks that role.
+Each administrator uses their own app login through `POST /api/admin/auth/login`. A successful login creates an HttpOnly staff cookie with role `admin` and account role `owner`/`admin`; every protected admin endpoint reloads the active account and current role. Only the service owner can manage administrative accounts.
 
 Admin app password is PBKDF2:
 
@@ -22,6 +22,8 @@ Admin app password is PBKDF2:
 The environment credential is a bootstrap credential only. On the first successful login, the admin API reports `passwordChangeRequired=true`; all protected admin operations remain blocked until `POST /api/admin/auth/change-password` succeeds. The permanent administrator credential is stored in the server database as PBKDF2 parameters, and the bootstrap credential no longer works for that login.
 
 ## Partner
+
+Administrative owner/assistant roles, current-record revalidation, owner-only access management and one-use email recovery are described in [ADMIN_ACCOUNTS.md](ADMIN_ACCOUNTS.md). Environment bootstrap is disabled once any administrator record exists; own password changes revoke only that administrator's sessions.
 
 Partner uses individual logins from `partnerUsers`. A successful login creates an HttpOnly session bound to `partner_id`, `user_id` and the current owner/manager/seller role. Every protected request reloads the user and partner status; disabling the user, changing the role/password, or disabling the partner revokes existing sessions.
 
@@ -50,7 +52,7 @@ Flags:
 - Path=/
 - Secure in production
 
-Changing an administrator or partner password revokes the role/user's other active sessions and issues one fresh session to the browser that completed the change.
+Changing an administrator or partner password revokes that user's other active sessions and issues one fresh session to the browser that completed the change. Administrative email recovery does the same and never activates a disabled or archived account.
 
 Cookie parsing preserves one decoding pass, duplicate-name last-wins behavior and `__Host-bs_session` precedence. Any malformed encoded value is rejected with 400, not silently dropped to authenticate using a lower-priority cookie.
 

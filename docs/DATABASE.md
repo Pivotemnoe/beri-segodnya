@@ -12,6 +12,10 @@ The file is ignored by Git. Seed/migration scripts are committed.
 
 ## Collections
 
+- `adminUsers`
+- `adminPasswordResets`
+- `adminAuthLimits`
+
 - `customers`
 - `customerSessions`
 - `customerLoginChallenges`
@@ -28,6 +32,8 @@ The file is ignored by Git. Seed/migration scripts are committed.
 - `auditLog`
 
 ## Relations
+
+Administrator IDs remain stable if the owner's login is migrated to email. Roles, recovery challenge/budget bounds and archive semantics: [ADMIN_ACCOUNTS.md](ADMIN_ACCOUNTS.md). Recovery collections belong to the ordinary database backup.
 
 - partner -> partnerAddresses
 - partner -> partnerUsers
