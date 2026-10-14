@@ -1,0 +1,103 @@
+import assert from "node:assert/strict";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import { Script } from "node:vm";
+
+export function runPartnerRemovalClientChecks(source) {
+  const escape = source.match(/function escapeHtml\([\s\S]*?(?=\nasync function api)/)?.[0];
+  const helpers = source.match(/function partnerHistoryPanel\([\s\S]*?(?=\nasync function setupPartnerDashboard)/)?.[0];
+  assert.ok(escape && helpers);
+  const view = new Script(`${escape}\n${helpers}\n({partnerOfferCard,partnerHistoryPanel})`).runInNewContext({statusLabel:value=>value});
+  const row = {id:'own-offer',title:'Учебный набор',price:100,date:'2026-10-14',pickup_window:'16:00–19:00',status:'active',remaining_quantity:2,total_quantity:3};
+  const card = view.partnerOfferCard(row);
+  assert.ok(card.includes('staff-booking-card') && card.includes('data-partner-offer-delete="own-offer"') && card.includes('data-confirm-action'));
+  const history = view.partnerOfferCard({...row,deleted_at:'2026-10-14'},true);
+  assert.ok(history.includes('Удалено из списка') && !history.includes('data-partner-offer-delete') && !history.includes('data-partner-offer-status') && !history.includes('data-partner-offer-duplicate'));
+  const hostile='<img src=x onerror="alert(1)">';
+  assert.ok(!view.partnerOfferCard({...row,id:hostile,title:hostile}).includes('<img'));
+  assert.ok(view.partnerHistoryPanel('offers').includes('Удалённые предложения') && view.partnerHistoryPanel('bookings').includes('Удалённые брони'));
+  assert.ok(source.includes("Отменить и убрать ") && source.includes('const deletion = isSeller ?'), 'Active cancellation warning or seller guard is missing');
+}
+
+export async function runPartnerRemovalScenario(port, request, {adminCookie,partnerCookie,dbFile,suffix}) {
+  const admin=(route,options={})=>request(port,route,{auth:'adminBasic',cookie:adminCookie,...options});
+  const owner=(route,options={})=>request(port,route,{auth:'partnerBasic',cookie:partnerCookie,...options});
+  const initial=JSON.parse(fs.readFileSync(dbFile,'utf8'));
+  const newOffer=await admin('/api/admin/offers',{method:'POST',body:{partnerId:'partner-1',addressId:'partner-1-address-1',title:'Учебный набор для удаления',category:'bakery',price:199,contents:'Учебный состав',allergens:'Уточните в магазине',pickupWindow:'00:00–23:59',totalQuantity:5,status:'active'}});
+  assert.equal(newOffer.status,201); const offerId=newOffer.json.data.id;
+  const booking=async()=>{
+    const result=await request(port,'/api/public/bookings',{method:'POST',body:{offerId,customerName:'Тестовый покупатель',customerPhone:'9001234567',personalDataConsent:true,requestId:crypto.randomUUID()}});
+    assert.equal(result.status,201); return result.json.data;
+  };
+  const stock=()=>JSON.parse(fs.readFileSync(dbFile,'utf8')).offers.find(row=>row.id===offerId).remaining_quantity;
+  const first=await booking(); assert.equal(stock(),4);
+  const original=(await request(port,`/api/public/bookings/${first.publicToken}`)).json.data;
+  assert.equal((await request(port,`/api/partner/bookings/${first.bookingId}`,{method:'DELETE',auth:null})).status,401);
+  assert.equal((await owner(`/api/partner/bookings/${first.bookingId}`,{method:'DELETE',confirmRequest:false})).status,403);
+  assert.equal((await owner(`/api/partner/bookings/${first.bookingId}`,{method:'DELETE'})).status,200); assert.equal(stock(),5);
+  const hidden=(await request(port,`/api/public/bookings/${first.publicToken}`)).json.data;
+  assert.equal(hidden.status,'cancelled'); assert.equal(hidden.price,original.price); assert.equal(hidden.offerTitle,original.offerTitle);
+  assert.ok(!(await owner('/api/partner/bookings')).json.data.some(row=>row.id===first.bookingId));
+  assert.ok((await owner('/api/partner/bookings?history=1')).json.data.some(row=>row.id===first.bookingId && row.partner_hidden_at));
+  const auditCount=JSON.parse(fs.readFileSync(dbFile,'utf8')).auditLog.length;
+  assert.equal((await owner(`/api/partner/bookings/${first.bookingId}`,{method:'DELETE'})).status,200); assert.equal(stock(),5);
+  assert.equal(JSON.parse(fs.readFileSync(dbFile,'utf8')).auditLog.length,auditCount,'Repeat removal appended another audit/stock change');
+  const issued=await booking();
+  assert.equal((await owner(`/api/partner/bookings/${issued.bookingId}/status`,{method:'PATCH',body:{status:'issued'}})).status,200);
+  const before=(await owner('/api/partner/dashboard?period=all')).json.data;
+  assert.equal((await owner(`/api/partner/bookings/${issued.bookingId}`,{method:'DELETE'})).status,200);
+  const after=(await owner('/api/partner/dashboard?period=all')).json.data;
+  for (const key of ['bookingsCount','issuedBookingsCount','estimatedRevenue','unknownIssuedAmountsCount']) assert.equal(after[key],before[key],`Hidden issue changes ${key}`);
+  assert.ok(!after.recentBookings.some(row=>row.id===issued.bookingId));
+  assert.equal((await request(port,`/api/public/bookings/${issued.publicToken}`)).json.data.status,'issued');
+  const noShow={bookingId:'removal-no-show-fixture',publicToken:'removal-no-show-public',code:'BS-REMOVAL-NOSHOW'};
+  const fixture=JSON.parse(fs.readFileSync(dbFile,'utf8'));
+  fixture.bookings.push({...fixture.bookings.find(row=>row.id===issued.bookingId),id:noShow.bookingId,code:noShow.code,public_token:noShow.publicToken,status:'no_show',partner_hidden_at:undefined,issued_at:undefined});
+  fs.writeFileSync(dbFile,JSON.stringify(fixture),{mode:0o600});
+  const beforeNoShow=stock();
+  assert.equal((await owner(`/api/partner/bookings/${noShow.bookingId}`,{method:'DELETE'})).status,200); assert.equal(stock(),beforeNoShow);
+  assert.equal((await request(port,`/api/public/bookings/${noShow.publicToken}`)).json.data.status,'no_show');
+  const current=await booking(); const beforeOfferRemoval=stock();
+  assert.equal((await owner(`/api/partner/offers/${offerId}`,{method:'DELETE'})).status,200);
+  assert.equal(stock(),beforeOfferRemoval,'Removing offer cancelled bookings implicitly');
+  assert.ok(!(await owner('/api/partner/offers')).json.data.some(row=>row.id===offerId));
+  assert.ok((await owner('/api/partner/offers?history=1')).json.data.some(row=>row.id===offerId && row.deleted_at));
+  assert.ok(!(await request(port,'/api/public/offers')).json.data.some(row=>row.id===offerId));
+  assert.equal((await request(port,`/api/public/offers/${offerId}`)).status,404);
+  assert.ok((await owner('/api/partner/bookings')).json.data.some(row=>row.id===current.bookingId));
+  assert.equal((await request(port,`/api/public/bookings/${current.publicToken}`)).json.data.status,'created');
+  assert.equal((await owner(`/api/partner/offers/${offerId}/status`,{method:'PATCH',body:{status:'active'}})).status,409);
+  assert.equal((await owner(`/api/partner/offers/${offerId}/duplicate`,{method:'POST'})).status,409);
+  assert.equal((await admin(`/api/admin/offers/${offerId}`,{method:'PATCH',body:{status:'active'}})).status,409);
+  const deniedNew=await request(port,'/api/public/bookings',{method:'POST',body:{offerId,customerName:'Тестовый покупатель',customerPhone:'9001234567',personalDataConsent:true,requestId:crypto.randomUUID()}});
+  assert.equal(deniedNew.status,409);
+  assert.equal((await owner(`/api/partner/offers/${offerId}`,{method:'DELETE'})).status,200);
+  assert.equal((await owner(`/api/partner/bookings/${current.bookingId}`,{method:'DELETE'})).status,200); assert.equal(stock(),beforeOfferRemoval,'Deleted offer was reopened by cancellation');
+  assert.equal((await request(port,`/api/public/offers/${offerId}`)).status,404);
+  const foreignOffer=initial.offers.find(row=>row.partner_id==='partner-2');
+  const foreignBooking=initial.bookings.find(row=>row.partner_id==='partner-2');
+  assert.ok(foreignOffer && foreignBooking);
+  assert.equal((await owner(`/api/partner/offers/${foreignOffer.id}`,{method:'DELETE'})).status,404);
+  assert.equal((await owner(`/api/partner/bookings/${foreignBooking.id}`,{method:'DELETE'})).status,404);
+  for (const role of ['seller','manager']) {
+    const password='isolated-removal-role-password';
+    const login=`removal-${role}-${suffix}`;
+    const user=await admin('/api/admin/partners/partner-1/users',{method:'POST',body:{login,password,name:'Тестовый сотрудник',role}});
+    assert.equal(user.status,201);
+    const auth=await request(port,'/api/partner/auth/login',{method:'POST',body:{login,password}}); assert.equal(auth.status,200);
+    let cookie=auth.headers['set-cookie'][0];
+    assert.equal((await request(port,`/api/partner/bookings/${first.bookingId}`,{method:'DELETE',cookie})).status,403,'Temporary-password gate was bypassed');
+    const changed=await request(port,'/api/partner/auth/change-password',{method:'POST',cookie,body:{currentPassword:password,newPassword:'isolated-permanent-removal-password',confirmPassword:'isolated-permanent-removal-password'}});
+    assert.equal(changed.status,200); cookie=changed.headers['set-cookie'][0];
+    const call=(route,options={})=>request(port,route,{cookie,...options});
+    assert.equal((await call(`/api/partner/bookings/${first.bookingId}`,{method:'DELETE'})).status,role==='seller'?403:200);
+    assert.equal((await call('/api/partner/bookings?history=1')).status,role==='seller'?403:200);
+    assert.equal((await call(`/api/partner/offers/${offerId}`,{method:'DELETE'})).status,role==='seller'?403:200);
+  }
+  const final=JSON.parse(fs.readFileSync(dbFile,'utf8'));
+  assert.deepEqual(final.bookings.find(row=>row.id===foreignBooking.id),foreignBooking,'Foreign booking was changed');
+  assert.ok(final.auditLog.some(row=>row.action==='remove_booking_from_list' && row.actor_id));
+  assert.ok(final.auditLog.some(row=>row.action==='remove_offer_from_list' && row.actor_id));
+  assert.equal(new Set(final.bookings.map(row=>row.code)).size,final.bookings.length,'Hidden codes can collide');
+  console.log('Partner removal passed: atomic cancellation/stock, retained terms/customer links/totals, private history, idempotency, roles and foreign isolation');
+}

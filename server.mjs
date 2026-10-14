@@ -1262,7 +1262,7 @@ function partnerDashboardPage() {
     </nav>
     <label class="mobile-tab-select">Раздел кабинета<select data-tab-select="partner"><option value="overview">Обзор</option><option value="addresses">Адреса</option><option value="offers">Предложения</option><option value="bookings">Коды и брони</option><option value="profile">Профиль</option><option value="security">Пароль</option><option value="help">Помощь</option></select></label>
     <div class="password-required-notice" data-partner-password-required hidden><strong>Задайте постоянный пароль</strong><span>До смены временного пароля остальные разделы кабинета закрыты.</span></div>
-    <div class="stats-row admin-stats" data-partner-stats></div>
+    <div class="stats-row admin-stats" data-partner-stats data-tab-panel="overview"></div>
     <div class="admin-grid">
       <article class="panel-card tab-panel" data-tab-panel="overview"><h3>Сегодня в точках</h3><div data-partner-overview></div></article>
       <article class="panel-card tab-panel" data-tab-panel="addresses"><h3>Адреса</h3><p class="permission-note" data-manager-only hidden>Менеджер может просматривать точки, а добавлять и изменять их может владелец.</p><form class="mini-form labelled-form" method="post" data-partner-create-address data-owner-only><label>Название точки<input name="title" required placeholder="Основная точка" /></label><label>Город<input name="city" required value="Армавир" /></label><label>Адрес<input name="address" required placeholder="Улица и номер дома" /></label><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-partner-addresses></div></article>
@@ -2158,6 +2158,7 @@ const AUDIT_ACTION_LABELS = {
   change_partner_password: "Партнёр сменил пароль", change_admin_password: "Администратор сменил пароль", archive_partner: "Партнёр перенесён в архив", delete_partner: "Партнёр удалён",
   patch_contactRequests: "Изменён статус обращения", patch_partnerApplications: "Изменён статус заявки", patch_partners: "Изменены данные партнёра", patch_partnerAddresses: "Изменена точка получения", patch_partnerUsers: "Изменены данные сотрудника", patch_offers: "Изменено предложение", patch_offerTemplates: "Изменён шаблон",
   delete_contactRequests: "Удалено обращение", delete_partnerApplications: "Удалена заявка партнёра",
+  remove_offer_from_list: "Предложение удалено из рабочего списка", remove_booking_from_list: "Бронь удалена из рабочего списка",
   create_administrator: "Добавлен администратор", set_administrator_status: "Изменён доступ администратора",
   reset_administrator_password: "Сброшен пароль администратора", configure_service_owner: "Настроен вход владельца",
   admin_recovery_email_sent: "Отправлена ссылка для нового пароля", admin_recovery_email_failed: "Письмо восстановления не отправлено",
@@ -2472,7 +2473,7 @@ function confirmRiskyAction(button, forceConfirmation = false) {
   button.dataset.originalText = button.textContent;
   button.textContent = button.dataset.confirmLabel || "Подтвердить";
   button.classList.add("confirming");
-  notify(button.dataset.confirmLabel ? "Проверьте код и нажмите эту же кнопку ещё раз." : "Нажмите «Подтвердить» ещё раз, чтобы выполнить действие");
+  notify(button.dataset.confirmLabel ? "Проверьте действие на кнопке и нажмите её ещё раз." : "Нажмите «Подтвердить» ещё раз, чтобы выполнить действие");
   window.setTimeout(() => {
     if (!button.isConnected || button.dataset.confirmed !== "true") return;
     button.textContent = button.dataset.originalText || "Повторить";
@@ -2659,7 +2660,7 @@ async function setupAdmin() {
     document.querySelectorAll("[data-today-date]").forEach((input) => { if (!input.value) input.value = localDateValue(); });
     document.querySelector("[data-admin-service]").innerHTML = '<div class="help-steps"><p><strong>Заявка → подключение</strong><span>Сначала свяжитесь с представителем. Затем нажмите «Подключить» в заявке: данные перенесутся в форму, но заведение ещё не будет создано.</span></p><p><strong>Выдача заказа</strong><span>В разделе «Брони и коды» найдите код покупателя. Проверьте условия и отметьте выдачу после передачи заказа.</span></p><p><strong>Обновление списков</strong><span>Нажмите «Обновить данные», чтобы увидеть последние изменения. Незаполненные и несохранённые формы при обновлении не очищаются.</span></p></div>';
     document.querySelector("[data-admin-partners]").innerHTML = orderedAdminPartners(partners).map(row => adminPartnerCard(row, users, addresses)).join('') || '<p class="empty-state">Заведений пока нет. Ниже можно подключить первое.</p>';
-    document.querySelector("[data-admin-offers]").innerHTML = table(offers, [{ label: "Название", value: "title" }, { label: "Партнёр", value: (row) => partnerById[row.partner_id]?.name || "—" }, { label: "Точка", value: (row) => addressById[row.address_id]?.title || "—" }, { label: "Дата", value: "date" }, { label: "Остаток", value: (row) => row.remaining_quantity + " / " + row.total_quantity }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-admin-offer-status="' + row.id + '" data-status="' + (row.status === "active" ? "paused" : "active") + '">' + (row.status === "active" ? "На паузу" : "Опубликовать") + '</button>');
+    document.querySelector("[data-admin-offers]").innerHTML = table(offers, [{ label: "Название", value: "title" }, { label: "Партнёр", value: (row) => partnerById[row.partner_id]?.name || "—" }, { label: "Точка", value: (row) => addressById[row.address_id]?.title || "—" }, { label: "Дата", value: "date" }, { label: "Остаток", value: (row) => row.remaining_quantity + " / " + row.total_quantity }, { label: "Статус", value: (row) => row.deleted_at ? "Удалено из списка" : statusLabel(row.status) }], (row) => row.deleted_at ? '<span class="maintenance-note">История сохранена</span>' : '<button class="table-action" data-confirm-action data-admin-offer-status="' + row.id + '" data-status="' + (row.status === "active" ? "paused" : "active") + '">' + (row.status === "active" ? "На паузу" : "Опубликовать") + '</button>');
     document.querySelector("[data-admin-bookings]").innerHTML = bookings.length ? bookings.slice().reverse().map((row) => {
       const action = (status, label) => '<button type="button" class="table-action' + (status === "issued" ? ' primary' : '') + '" data-confirm-action data-booking-status="' + escapeHtml(row.id) + '" data-status="' + status + '" data-confirm-label="' + escapeHtml(row.code + ': ' + label + '?') + '">' + label + '</button>';
       const details = [["Заведение", row.partnerName], ["Покупатель", row.customer_name], ["Телефон", row.customer_phone || row.phone], ["Получение", (row.date || "Дата не сохранена") + " · " + (row.pickupWindow || "Уточните время")], ["Адрес", row.address], ["Цена брони", row.price === null ? "Не сохранена — уточните у заведения" : Number(row.price) + " ₽"], ["Состав", row.contents || "Не указан"], ["Аллергены", row.allergens || "Уточните у заведения"]];
@@ -2925,6 +2926,16 @@ async function setupPartnerLogin() {
   } catch {}
 }
 
+function partnerHistoryPanel(kind) {
+  return '<details class="advanced-offer-editor" data-partner-history="' + kind + '"><summary>' + (kind === 'offers' ? 'Удалённые предложения' : 'Удалённые брони') + '</summary><p>Здесь только история. Эти записи не появляются в рабочем списке.</p><button type="button" class="table-action" data-load-partner-history="' + kind + '">Показать историю</button><div class="staff-booking-list" data-partner-history-list="' + kind + '"></div></details>';
+}
+
+function partnerOfferCard(row, history = false) {
+  const details = [["Дата", row.date], ["Получение", row.pickup_window], ["Цена", Number(row.price) + ' ₽'], ["Остаток", row.remaining_quantity + ' / ' + row.total_quantity]];
+  const actions = history ? '' : '<footer><button class="table-action" data-confirm-action data-partner-offer-status="' + escapeHtml(row.id) + '" data-status="' + (row.status === 'active' ? 'paused' : 'active') + '">' + (row.status === 'active' ? 'На паузу' : 'Опубликовать') + '</button><button class="table-action" data-partner-offer-duplicate="' + escapeHtml(row.id) + '">Повторить</button><button class="table-action danger" data-confirm-action data-confirm-label="' + escapeHtml('Удалить «' + row.title + '» из списка?') + '" data-partner-offer-delete="' + escapeHtml(row.id) + '">Удалить</button></footer>';
+  return '<article class="staff-booking-card partner-offer-card"><header><strong>' + escapeHtml(row.title) + '</strong><span>' + escapeHtml(history ? 'Удалено из списка' : statusLabel(row.status)) + '</span></header><dl>' + details.map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + escapeHtml(value || '—') + '</dd></div>').join('') + '</dl>' + actions + '</article>';
+}
+
 async function setupPartnerDashboard() {
   if (!document.querySelector("[data-partner-dashboard-app]")) return;
   let partnerSession;
@@ -2979,8 +2990,10 @@ async function setupPartnerDashboard() {
     const rows = bookingRows.filter((row) => (!normalized || row.code.toLowerCase().includes(normalized) || row.offerTitle.toLowerCase().includes(normalized)) && (!status || row.status === status));
     document.querySelector("[data-partner-bookings]").innerHTML = rows.length ? rows.map((row) => {
       const action = (status, label) => '<button class="table-action' + (status === "issued" ? ' primary' : '') + '" data-confirm-action data-partner-booking="' + escapeHtml(row.id) + '" data-status="' + status + '" data-confirm-label="' + escapeHtml(row.code + ': ' + label + '?') + '">' + label + '</button>';
-      return '<article class="staff-booking-card"><header><strong class="staff-booking-code">' + escapeHtml(row.code) + '</strong><span class="booking-status status-' + escapeHtml(row.status) + '">' + escapeHtml(statusLabel(row.status)) + '</span></header><h4>' + escapeHtml(row.offerTitle) + '</h4><dl><div><dt>Забрать</dt><dd>' + escapeHtml(row.date || "Дата не сохранена") + ' · ' + escapeHtml(row.pickupWindow) + '</dd></div><div><dt>Точка</dt><dd>' + escapeHtml(row.address) + '</dd></div><div><dt>Цена брони</dt><dd>' + (row.price === null ? 'Уточните у менеджера' : Number(row.price) + ' ₽') + '</dd></div></dl>' + (!row.termsVerified ? '<p class="permission-note">Старая бронь: первоначальные условия не сохранены.</p>' : '') + '<footer>' + (row.status === "created" ? action("issued", "Выдан") + action("no_show", "Не пришёл") + (!isSeller ? action("cancelled", "Отменить") : '') : '<span>Действие завершено. При ошибке обратитесь к администратору.</span>') + '</footer></article>';
+      const deletion = isSeller ? '' : '<button class="table-action danger" data-confirm-action data-confirm-label="' + escapeHtml(row.status === 'created' ? 'Отменить и убрать ' + row.code + '?' : 'Убрать ' + row.code + ' из списка?') + '" data-partner-booking-delete="' + escapeHtml(row.id) + '">Удалить</button>';
+      return '<article class="staff-booking-card"><header><strong class="staff-booking-code">' + escapeHtml(row.code) + '</strong><span class="booking-status status-' + escapeHtml(row.status) + '">' + escapeHtml(statusLabel(row.status)) + '</span></header><h4>' + escapeHtml(row.offerTitle) + '</h4><dl><div><dt>Забрать</dt><dd>' + escapeHtml(row.date || "Дата не сохранена") + ' · ' + escapeHtml(row.pickupWindow) + '</dd></div><div><dt>Точка</dt><dd>' + escapeHtml(row.address) + '</dd></div><div><dt>Цена брони</dt><dd>' + (row.price === null ? 'Уточните у менеджера' : Number(row.price) + ' ₽') + '</dd></div></dl>' + (!row.termsVerified ? '<p class="permission-note">Старая бронь: первоначальные условия не сохранены.</p>' : '') + '<footer>' + (row.status === "created" ? action("issued", "Выдан") + action("no_show", "Не пришёл") + (!isSeller ? action("cancelled", "Отменить") : '') : '<span>Действие завершено. При ошибке обратитесь к администратору.</span>') + deletion + '</footer></article>';
     }).join('') : '<p class="empty-state">Подходящих броней пока нет.</p>';
+    if (!isSeller) document.querySelector("[data-partner-bookings]").insertAdjacentHTML('beforeend', partnerHistoryPanel('bookings'));
   };
   const updateOperationalData = (data, bookings) => {
     const newIds = new Set(bookings.map((row) => row.id));
@@ -3037,7 +3050,7 @@ async function setupPartnerDashboard() {
     }));
     updateOperationalData(data, bookings);
     document.querySelector("[data-partner-addresses]").innerHTML = table(addresses, [{ label: "Точка", value: "title" }, { label: "Адрес", value: "address" }, { label: "Статус", value: (row) => row.is_active === false ? "Отключена" : "Активна" }]);
-    document.querySelector("[data-partner-offers]").innerHTML = table(offers.slice().reverse(), [{ label: "Название", value: "title" }, { label: "Дата", value: "date" }, { label: "Выдача", value: "pickup_window" }, { label: "Остаток", value: (row) => row.remaining_quantity + " / " + row.total_quantity }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-partner-offer-status="' + row.id + '" data-status="' + (row.status === "active" ? "paused" : "active") + '">' + (row.status === "active" ? "На паузу" : "Опубликовать") + '</button> <button class="table-action" data-partner-offer-duplicate="' + row.id + '">Повторить</button>');
+    document.querySelector("[data-partner-offers]").innerHTML = (offers.length ? '<div class="staff-booking-list">' + offers.slice().reverse().map(row => partnerOfferCard(row)).join('') + '</div>' : '<p class="empty-state">Предложений пока нет. Нажмите «Разместить сегодня», чтобы добавить первое.</p>') + (!isSeller ? partnerHistoryPanel('offers') : '');
     renderBookingRows(document.querySelector("[data-partner-booking-search]")?.value || "", document.querySelector("[data-partner-booking-status]")?.value || "");
     if (profile) document.querySelector("[data-partner-profile]").innerHTML = table([profile], [{ label: "Название", value: "name" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Контакт", value: (row) => row.contact_name || "—" }, { label: "Статус", value: (row) => statusLabel(row.status) }]);
     setSelectOptions(document.querySelector("[data-partner-address-select]"), addresses.filter((item) => item.is_active !== false), "Выберите точку", "id", (item) => item.title + " · " + item.address);
@@ -3426,7 +3439,7 @@ async function setupPartnerDashboard() {
   const mutate = async (task, message) => {
     if (operationInFlight) return;
     operationInFlight = true;
-    try { await task(); notify(message); await render(); }
+    try { await task(); notify(message); try { await render(); } catch { notify("Действие выполнено, но список не обновился. Обновите страницу; повторять удаление не нужно.", "error"); } }
     catch (error) { notify(error.message || "Операцию не удалось выполнить", "error"); }
     finally { operationInFlight = false; }
   };
@@ -3465,9 +3478,25 @@ async function setupPartnerDashboard() {
     const booking = event.target.closest("[data-partner-booking]");
     const offerStatus = event.target.closest("[data-partner-offer-status]");
     const duplicate = event.target.closest("[data-partner-offer-duplicate]");
+    const deleteOffer = event.target.closest("[data-partner-offer-delete]");
+    const deleteBooking = event.target.closest("[data-partner-booking-delete]");
+    const historyButton = event.target.closest("[data-load-partner-history]");
     if (booking) await mutate(() => api("/api/partner/bookings/" + booking.dataset.partnerBooking + "/status", { method: "PATCH", body: { status: booking.dataset.status } }), "Статус кода обновлён");
     if (offerStatus) await mutate(() => api("/api/partner/offers/" + offerStatus.dataset.partnerOfferStatus + "/status", { method: "PATCH", body: { status: offerStatus.dataset.status } }), "Статус предложения обновлён");
     if (duplicate) await mutate(() => api("/api/partner/offers/" + duplicate.dataset.partnerOfferDuplicate + "/duplicate", { method: "POST" }), "Создан черновик предложения");
+    if (deleteOffer) await mutate(() => api("/api/partner/offers/" + encodeURIComponent(deleteOffer.dataset.partnerOfferDelete), { method: "DELETE" }), "Предложение удалено из списка. История сохранена.");
+    if (deleteBooking) await mutate(() => api("/api/partner/bookings/" + encodeURIComponent(deleteBooking.dataset.partnerBookingDelete), { method: "DELETE" }), "Бронь убрана из списка. Если она была активна, теперь она отменена. История сохранена.");
+    if (historyButton && !isSeller) {
+      const kind = historyButton.dataset.loadPartnerHistory;
+      if (!['offers', 'bookings'].includes(kind)) return;
+      historyButton.disabled = true;
+      try {
+        const rows = (await api('/api/partner/' + kind + '?history=1')).filter(row => kind === 'offers' ? row.deleted_at : row.partner_hidden_at).reverse();
+        const list = document.querySelector('[data-partner-history-list="' + kind + '"]');
+        list.innerHTML = rows.length ? rows.map(row => kind === 'offers' ? partnerOfferCard(row, true) : '<article class="staff-booking-card"><header><strong>' + escapeHtml(row.code) + '</strong><span>' + escapeHtml(statusLabel(row.status)) + '</span></header><h4>' + escapeHtml(row.offerTitle) + '</h4><p>' + escapeHtml(row.date || 'Дата не сохранена') + ' · ' + (row.price === null ? 'Цена не сохранена' : Number(row.price) + ' ₽') + '</p><p>Убрана из рабочего списка. История выдачи сохранена.</p></article>').join('') : '<p class="empty-state">Удалённых записей пока нет.</p>';
+      } catch (error) { notify(error.message || 'История не загрузилась. Попробуйте ещё раз.', 'error'); }
+      finally { historyButton.disabled = false; }
+    }
   });
   if (partnerSession.passwordChangeRequired) {
     setPasswordRequired(true);
@@ -4660,6 +4689,9 @@ body { background: var(--color-bg); }
 [data-partner-delete-form] label { display: grid; gap: 8px; }
 [data-partner-delete-form] input { min-width: 0; width: 100%; }
 [data-partner-delete-form] { grid-template-columns: minmax(0, 1fr); }
+.partner-offer-card header strong { font-size: 19px; overflow-wrap: anywhere; }
+[data-partner-history] { grid-column: 1 / -1; }
+[data-partner-history-list] { margin-top: 14px; }
 .mobile-tab-select { display: none; }
 .workspace-mobile-nav { display: none; }
 .workspace-menu-sheet { width: min(440px, calc(100% - 24px)); max-height: min(80dvh, 600px); margin: auto auto 12px; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); border: 1px solid #d9e4df; border-radius: 22px; color: #102f38; background: #fff; box-shadow: 0 12px 45px #102f3833; }

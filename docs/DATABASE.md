@@ -66,6 +66,10 @@ Optional `customer_id` links a new authenticated booking to a buyer. Legacy/gues
 
 `status_changed_at`, `issued_at` support reporting. Cancellation stores whether it actually returned stock. `corrections` records administrator-only terminal corrections with reason, identity, time and stock delta; `auditLog` keeps an additional trace. Ordinary terminal transitions remain prohibited.
 
+## Removal from partner working lists (2026-10-14)
+
+Offers retain optional `deleted_at`; removal pauses and hides the offer, prevents new booking/edit/duplicate/republication, but does not cancel existing bookings or erase photos/terms. Bookings retain optional `partner_hidden_at`; removing a current booking atomically cancels it with the normal stock-return rules before hiding it. Repeating either operation is idempotent. Issued/no-show/cancelled statuses and immutable terms are retained; customer links/history and admin history remain available. Partner default API lists/recent widgets omit removed rows; owner/manager `?history=1` includes them. Dashboard totals still use all retained bookings. Existing rows need no migration. This remains a single-writer JSON contract; do not run multiple writers.
+
 Backups contain a matching database, photo tree and SHA-256 manifest. Restore validates the full pair and its staged copy before replacement, requires the operator's explicit stopped-server declaration and preserves pre-restore data. A legacy manifest-less restore remains possible with a warning. Off-server replication is not configured by these code changes.
 
 ## SQLite/PostgreSQL migration

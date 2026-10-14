@@ -1,5 +1,5 @@
 import { allowed, cleanString, enumValue, integerRange, numberRange, ValidationError, validateEmail, validatePhone } from "../utils/validation.mjs";
-import { createAddress, createOfferTemplate, deleteCollectionItem, partnerDashboard, partnerScopedData, patchCollectionItem } from "../repositories/databaseRepository.mjs";
+import { createAddress, createOfferTemplate, partnerDashboard, partnerScopedData, patchCollectionItem, removePartnerOffer, removePartnerBooking } from "../repositories/databaseRepository.mjs";
 import { createOfferInput, patchAddressInput, patchOfferInput, setBookingStatusInput } from "./adminService.mjs";
 import { partnerUploadFolder } from "../storage/imageStore.mjs";
 
@@ -18,8 +18,8 @@ export function profile(partnerId) {
   return data.partner;
 }
 
-export function scoped(partnerId, collection) {
-  const data = partnerScopedData(partnerId);
+export function scoped(partnerId, collection, includeDeleted = false) {
+  const data = partnerScopedData(partnerId, { includeDeleted });
   return data[collection];
 }
 
@@ -47,9 +47,10 @@ export function createOwnOffer(partnerId, input) {
 }
 
 export function duplicateOwnOffer(partnerId, offerId) {
-  const data = partnerScopedData(partnerId);
+  const data = partnerScopedData(partnerId, { includeDeleted: true });
   const offer = data.offers.find((item) => item.id === offerId);
   if (!offer) return null;
+  if (offer.deleted_at) throw Object.assign(new Error("Предложение удалено из списка. Создайте новое предложение."), { status: 409, code: "OFFER_REMOVED" });
   return createOfferInput({
     partnerId,
     addressId: offer.address_id,
@@ -174,20 +175,22 @@ export function deleteOwnTemplate(partnerId, id) {
 }
 
 export function patchOwn(collection, partnerId, id, patch, actorId = partnerId) {
-  const data = partnerScopedData(partnerId);
+  const data = partnerScopedData(partnerId, { includeDeleted: collection === "offers" });
   const list = collection === "partnerAddresses" ? data.addresses : collection === "offers" ? data.offers : data.bookings;
   if (!list.some((item) => item.id === id)) return null;
+  if (collection === "offers" && list.find(row => row.id === id).deleted_at) throw Object.assign(new Error("Предложение удалено из списка. Создайте новое предложение."), { status: 409, code: "OFFER_REMOVED" });
   if (collection === "partnerAddresses") return patchAddressInput(partnerId, id, patch, "partner");
   if (collection === "offers") return patchOfferInput(id, patch, "partner");
   if (collection === "bookings") return setBookingStatusInput(id, patch.status, "partner", actorId);
   return null;
 }
 
-export function deleteOwn(collection, partnerId, id) {
+export function deleteOwn(collection, partnerId, id, actorId = partnerId) {
+  if (collection === "offers") return removePartnerOffer(partnerId, id, actorId);
+  if (collection === "bookings") return removePartnerBooking(partnerId, id, actorId);
   const data = partnerScopedData(partnerId);
   const list = collection === "partnerAddresses" ? data.addresses : data.offers;
   if (!list.some((item) => item.id === id)) return false;
   if (collection === "partnerAddresses") return Boolean(patchCollectionItem(collection, id, { is_active: false }, "partner"));
-  if (collection === "offers") return Boolean(patchCollectionItem(collection, id, { status: "paused" }, "partner"));
-  return deleteCollectionItem(collection, id, "partner");
+  return false;
 }

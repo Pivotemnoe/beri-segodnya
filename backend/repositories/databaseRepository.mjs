@@ -28,6 +28,7 @@ function activeOfferRecord(offer, db, date = new Date()) {
     partner?.status === "active" &&
     address?.is_active !== false &&
     offer.status === "active" &&
+    !offer.deleted_at &&
     offer.remaining_quantity > 0 &&
     isOfferAvailableNow(offer, date)
   );
@@ -329,10 +330,7 @@ export function publicBooking(booking, db) {
   };
 }
 
-export function setBookingStatus(id, nextStatus, actorRole = "admin", actorId = null) {
-  return updateDb((db) => {
-    const booking = db.bookings.find((item) => item.id === id);
-    if (!booking) return null;
+function setBookingStatusRecord(db, booking, nextStatus, actorRole, actorId) {
     const transitions = {
       created: ["issued", "no_show", "cancelled"],
       issued: [],
@@ -353,7 +351,7 @@ export function setBookingStatus(id, nextStatus, actorRole = "admin", actorId = 
     if (previousStatus === "created" && nextStatus === "cancelled") {
       booking.stock_returned_on_cancel = false;
       const offer = db.offers.find((item) => item.id === booking.offer_id);
-      if (offer && isOfferAvailableNow(offer)) {
+      if (offer && !offer.deleted_at && isOfferAvailableNow(offer)) {
         offer.remaining_quantity = Math.min(offer.total_quantity, offer.remaining_quantity + 1);
         if (offer.status === "sold_out" && isOfferAvailableNow(offer)) offer.status = "active";
         offer.updated_at = booking.updated_at;
@@ -362,6 +360,37 @@ export function setBookingStatus(id, nextStatus, actorRole = "admin", actorId = 
     }
     addAudit(db, actorRole, actorId, "set_booking_status", "booking", booking.id, { from: previousStatus, to: nextStatus });
     return booking;
+}
+
+export function setBookingStatus(id, nextStatus, actorRole = "admin", actorId = null) {
+  return updateDb((db) => {
+    const booking = db.bookings.find((item) => item.id === id);
+    return booking ? setBookingStatusRecord(db, booking, nextStatus, actorRole, actorId) : null;
+  });
+}
+
+export function removePartnerOffer(partnerId, id, actorId) {
+  return updateDb(db => {
+    const offer = db.offers.find(row => row.id === id && row.partner_id === partnerId);
+    if (!offer) return false;
+    if (offer.deleted_at) return true;
+    offer.deleted_at = nowIso();
+    offer.updated_at = offer.deleted_at;
+    offer.status = "paused";
+    addAudit(db, "partner", actorId, "remove_offer_from_list", "offer", id);
+    return true;
+  });
+}
+
+export function removePartnerBooking(partnerId, id, actorId) {
+  return updateDb(db => {
+    const booking = db.bookings.find(row => row.id === id && row.partner_id === partnerId);
+    if (!booking) return false;
+    if (booking.partner_hidden_at) return true;
+    if (booking.status === "created") setBookingStatusRecord(db, booking, "cancelled", "partner", actorId);
+    booking.partner_hidden_at = nowIso();
+    addAudit(db, "partner", actorId, "remove_booking_from_list", "booking", id);
+    return true;
   });
 }
 
@@ -763,19 +792,19 @@ export function createPartnerFromApplication(applicationId, userData = null) {
   });
 }
 
-export function partnerScopedData(partnerId) {
+export function partnerScopedData(partnerId, { includeDeleted = false } = {}) {
   const db = readDb();
   return {
     partner: db.partners.find((item) => item.id === partnerId),
     addresses: db.partnerAddresses.filter((item) => item.partner_id === partnerId),
-    offers: db.offers.filter((item) => item.partner_id === partnerId),
+    offers: db.offers.filter((item) => item.partner_id === partnerId && (includeDeleted || !item.deleted_at)),
     templates: db.offerTemplates.filter((item) => item.partner_id === partnerId && item.is_active !== false),
-    bookings: enrichBookings(db.bookings.filter((item) => item.partner_id === partnerId), db)
+    bookings: enrichBookings(db.bookings.filter((item) => item.partner_id === partnerId && (includeDeleted || !item.partner_hidden_at)), db)
   };
 }
 
 export function partnerDashboard(partnerId, period = "all") {
-  const data = partnerScopedData(partnerId);
+  const data = partnerScopedData(partnerId, { includeDeleted: true });
   const start = new Date();
   if (period === "week") start.setUTCDate(start.getUTCDate() - 6);
   if (period === "month") start.setUTCDate(start.getUTCDate() - 29);
@@ -785,13 +814,13 @@ export function partnerDashboard(partnerId, period = "all") {
   const issued = data.bookings.filter((booking) => booking.status === "issued" && inPeriod(booking.issued_at || booking.status_changed_at || booking.updated_at));
   return {
     period,
-    activeOffersCount: data.offers.filter((offer) => offer.status === "active" && offer.remaining_quantity > 0 && isOfferAvailableNow(offer)).length,
+    activeOffersCount: data.offers.filter((offer) => !offer.deleted_at && offer.status === "active" && offer.remaining_quantity > 0 && isOfferAvailableNow(offer)).length,
     bookingsCount: bookings.length,
     issuedBookingsCount: issued.length,
     noShowBookingsCount: bookings.filter((booking) => booking.status === "no_show").length,
     estimatedRevenue: issued.reduce((sum, booking) => sum + (booking.price ?? 0), 0),
     unknownIssuedAmountsCount: issued.filter((booking) => !booking.termsVerified).length,
-    recentOffers: data.offers.slice(-5).reverse(),
-    recentBookings: data.bookings.slice(-5).reverse()
+    recentOffers: data.offers.filter(row => !row.deleted_at).slice(-5).reverse(),
+    recentBookings: data.bookings.filter(row => !row.partner_hidden_at).slice(-5).reverse()
   };
 }

@@ -16,6 +16,7 @@ import { runClientPhoneChecks } from "./client-phone-checks.mjs";
 import { runClientWorkspaceChecks } from "./client-workspace-checks.mjs";
 import { runClientPwaChecks } from "./client-pwa-checks.mjs";
 import { runClientAdminPartnerChecks, runAdminPartnerArchiveScenario } from "./client-admin-partner-checks.mjs";
+import { runPartnerRemovalClientChecks, runPartnerRemovalScenario } from "./partner-removal-checks.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
@@ -152,6 +153,7 @@ async function runScenario(port) {
   runClientPhoneChecks(publicScript.text);
   new Script(appScript.text, { filename: "served-app.js" });
   runClientAdminPartnerChecks(appScript.text, (await request(port, "/admin")).text);
+  runPartnerRemovalClientChecks(appScript.text);
   runClientWorkspaceChecks(appScript.text);
   await runClientPhotoChecks(appScript.text);
   const presentationSource = publicScript.text.match(/function publicBookingPresentation\([\s\S]*?(?=\n  var bookingPageRoot)/)?.[0];
@@ -752,6 +754,7 @@ async function runScenario(port) {
   const persisted = JSON.parse(fs.readFileSync(dbFile, "utf8"));
   await runPilotHardeningScenario(port, request, { adminCookie, partnerCookie, dbFile, suffix });
   await runAdminPartnerArchiveScenario(port, request, { adminCookie, dbFile, suffix });
+  await runPartnerRemovalScenario(port, request, { adminCookie, partnerCookie, dbFile, suffix });
   assert(persisted.sessions.length >= 2, "Server sessions were not persisted");
   assert(persisted.sessions.every((session) => session.id_hash && !session.id), "Raw session token was persisted");
   const storedBooking = persisted.bookings.find((item) => item.id === booking.json.data.bookingId);
