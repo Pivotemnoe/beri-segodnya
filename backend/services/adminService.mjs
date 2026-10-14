@@ -310,6 +310,7 @@ export function patchAddressInput(partnerId, addressId, input, actorRole = "admi
 export function patchOfferInput(id, input, actorRole = "admin") {
   const current = listAdminData("offers").find((item) => item.id === id);
   if (!current) return null;
+  if (current.deleted_at) throw Object.assign(new Error("Предложение удалено из списка. Для новой публикации создайте новое предложение."), { status: 409, code: "OFFER_REMOVED" });
   const patch = {};
   if (has(input, "title")) patch.title = cleanString(input.title, 120, true, "Название");
   if (has(input, "category")) patch.category = enumValue(input.category, allowed.categories, "Категория");

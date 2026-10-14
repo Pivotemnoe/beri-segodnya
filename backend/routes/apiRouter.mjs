@@ -466,8 +466,8 @@ async function handlePartner(request, response, url) {
   }
   if (parts[0] === "offer-templates") return handlePartnerTemplates(request, response, parts, partnerId, auth.session);
   if (parts[0] === "addresses") return handlePartnerAddresses(request, response, parts, partnerId, auth.session);
-  if (parts[0] === "offers") return handlePartnerOffers(request, response, parts, partnerId, auth.session);
-  if (parts[0] === "bookings") return handlePartnerBookings(request, response, parts, partnerId, auth.session);
+  if (parts[0] === "offers") return handlePartnerOffers(request, response, parts, partnerId, auth.session, url);
+  if (parts[0] === "bookings") return handlePartnerBookings(request, response, parts, partnerId, auth.session, url);
   return fail(response, 404, "NOT_FOUND", "Действие не найдено. Обновите страницу и попробуйте снова.");
 }
 
@@ -491,24 +491,34 @@ async function handlePartnerAddresses(request, response, parts, partnerId, sessi
   return fail(response, 404, "NOT_FOUND", "Действие с точкой не найдено. Обновите страницу.");
 }
 
-async function handlePartnerOffers(request, response, parts, partnerId, session) {
+async function handlePartnerOffers(request, response, parts, partnerId, session, url) {
   if (!requirePartnerPermission(response, session, request.method === "GET" ? "offers:read" : "offers:write")) return;
   const id = parts[1];
-  if (request.method === "GET" && !id) return ok(response, partner.scoped(partnerId, "offers"));
+  if (request.method === "GET" && !id) return ok(response, partner.scoped(partnerId, "offers", url.searchParams.get("history") === "1"));
   if (request.method === "POST" && !id) return ok(response, partner.createOwnOffer(partnerId, await readBody(request)), 201);
   if (request.method === "POST" && id && parts[2] === "duplicate") return ok(response, partner.duplicateOwnOffer(partnerId, id), 201);
   if (request.method === "PATCH" && id && parts[2] === "status") return ok(response, partner.patchOwn("offers", partnerId, id, { status: enumValue((await readBody(request)).status, allowed.offerStatuses, "Статус") }));
   if (request.method === "PATCH" && id && !parts[2]) return ok(response, partner.patchOwn("offers", partnerId, id, await readBody(request)));
-  if (request.method === "DELETE" && id) return ok(response, { deleted: partner.deleteOwn("offers", partnerId, id) });
+  if (request.method === "DELETE" && id && !parts[2]) {
+    const deleted = partner.deleteOwn("offers", partnerId, id, session.user_id);
+    return deleted ? ok(response, { deleted: true }) : fail(response, 404, "OFFER_NOT_FOUND", "Предложение не найдено");
+  }
   return fail(response, 404, "NOT_FOUND", "Действие с предложением не найдено. Обновите страницу.");
 }
 
-async function handlePartnerBookings(request, response, parts, partnerId, session) {
+async function handlePartnerBookings(request, response, parts, partnerId, session, url) {
   if (!requirePartnerPermission(response, session, request.method === "GET" ? "bookings:read" : "bookings:issue")) return;
   const id = parts[1];
   if (request.method === "GET" && !id) {
-    const bookings = partner.scoped(partnerId, "bookings");
+    const history = url.searchParams.get("history") === "1";
+    if (history && !requirePartnerPermission(response, session, "bookings:write")) return;
+    const bookings = partner.scoped(partnerId, "bookings", history);
     return ok(response, session.user_role === "seller" ? bookings.map(partner.sellerBookingView) : bookings);
+  }
+  if (request.method === "DELETE" && id && !parts[2]) {
+    if (!requirePartnerPermission(response, session, "bookings:write")) return;
+    const deleted = partner.deleteOwn("bookings", partnerId, id, session.user_id);
+    return deleted ? ok(response, { deleted: true }) : fail(response, 404, "BOOKING_NOT_FOUND", "Бронь не найдена");
   }
   if (request.method === "PATCH" && id && parts[2] === "status") {
     const input = await readBody(request);

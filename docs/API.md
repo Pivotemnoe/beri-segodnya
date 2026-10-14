@@ -89,6 +89,11 @@ Requires a partner app session unless the endpoint is login. Optional partner Ba
 - `PATCH /api/partner/offers/:id/status`
 - `GET /api/partner/bookings`
 - `PATCH /api/partner/bookings/:id/status`
+- `DELETE /api/partner/bookings/:id`
+
+`DELETE /api/partner/offers/:id` removes an own offer from working/public lists (`deleted_at`, paused), preserving the record and existing bookings. Removed offers cannot be edited, duplicated or republished (`409 OFFER_REMOVED`). `DELETE /api/partner/bookings/:id` is owner/manager-only: a current booking is atomically cancelled before hiding (`partner_hidden_at`), using normal bounded stock return. Terminal results and amounts are not rewritten. Both removals are idempotent; foreign/missing IDs return 404. No data/photos are physically purged.
+
+Default partner offer/booking lists omit removed records. Add `?history=1` to include retained history for the same partner. Sellers cannot delete or request hidden booking history; normal seller projections remain restricted. Totals include hidden issued bookings; recent widgets exclude hidden rows. Customer booking links and account history remain valid, with the cancelled status visible after removal of a current booking.
 
 Partner endpoints are scoped by `session.partner_id`.
 
