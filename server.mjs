@@ -1150,7 +1150,7 @@ function adminPage() {
         <a data-tab-link="settings" href="/admin?tab=settings">Настройки</a>
       </nav>
       <label class="mobile-tab-select">Раздел админки<select data-tab-select="admin"><option value="overview">Обзор</option><option value="partners">Партнёры</option><option value="offers">Предложения</option><option value="bookings">Брони и коды</option><option value="partner-applications">Заявки партнёров</option><option value="contact-requests">Обращения</option><option value="administrators">Администраторы</option><option value="audit">Журнал действий</option><option value="settings">Настройки</option></select></label>
-      <p class="admin-period-note">Брони, выдачи и сумма — за всё время. Предложения и новые сообщения — на момент обновления.</p><div class="stats-row admin-stats" data-admin-stats></div>
+      <p class="admin-period-note" data-tab-panel="overview">Брони, выдачи и сумма — за всё время. Предложения и новые сообщения — на момент обновления.</p><div class="stats-row admin-stats" data-admin-stats data-tab-panel="overview"></div>
       <div class="admin-grid">
         <article class="panel-card tab-panel" data-tab-panel="administrators">
           <h3>Администраторы сервиса</h3>
@@ -1175,7 +1175,17 @@ function adminPage() {
           <p>«Отключить» временно закрывает доступ. «В архив» сохраняет человека в истории и закрывает его вход. Вернуть доступ можно кнопкой «Восстановить доступ». Записи не удаляются.</p>
         </article>
         <article class="panel-card tab-panel" data-tab-panel="overview"><h3>Основные задачи</h3><div class="admin-workflow"><button type="button" data-admin-go-tab="partner-applications"><b>1</b><span>Проверить заявки</span></button><button type="button" data-admin-go-tab="partners"><b>2</b><span>Подключить партнёра</span></button><button type="button" data-admin-go-tab="bookings"><b>3</b><span>Проверить брони и выдачу</span></button></div><div class="table-wrap" data-admin-service></div></article>
-        <article class="panel-card tab-panel onboarding-panel" data-tab-panel="partners">
+        <article class="panel-card tab-panel" data-tab-panel="partners">
+          <h3>Заведения</h3>
+          <p>Здесь уже подключённые магазины. По умолчанию архив скрыт. Найдите заведение по названию или логину его владельца.</p>
+          <div class="table-filters" data-table-filter-group data-filter-target="[data-admin-partners]">
+            <input type="search" placeholder="Название или логин владельца" aria-label="Найти заведение" data-filter-query />
+            <select data-filter-status aria-label="Какие заведения показывать"><option value="working" selected>Без архива</option><option value="active">Активные</option><option value="disabled">Отключённые</option><option value="paused">Приостановленные</option><option value="archived">Архив</option><option value="">Все заведения</option></select>
+          </div>
+          <div class="staff-booking-list" data-admin-partners></div>
+        </article>
+        <details class="panel-card tab-panel onboarding-panel" data-tab-panel="partners" data-admin-onboarding>
+          <summary>Подключить новое заведение</summary>
           <div class="panel-heading"><div><h3>Подключить нового партнёра</h3><p>Заполните данные заведения и первой точки. После создания передайте владельцу ссылку на кабинет, логин и временный пароль. При первом входе он задаст свой пароль.</p></div></div>
           <form class="onboarding-form" method="post" data-admin-onboard-partner>
             <input type="hidden" name="applicationId" />
@@ -1185,8 +1195,7 @@ function adminPage() {
             <fieldset><legend><b>3</b> Вход владельца</legend><div class="onboarding-fields"><label>Имя пользователя<input name="userName" required maxlength="120" placeholder="Владелец точки" /></label><label>Логин<input name="login" required maxlength="80" autocomplete="off" placeholder="Логин для входа" /></label><label>Временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 12 символов" /></label></div></fieldset>
             <button class="button button-primary onboarding-submit" type="submit">Создать партнёра и кабинет</button>
           </form>
-          <div class="panel-heading list-heading"><div><h3>Подключённые партнёры</h3><p>«В архив» закрывает доступ и сохраняет историю. «Удалить» доступно только заведению без предложений, сохранённых шаблонов и броней.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-partners]"><input type="search" placeholder="Найти партнёра" data-filter-query /><select data-filter-status aria-label="Статус партнёра"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Отключён">Отключённые</option><option value="В архиве">В архиве</option></select></div></div><div class="table-wrap" data-admin-partners></div>
-        </article>
+        </details>
         <details class="admin-maintenance tab-panel" data-tab-panel="partners"><summary>Дополнительные адреса и сотрудники</summary><div class="maintenance-grid"><section><h3>Добавить ещё одну точку</h3><form class="mini-form labelled-form" method="post" data-admin-create-address><label>Заведение<select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select></label><label>Название точки<input name="title" required placeholder="Название точки" /></label><label>Город<input name="city" required value="Армавир" /></label><label>Адрес<input name="address" required placeholder="Улица и номер дома" /></label><button class="button button-primary" type="submit">Добавить адрес</button></form><div class="table-wrap" data-admin-addresses></div></section><section><h3>Добавить ещё одного сотрудника</h3><form class="mini-form labelled-form" method="post" data-admin-create-user><label>Заведение<select name="partnerId" required data-admin-partner-select><option value="">Выберите партнёра</option></select></label><label>Имя сотрудника<input name="name" required placeholder="Имя сотрудника" /></label><label>Логин<input name="login" required placeholder="Логин" /></label><label>Временный пароль<input name="password" required minlength="12" type="password" placeholder="Временный пароль от 12 символов" /></label><label>Роль сотрудника<select name="role"><option value="owner">Владелец</option><option value="manager">Менеджер</option><option value="seller">Продавец — только выдача</option></select></label><button class="button button-primary" type="submit">Добавить пользователя</button></form><h3 class="maintenance-subheading">Сбросить пароль сотрудника</h3><p class="maintenance-note">Старые сеансы закроются. При следующем входе сотрудник задаст собственный пароль.</p><form class="mini-form labelled-form" method="post" data-admin-reset-user-password><label>Сотрудник<select name="userId" required data-admin-user-reset-select><option value="">Выберите сотрудника</option></select></label><label>Новый временный пароль<input name="password" required minlength="12" maxlength="120" type="password" autocomplete="new-password" placeholder="Не менее 12 символов" /></label><button class="button button-primary" type="submit">Сбросить пароль</button></form><div class="table-wrap" data-admin-users></div></section></div></details>
         <article class="panel-card tab-panel" data-tab-panel="offers"><div class="panel-heading"><div><h3>Предложения</h3><p>Обычно предложение публикует партнёр из своего кабинета. Эта форма нужна для первого запуска или помощи партнёру.</p></div></div><form class="mini-form offer-editor labelled-form" method="post" data-admin-create-offer><label>Заведение<select name="partnerId" required data-admin-offer-partner><option value="">Выберите партнёра</option></select></label><label>Точка получения<select name="addressId" required data-admin-offer-address disabled><option value="">Сначала выберите партнёра</option></select></label><label>Название предложения<input name="title" required maxlength="120" placeholder="Название предложения" /></label><label>Категория<select name="category"><option value="lunch">Готовая еда</option><option value="bakery">Выпечка</option><option value="evening">На вечер</option></select></label><label>Короткое описание<input name="description" maxlength="240" placeholder="Короткое описание" /></label><label>Что входит в набор<input name="contents" maxlength="500" placeholder="Что входит в набор" /></label><label>Вес или количество изделий<input name="weight" maxlength="80" placeholder="Вес или количество изделий" /></label><label>Аллергены<input name="allergens" maxlength="240" placeholder="Аллергены или способ уточнения" /></label><label>Цена, ₽<input name="price" required type="number" min="1" placeholder="Цена" /></label><label>Обычная цена, ₽<input name="oldPrice" type="number" min="1" placeholder="Обычная стоимость" /></label><label>Время получения<input name="pickupWindow" required maxlength="40" placeholder="15:30–18:00" /></label><label>Дата получения<input name="date" required type="date" data-today-date /></label><label>Количество наборов<input name="totalQuantity" required type="number" min="1" placeholder="Количество" /></label><label>Что сделать с предложением<select name="status"><option value="active">Опубликовать на сайте</option><option value="paused">Сохранить черновик</option></select></label><button class="button button-primary" type="submit">Сохранить предложение</button></form><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-offers]"><input type="search" placeholder="Найти предложение или партнёра" data-filter-query /><select data-filter-status aria-label="Статус предложения"><option value="">Все статусы</option><option value="Активен">Активные</option><option value="Черновик">Черновики</option><option value="Распродано">Распроданные</option><option value="Истекло">Истёкшие</option></select></div><div class="table-wrap" data-admin-offers></div></article>
         <article class="panel-card tab-panel" data-tab-panel="bookings"><div class="panel-heading"><div><h3>Брони и коды</h3><p>Найдите код покупателя. Проверьте заведение, время получения и цену. Отмечайте «Выдан» только после передачи заказа.</p></div><div class="table-filters" data-table-filter-group data-filter-target="[data-admin-bookings]"><input type="search" placeholder="Найти код или покупателя" data-filter-query /><select data-filter-status aria-label="Статус брони"><option value="">Все статусы</option><option value="Забронировано">Текущие</option><option value="Выдано">Выданные</option><option value="Не пришёл">Не полученные</option><option value="Отменено">Отменённые</option></select></div></div><div class="staff-booking-list" data-admin-bookings></div><details class="advanced-offer-editor"><summary>Исправить ошибочную отметку</summary><p>Только для завершённой брони. Укажите причину. Отмена здесь не возвращает продукты в остаток автоматически; сначала проверьте фактическую выдачу.</p><form class="mini-form labelled-form" method="post" data-admin-correct-booking><label>Бронь<select name="bookingId" required data-admin-correction-select><option value="">Выберите код</option></select></label><label>Правильный результат<select name="status"><option value="issued">Выдано</option><option value="no_show">Не пришёл</option><option value="cancelled">Отменено</option></select></label><label>Причина<textarea name="reason" required minlength="10" maxlength="500" rows="3" placeholder="Что произошло и что проверили"></textarea></label><button class="button button-outline" type="submit">Сохранить корректировку</button></form></details></article>
@@ -1196,6 +1205,17 @@ function adminPage() {
         <article class="panel-card tab-panel" data-tab-panel="settings"><div class="settings-grid"><section><h3>Сменить пароль администратора</h3><form class="mini-form labelled-form" method="post" data-admin-change-password><label>Текущий пароль<input name="currentPassword" required maxlength="120" type="password" autocomplete="current-password" /></label><label>Новый пароль<input name="newPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><label>Повторите новый пароль<input name="confirmPassword" required minlength="12" maxlength="120" type="password" autocomplete="new-password" /></label><p class="form-error" role="alert" aria-live="polite" hidden></p><button class="button button-primary" type="submit">Сменить пароль</button></form></section><section><h3>Что проверять каждый день</h3><ul class="check-list"><li>Откройте новые заявки и свяжитесь с представителями заведений.</li><li>Проверьте адреса, цены, количество и время получения в предложениях.</li><li>Посмотрите брони. Ошибочную отметку выдачи исправляйте с объяснением причины.</li><li>После ответа закрывайте обращения, чтобы было видно, кому ещё нужна помощь.</li></ul><p>Для нового пароля нужно не менее 12 символов. Сохраните его в надёжном месте. После смены пароля остальные входы в этот кабинет закроются.</p></section></div></article>
       </div>
     </div>
+    <dialog class="workspace-menu-sheet" data-partner-delete-dialog aria-labelledby="partner-delete-title">
+      <h3 id="partner-delete-title">Удалить пустое заведение?</h3>
+      <p>Будут удалены заведение, его точки и доступ сотрудников. Корзины нет. Заведение с предложениями, шаблонами или заказами удалить здесь нельзя — его можно перенести в архив.</p>
+      <p><strong data-partner-delete-name></strong></p>
+      <form class="smart-form" method="post" data-partner-delete-form>
+        <label>Введите название заведения для подтверждения<input name="confirmation" required maxlength="120" autocomplete="off" /></label>
+        <p class="form-error" role="alert" hidden></p>
+        <button class="button button-primary" type="submit" disabled>Удалить навсегда</button>
+        <button class="button button-outline" type="button" data-partner-delete-cancel>Не удалять</button>
+      </form>
+    </dialog>
     <div class="record-dialog" data-record-dialog hidden><div class="record-dialog-backdrop" data-close-record-dialog></div><section class="record-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="record-dialog-title" tabindex="-1"><button class="modal-close" type="button" data-close-record-dialog aria-label="Закрыть">${uiIcon("close", "button-icon")}</button><p class="kicker" data-record-kind></p><h2 id="record-dialog-title" data-record-title></h2><dl class="record-details" data-record-details></dl><div class="record-message" data-record-message hidden></div></section></div>
   </section>`;
 }
@@ -2387,7 +2407,8 @@ function applyTableFilter(group) {
   rows.forEach((row) => {
     const text = row.textContent.toLowerCase();
     const rowStatus = (row.dataset.filterStatus || text).toLowerCase();
-    const matches = (!query || text.includes(query)) && (!status || rowStatus.includes(status));
+    const matchesStatus = status === "working" ? rowStatus !== "archived" : (!status || rowStatus.includes(status));
+    const matches = (!query || text.includes(query)) && matchesStatus;
     row.hidden = !matches;
     if (matches) visible += 1;
   });
@@ -2400,6 +2421,31 @@ function applyTableFilter(group) {
     target.appendChild(empty);
   }
   if (empty) empty.hidden = rows.length === 0 || visible > 0;
+}
+
+function orderedAdminPartners(partners) {
+  return partners.slice().sort((a, b) => String(b.created_at || b.updated_at || "").localeCompare(String(a.created_at || a.updated_at || "")) || String(a.name).localeCompare(String(b.name), "ru"));
+}
+
+function workingAdminPartners(partners) {
+  return orderedAdminPartners(partners).filter(row => row.status !== "archived");
+}
+
+function canConfirmPartnerDeletion(partner, typedName) {
+  return partner?.canDelete === true && typeof typedName === "string" && typedName.trim() === partner.name;
+}
+
+function adminPartnerCard(row, users, addresses) {
+  const owner = users.find(user => user.partner_id === row.id && user.role === "owner");
+  const points = addresses.filter(address => address.partner_id === row.id);
+  const status = row.status === "paused" ? "Приостановлен" : statusLabel(row.status);
+  const button = (attribute, label, extra = "", confirm = true) => '<button type="button" class="table-action" ' + (confirm ? 'data-confirm-action data-confirm-label="' + escapeHtml(label + ' — ' + row.name + '?') + '" ' : '') + attribute + '="' + escapeHtml(row.id) + '" ' + extra + '>' + label + '</button>';
+  const statusAction = button("data-admin-partner-status", row.status === "active" ? "Отключить" : row.status === "archived" ? "Вернуть из архива" : "Включить", 'data-status="' + (row.status === "active" ? 'disabled' : 'active') + '"');
+  const archiveAction = row.status === "archived" ? '' : button("data-admin-partner-archive", "В архив");
+  const deleteAction = row.canDelete === true ? button("data-admin-partner-delete", "Удалить", '', false) : '<span class="maintenance-note">Есть история — полное удаление недоступно</span>';
+  const workspaceAction = row.status === "archived" ? '' : button("data-admin-partner-workspace", "Сотрудники и точки", '', false);
+  const details = [["Тип", typeLabel(row.type)], ["Контакт", row.contact_name || "Не указан"], ["Телефон", row.phone || "Не указан"], ["Логин владельца", owner?.login || "Не создан"], ["Точки", points.map(point => point.title + ' · ' + point.address).join('; ') || "Не добавлены"]];
+  return '<article class="staff-booking-card admin-partner-card" data-filter-card data-filter-status="' + escapeHtml(row.status) + '"><header><strong>' + escapeHtml(row.name) + '</strong><span>' + escapeHtml(status) + '</span></header><dl>' + details.map(([label, value]) => '<div><dt>' + label + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('') + '</dl>' + (row.status === 'archived' ? '<p class="maintenance-note">После возврата из архива отдельно включите нужные точки и доступ сотрудников.</p>' : '') + '<footer>' + workspaceAction + statusAction + archiveAction + deleteAction + '</footer></article>';
 }
 
 function setupTableFilters(root = document) {
@@ -2506,6 +2552,7 @@ async function setupAdmin() {
   let applicationCache = [];
   let contactCache = [];
   let partnerCache = [];
+  let pendingPartnerDelete = null;
   let userCache = [];
   let bookingCache = [];
   let recordOpener;
@@ -2586,11 +2633,22 @@ async function setupAdmin() {
     setSelectOptions(document.querySelector("[data-admin-account-reset-select]"), accounts.filter(row => row.role !== "owner"), "Выберите администратора", "id", row => row.name + " · " + row.login);
     const partnerById = Object.fromEntries(partners.map((item) => [item.id, item]));
     const addressById = Object.fromEntries(addresses.map((item) => [item.id, item]));
-    document.querySelectorAll("[data-admin-partner-select]").forEach((select) => setSelectOptions(select, partners, "Выберите партнёра", "id", (item) => item.name));
-    setSelectOptions(document.querySelector("[data-admin-user-reset-select]"), users, "Выберите сотрудника", "id", (item) => item.name + " · " + item.login + " · " + item.partnerName);
+    const workingPartners = workingAdminPartners(partners);
+    const workspaceSelects = [...document.querySelectorAll("[data-admin-partner-select]")];
+    workspaceSelects.forEach(select => setSelectOptions(select, workingPartners, "Выберите заведение", "id", item => item.name));
+    const renderPartnerWorkspace = (partnerId) => {
+      workspaceSelects.forEach(select => { select.value = partnerId || ""; });
+      const ownAddresses = addresses.filter(row => row.partner_id === partnerId);
+      const ownUsers = users.filter(row => row.partner_id === partnerId);
+      setSelectOptions(document.querySelector("[data-admin-user-reset-select]"), ownUsers, "Выберите сотрудника этого заведения", "id", item => item.name + " · " + item.login);
+      document.querySelector("[data-admin-addresses]").innerHTML = partnerId ? table(ownAddresses, [{ label: "Точка", value: "title" }, { label: "Адрес", value: "address" }, { label: "Статус", value: row => row.is_active === false ? "Отключена" : "Активна" }], row => '<button class="table-action" data-confirm-action data-admin-address-status="' + escapeHtml(row.id) + '" data-partner-id="' + escapeHtml(row.partner_id) + '" data-status="' + (row.is_active === false ? 'true' : 'false') + '">' + (row.is_active === false ? 'Включить' : 'Отключить') + '</button>') : '<p class="empty-state">Выберите заведение, чтобы посмотреть его точки.</p>';
+      document.querySelector("[data-admin-users]").innerHTML = partnerId ? table(ownUsers, [{ label: "Имя", value: "name" }, { label: "Логин", value: "login" }, { label: "Роль", value: row => statusLabel(row.role) }, { label: "Статус", value: row => statusLabel(row.status) }], row => '<button class="table-action" data-confirm-action data-admin-user-status="' + escapeHtml(row.id) + '" data-partner-id="' + escapeHtml(row.partner_id) + '" data-status="' + (row.status === 'active' ? 'disabled' : 'active') + '">' + (row.status === 'active' ? 'Отключить' : 'Включить') + '</button>') : '<p class="empty-state">Выберите заведение, чтобы посмотреть его сотрудников.</p>';
+    };
+    workspaceSelects.forEach(select => { select.onchange = () => renderPartnerWorkspace(select.value); });
+    renderPartnerWorkspace(workspaceSelects[0]?.value || "");
     const offerPartnerSelect = document.querySelector("[data-admin-offer-partner]");
     const offerAddressSelect = document.querySelector("[data-admin-offer-address]");
-    setSelectOptions(offerPartnerSelect, partners, "Выберите партнёра", "id", (item) => item.name);
+    setSelectOptions(offerPartnerSelect, workingPartners.filter(row => row.status === "active"), "Выберите активное заведение", "id", item => item.name);
     const refreshOfferAddresses = () => {
       const ownAddresses = addresses.filter((item) => item.partner_id === offerPartnerSelect.value && item.is_active !== false);
       setSelectOptions(offerAddressSelect, ownAddresses, !offerPartnerSelect.value ? "Сначала выберите заведение" : ownAddresses.length ? "Выберите точку" : "У заведения нет активных точек", "id", (item) => item.title + " · " + item.address);
@@ -2600,9 +2658,7 @@ async function setupAdmin() {
     refreshOfferAddresses();
     document.querySelectorAll("[data-today-date]").forEach((input) => { if (!input.value) input.value = localDateValue(); });
     document.querySelector("[data-admin-service]").innerHTML = '<div class="help-steps"><p><strong>Заявка → подключение</strong><span>Сначала свяжитесь с представителем. Затем нажмите «Подключить» в заявке: данные перенесутся в форму, но заведение ещё не будет создано.</span></p><p><strong>Выдача заказа</strong><span>В разделе «Брони и коды» найдите код покупателя. Проверьте условия и отметьте выдачу после передачи заказа.</span></p><p><strong>Обновление списков</strong><span>Нажмите «Обновить данные», чтобы увидеть последние изменения. Незаполненные и несохранённые формы при обновлении не очищаются.</span></p></div>';
-    document.querySelector("[data-admin-partners]").innerHTML = table(partners, [{ label: "Название", value: "name" }, { label: "Тип", value: (row) => typeLabel(row.type) }, { label: "Контакт", value: (row) => row.contact_name || "—" }, { label: "Телефон", value: (row) => row.phone || "—" }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-admin-partner-status="' + row.id + '" data-status="' + (row.status === "active" ? "disabled" : "active") + '">' + (row.status === "active" ? "Отключить" : "Включить") + '</button> ' + (row.status === "archived" ? '' : '<button class="table-action" data-confirm-action data-admin-partner-archive="' + row.id + '">В архив</button> ') + (row.canDelete ? '<button class="table-action danger" data-confirm-action data-admin-partner-delete="' + row.id + '">Удалить</button>' : '<span class="maintenance-note">Есть история — можно в архив</span>'));
-    document.querySelector("[data-admin-addresses]").innerHTML = table(addresses, [{ label: "Партнёр", value: "partnerName" }, { label: "Точка", value: "title" }, { label: "Адрес", value: "address" }, { label: "Статус", value: (row) => row.is_active === false ? "Отключена" : "Активна" }], (row) => '<button class="table-action" data-confirm-action data-admin-address-status="' + row.id + '" data-partner-id="' + row.partner_id + '" data-status="' + (row.is_active === false ? "true" : "false") + '">' + (row.is_active === false ? "Включить" : "Отключить") + '</button>');
-    document.querySelector("[data-admin-users]").innerHTML = table(users, [{ label: "Партнёр", value: "partnerName" }, { label: "Логин", value: "login" }, { label: "Роль", value: (row) => statusLabel(row.role) }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-admin-user-status="' + row.id + '" data-partner-id="' + row.partner_id + '" data-status="' + (row.status === "active" ? "disabled" : "active") + '">' + (row.status === "active" ? "Отключить" : "Включить") + '</button>');
+    document.querySelector("[data-admin-partners]").innerHTML = orderedAdminPartners(partners).map(row => adminPartnerCard(row, users, addresses)).join('') || '<p class="empty-state">Заведений пока нет. Ниже можно подключить первое.</p>';
     document.querySelector("[data-admin-offers]").innerHTML = table(offers, [{ label: "Название", value: "title" }, { label: "Партнёр", value: (row) => partnerById[row.partner_id]?.name || "—" }, { label: "Точка", value: (row) => addressById[row.address_id]?.title || "—" }, { label: "Дата", value: "date" }, { label: "Остаток", value: (row) => row.remaining_quantity + " / " + row.total_quantity }, { label: "Статус", value: (row) => statusLabel(row.status) }], (row) => '<button class="table-action" data-confirm-action data-admin-offer-status="' + row.id + '" data-status="' + (row.status === "active" ? "paused" : "active") + '">' + (row.status === "active" ? "На паузу" : "Опубликовать") + '</button>');
     document.querySelector("[data-admin-bookings]").innerHTML = bookings.length ? bookings.slice().reverse().map((row) => {
       const action = (status, label) => '<button type="button" class="table-action' + (status === "issued" ? ' primary' : '') + '" data-confirm-action data-booking-status="' + escapeHtml(row.id) + '" data-status="' + status + '" data-confirm-label="' + escapeHtml(row.code + ': ' + label + '?') + '">' + label + '</button>';
@@ -2706,6 +2762,26 @@ async function setupAdmin() {
     await mutate(async () => { const input = formObject(form); await api("/api/admin/administrators/" + encodeURIComponent(input.userId) + "/reset-password", { method: "POST", body: { password: input.password } }); form.reset(); }, "Временный пароль сохранён. Старые входы этого администратора закрыты.");
   });
   document.querySelector("[data-admin-logout]")?.addEventListener("click", async () => { await api("/api/admin/auth/logout", { method: "POST" }); location.reload(); });
+  const partnerDeleteDialog = document.querySelector("[data-partner-delete-dialog]");
+  const partnerDeleteForm = document.querySelector("[data-partner-delete-form]");
+  const partnerDeleteSubmit = partnerDeleteForm.querySelector('button[type="submit"]');
+  partnerDeleteForm.elements.confirmation.addEventListener("input", () => {
+    partnerDeleteSubmit.disabled = !canConfirmPartnerDeletion(partnerCache.find(row => row.id === pendingPartnerDelete?.id), partnerDeleteForm.elements.confirmation.value);
+  });
+  document.querySelector("[data-partner-delete-cancel]").addEventListener("click", () => partnerDeleteDialog.close());
+  partnerDeleteDialog.addEventListener("close", () => { pendingPartnerDelete = null; partnerDeleteForm.reset(); partnerDeleteSubmit.disabled = true; });
+  partnerDeleteForm.addEventListener("submit", async event => {
+    event.preventDefault(); if (!pendingPartnerDelete || partnerDeleteSubmit.disabled) return;
+    const partner = partnerCache.find(row => row.id === pendingPartnerDelete.id);
+    const confirmation = partnerDeleteForm.elements.confirmation.value.trim();
+    if (!canConfirmPartnerDeletion(partner, confirmation)) { notify("Данные заведения изменились. Обновите список и проверьте название.", "error"); return; }
+    partnerDeleteSubmit.disabled = true;
+    try { await mutate(async () => {
+      await api("/api/admin/partners/" + partner.id, { method: "DELETE", body: { confirmation } });
+      partnerDeleteDialog.close();
+    }, "Пустое заведение удалено вместе с точками и доступами сотрудников"); }
+    finally { partnerDeleteSubmit.disabled = !canConfirmPartnerDeletion(partnerCache.find(row => row.id === pendingPartnerDelete?.id), partnerDeleteForm.elements.confirmation.value); }
+  });
   document.querySelector("[data-admin-onboard-partner]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -2753,6 +2829,7 @@ async function setupAdmin() {
     const partnerStatus = event.target.closest("[data-admin-partner-status]");
     const partnerArchive = event.target.closest("[data-admin-partner-archive]");
     const partnerDelete = event.target.closest("[data-admin-partner-delete]");
+    const partnerWorkspace = event.target.closest("[data-admin-partner-workspace]");
     const addressStatus = event.target.closest("[data-admin-address-status]");
     const userStatus = event.target.closest("[data-admin-user-status]");
     const accountStatus = event.target.closest("[data-admin-account-status]");
@@ -2790,6 +2867,7 @@ async function setupAdmin() {
         form.elements.userName.value = application.contact_name || "";
         document.querySelector("[data-admin-onboarding-source]").hidden = false;
         activateTabs("partners");
+        document.querySelector("[data-admin-onboarding]").open = true;
         form.scrollIntoView({ behavior: "smooth", block: "start" });
         form.elements.login.focus({ preventScroll: true });
         notify("Данные заявки заполнены. Задайте логин и временный пароль");
@@ -2802,7 +2880,18 @@ async function setupAdmin() {
     if (partnerArchive) await mutate(() => api("/api/admin/partners/" + partnerArchive.dataset.adminPartnerArchive, { method: "PATCH", body: { status: "archived" } }), "Партнёр перенесён в архив");
     if (partnerDelete) {
       const partner = partnerCache.find((item) => item.id === partnerDelete.dataset.adminPartnerDelete);
-      if (partner) await mutate(() => api("/api/admin/partners/" + partner.id, { method: "DELETE", body: { confirmation: partner.name } }), "Партнёр удалён");
+      if (partner?.canDelete === true && typeof partnerDeleteDialog.showModal === "function") {
+        pendingPartnerDelete = { id: partner.id, name: partner.name };
+        partnerDeleteForm.reset(); partnerDeleteSubmit.disabled = true;
+        document.querySelector("[data-partner-delete-name]").textContent = partner.name;
+        partnerDeleteDialog.showModal(); partnerDeleteForm.elements.confirmation.focus({ preventScroll: true });
+      } else notify("Полное удаление недоступно. Заведение с историей можно перенести в архив.", "error");
+    }
+    if (partnerWorkspace) {
+      const select = document.querySelector("[data-admin-partner-select]");
+      select.value = partnerWorkspace.dataset.adminPartnerWorkspace; select.onchange?.();
+      const maintenance = document.querySelector("[data-admin-app] details.admin-maintenance");
+      maintenance.open = true; maintenance.scrollIntoView({ behavior: "instant", block: "start" });
     }
     if (deleteApplication) await mutate(() => api("/api/admin/partner-applications/" + deleteApplication.dataset.deleteApplication, { method: "DELETE" }), "Заявка удалена");
     if (deleteContact) await mutate(() => api("/api/admin/contact-requests/" + deleteContact.dataset.deleteContact, { method: "DELETE" }), "Обращение удалено");
@@ -4561,6 +4650,16 @@ body { background: var(--color-bg); }
 [data-admin-app] .table-action { min-height: 44px; }
 [data-admin-app] .staff-booking-card[hidden] { display: none; }
 [data-admin-app] .staff-booking-card dd { overflow-wrap: anywhere; }
+[data-admin-app] .admin-partner-card header strong { overflow-wrap: anywhere; font-size: 19px; }
+[data-admin-onboarding] > summary { min-height: 44px; padding: 8px 0; color: #0b646a; font-size: 19px; font-weight: 800; cursor: pointer; }
+[data-admin-onboarding][open] > summary { margin-bottom: 18px; }
+[data-filter-target="[data-admin-partners]"] { margin-bottom: 18px; }
+[data-partner-delete-dialog] { overflow-y: auto; }
+[data-partner-delete-dialog] h3 { margin: 0 0 12px; }
+[data-partner-delete-dialog] p { line-height: 1.45; overflow-wrap: anywhere; }
+[data-partner-delete-form] label { display: grid; gap: 8px; }
+[data-partner-delete-form] input { min-width: 0; width: 100%; }
+[data-partner-delete-form] { grid-template-columns: minmax(0, 1fr); }
 .mobile-tab-select { display: none; }
 .workspace-mobile-nav { display: none; }
 .workspace-menu-sheet { width: min(440px, calc(100% - 24px)); max-height: min(80dvh, 600px); margin: auto auto 12px; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); border: 1px solid #d9e4df; border-radius: 22px; color: #102f38; background: #fff; box-shadow: 0 12px 45px #102f3833; }

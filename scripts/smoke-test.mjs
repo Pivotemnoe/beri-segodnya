@@ -15,6 +15,7 @@ import { runClientPhotoChecks } from "./client-photo-checks.mjs";
 import { runClientPhoneChecks } from "./client-phone-checks.mjs";
 import { runClientWorkspaceChecks } from "./client-workspace-checks.mjs";
 import { runClientPwaChecks } from "./client-pwa-checks.mjs";
+import { runClientAdminPartnerChecks, runAdminPartnerArchiveScenario } from "./client-admin-partner-checks.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FREEZE_CLOCK_MODULE = pathToFileURL(path.join(ROOT, "scripts", "freeze-clock.mjs")).href;
@@ -61,7 +62,8 @@ function cookieFrom(response) {
 function request(port, route, { method = "GET", body, auth = "preview", cookie, headers: extraHeaders = {}, confirmRequest = true } = {}) {
   return new Promise((resolve, reject) => {
     const headers = { Accept: "application/json", ...extraHeaders };
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const encodedBody = body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body);
+    if (encodedBody !== undefined) { headers["Content-Type"] = "application/json"; headers["Content-Length"] = Buffer.byteLength(encodedBody); }
     if (!["GET", "HEAD", "OPTIONS"].includes(method) && confirmRequest) {
       if (!headers["X-BS-Request"]) headers["X-BS-Request"] = "1";
       if (!headers.Origin) headers.Origin = `http://127.0.0.1:${port}`;
@@ -90,7 +92,7 @@ function request(port, route, { method = "GET", body, auth = "preview", cookie, 
     });
     req.on("error", reject);
     req.setTimeout(5000, () => req.destroy(new Error("Request timed out")));
-    if (body !== undefined) req.write(typeof body === "string" ? body : JSON.stringify(body));
+    if (encodedBody !== undefined) req.write(encodedBody);
     req.end();
   });
 }
@@ -149,6 +151,7 @@ async function runScenario(port) {
   new Script(publicScript.text, { filename: "served-public.js" });
   runClientPhoneChecks(publicScript.text);
   new Script(appScript.text, { filename: "served-app.js" });
+  runClientAdminPartnerChecks(appScript.text, (await request(port, "/admin")).text);
   runClientWorkspaceChecks(appScript.text);
   await runClientPhotoChecks(appScript.text);
   const presentationSource = publicScript.text.match(/function publicBookingPresentation\([\s\S]*?(?=\n  var bookingPageRoot)/)?.[0];
@@ -197,7 +200,7 @@ async function runScenario(port) {
   confirmationTimers.at(-1)();
   assert(!confirmationButton.dataset.confirmed, "Expired confirmation remained armed");
   assert(appScript.text.includes("confirmRiskyAction(button, true)"), "Correction form bypasses forced confirmation");
-  const filterSource = appScript.text.match(/function applyTableFilter\([\s\S]*?(?=\nfunction setupTableFilters)/)?.[0];
+  const filterSource = appScript.text.match(/function applyTableFilter\([\s\S]*?(?=\nfunction orderedAdminPartners)/)?.[0];
   const filterRows = [
     { dataset: {filterStatus:"Забронировано"}, textContent:"BS-1234 Выдан Не пришёл Отменить", hidden:false },
     { dataset: {filterStatus:"Выдано"}, textContent:"BS-5678 Выдано", hidden:false }
@@ -748,6 +751,7 @@ async function runScenario(port) {
 
   const persisted = JSON.parse(fs.readFileSync(dbFile, "utf8"));
   await runPilotHardeningScenario(port, request, { adminCookie, partnerCookie, dbFile, suffix });
+  await runAdminPartnerArchiveScenario(port, request, { adminCookie, dbFile, suffix });
   assert(persisted.sessions.length >= 2, "Server sessions were not persisted");
   assert(persisted.sessions.every((session) => session.id_hash && !session.id), "Raw session token was persisted");
   const storedBooking = persisted.bookings.find((item) => item.id === booking.json.data.bookingId);
