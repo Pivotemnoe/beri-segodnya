@@ -35,6 +35,6 @@
     "reset:partner-password": "node scripts/reset-partner-password.mjs",
     "dev:next": "next dev -p 3010"
   },
-  "dependencies": { "nodemailer": "10.0.16" },
+  "dependencies": { "nodemailer": "10.1.7" },
   "devDependencies": {}
 }
